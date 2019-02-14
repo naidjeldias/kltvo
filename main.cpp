@@ -1,4 +1,5 @@
 #include <iostream>
+#include <chrono>
 #include "tracking.h"
 #include "utils.h"
 
@@ -7,14 +8,16 @@ using namespace std;
 int main() {
 
     //kitti dataset
-    string path_data    = string("/media/nigel/Dados/Documents/Projetos/CLionProjects/kltVO/kitti");
-    string path_left    = string ("/video_0.avi");
-    string path_right   = string ("/video_1.avi");
+//    string path_data    = string("/media/nigel/Dados/Documents/Projetos/CLionProjects/kltVO/kitti");
+//    string path_left    = string ("/video_0.avi");
+//    string path_right   = string ("/video_1.avi");
+
 
     //full kitti dataset
-    //string path_data = string("/media/nigel/Dados/Documents/Projetos/KITTI_DATASET/dataset/sequences/00");
-    //string path_left    = string ("/image_0/%06d.png");
-    //string path_right   = string ("/image_1/%06d.png");
+    string path_data = string("/media/nigel/Dados/Documents/Projetos/KITTI_DATASET/dataset/sequences/00");
+    string path_left    = string ("/image_0/%06d.png");
+    string path_right   = string ("/image_1/%06d.png");
+
 
     Tracking tracking;
 
@@ -42,7 +45,8 @@ int main() {
     bool isleft_vd  = left_vd.open(path_data+path_left);
     bool isright_vd = right_vd.open(path_data+path_right);
 
-    while( isleft_vd && isright_vd){
+    int count = 0;
+    while( isleft_vd && isright_vd /* && count < 2 */){
 
         cv::Mat imleft, imright;
 
@@ -57,16 +61,23 @@ int main() {
         if(imright.channels() == 3)
             cvtColor(imright, imright, cv::COLOR_RGB2GRAY);
 
+        auto startTime = std::chrono::steady_clock::now();
 
         tracking.start(imleft,imright);
 
-        //cv::imshow("Left Frame", imleft);
-        //cv::imshow("Right Frame", imright);
+        auto endTime = std::chrono::steady_clock::now();
 
-        // Press  ESC on keyboard to exit
-        //char c=(char) cv::waitKey(25);
-        //if(c==27)
-            //break;
+        std::cout << "Time elapsed: "<< std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count()
+                  << " ms" << std::endl;
+
+        cv::imshow("Left Frame", imleft);
+//        cv::imshow("Right Frame", imright);
+//
+////         Press  ESC on keyboard to exit
+        char c=(char) cv::waitKey(30);
+        if(c==27)
+            break;
+        count ++;
 
     }
 
