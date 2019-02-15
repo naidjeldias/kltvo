@@ -5,6 +5,9 @@
 #ifndef KLTVO_TRACKING_H
 #define KLTVO_TRACKING_H
 
+#define MAX_DELTAY 0
+#define MAX_DELTAX 60
+
 #include "utils.h"
 #include "opencv2/features2d/features2d.hpp"
 
@@ -32,8 +35,9 @@ private:
     void bucketFeatureExtraction (cv::Mat &image, cv::Size block, std::vector<cv::KeyPoint> &keypoints);
     void localMapping (const std::vector<cv::Point2d> &pts_l, const std::vector<cv::Point2d> &pts_r,
                        std::vector<cv::Point3d> &pts3D, const std::vector<cv::DMatch> &macthes);
-    void stereoMatching(std::vector<cv::Point2f>& pts_l, std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
-                        const cv::Mat& imRight, const std::vector<bool>& inliers,  std::vector<cv::DMatch> &matches);
+    void stereoMatching(const std::vector<cv::Point2f>& pts_l, const std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
+                        const cv::Mat& imRight, const std::vector<bool>& inliers,  std::vector<cv::DMatch> &matches,
+                        std::vector<cv::Point2f> &new_pts_l, std::vector<cv::Point2f> &new_pts_r);
 
 
 };

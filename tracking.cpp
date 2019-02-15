@@ -20,21 +20,25 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
         initPhase = false;
     }else{
-        std::vector<KeyPoint> kpts;
+        std::vector<KeyPoint> kpts_l, kpts_r;
 
         Ptr<FeatureDetector> detector = ORB::create(500, 1.2f, 8, 31, 0, 2, ORB::FAST_SCORE, 31);
 
-        detector -> detect(imLeft0, kpts);
+        detector -> detect(imLeft0, kpts_l);
+        detector -> detect(imRight0, kpts_r);
 
         //convert vector of keypoints to vector of Point2f
-        std::vector<Point2f> prevPoints, nextPoints, rightPoints;
-        for (auto& kpt:kpts){
+        std::vector<Point2f> prevPoints, nextPoints, rightPoints, new_kpts_l, new_kpts_r;
+        std::vector<bool> inliers;
+        std::vector<DMatch> mlr0;
+
+        for (auto& kpt:kpts_l)
             prevPoints.push_back(kpt.pt);
-        }
 
-        TermCriteria criteria = TermCriteria( CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 40, 0.001 );
+        for (auto& kpt:kpts_r)
+            rightPoints.push_back(kpt.pt);
 
-        cornerSubPix(imLeft0, prevPoints, Size(7,7), Size(-1,-1), criteria);
+        stereoMatching(prevPoints, rightPoints, imLeft0, imRight0, inliers, mlr0, new_kpts_l, new_kpts_r);
 
         std::vector <Mat> left0_pyr, right0_pyr, left1_pyr;
 
@@ -47,13 +51,10 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         //buildOpticalFlowPyramid(imLeft0, left0_pyr, win, maxLevel, true);
         //buildOpticalFlowPyramid(imLeft, left1_pyr, win, maxLevel, true);
 
+
         calcOpticalFlowPyrLK(imLeft0, imLeft, prevPoints, nextPoints, status1, noArray(), win, maxLevel,
                              TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01), 1);
 
-        //TO DO - method for setereo matching
-        //buildOpticalFlowPyramid(imRight0, right0_pyr, win, maxLevel, true);
-        calcOpticalFlowPyrLK(imLeft0, imRight0, prevPoints, rightPoints, status0, noArray(), win, maxLevel,
-                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01), 1);
 
 
 //        localMapping(prevPoints, rightPoints, )
@@ -65,21 +66,10 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
 }
 
-void Tracking::stereoMatching(std::vector<cv::Point2f> &pts_l, std::vector<cv::Point2f> &pts_r, const cv::Mat &imLeft,
-                              const cv::Mat &imRight, const std::vector<bool> &inliers,
-                              std::vector<cv::DMatch> &matches) {
-
-    TermCriteria criteria = TermCriteria( CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 40, 0.001 );
-
-    cornerSubPix(imLeft, pts_l, Size(7,7), Size(-1,-1), criteria);
-
-    // The disparity range defines how many pixels away from the block's location
-    // in the first image to search for a matching block in the other image.
-    int disparityRange = 200;
-
-//    imshow("Image Right", imRight);
-//
-//    waitKey(0);
+void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
+                              const cv::Mat &imLeft, const cv::Mat &imRight, const std::vector<bool> &inliers,
+                              std::vector<cv::DMatch> &matches, std::vector<cv::Point2f> &new_pts_l,
+                              std::vector<cv::Point2f> &new_pts_r) {
 
     //Define the size of the blocks for block matching.
     int halfBlockSize = 3;
@@ -89,68 +79,78 @@ void Tracking::stereoMatching(std::vector<cv::Point2f> &pts_l, std::vector<cv::P
     int height = imRight.size().height;
 
     int pos = 0;
-    for (auto &pt:pts_l){
-        Mat template_ (blockSize, blockSize, CV_64F);
+    for (auto &pt_l:pts_l) {
+        Mat template_(blockSize, blockSize, CV_64F);
         //get pixel neighbors
         //        Mat template_ = imLeft(Rect ((int)pt.x - halfBlockSize, (int)pt.y - halfBlockSize, halfBlockSize, halfBlockSize)).clone();
-        for (int i=0; i < blockSize; i++){
-            for(int j=0; j < blockSize; j++){
-                int x = (int) pt.x - (halfBlockSize - i);
-                int y = (int) pt.y - (halfBlockSize - j);
+        for (int i = 0; i < blockSize; i++) {
+            for (int j = 0; j < blockSize; j++) {
+                int x = (int) pt_l.x - (halfBlockSize - i);
+                int y = (int) pt_l.y - (halfBlockSize - j);
                 //check frame limits
-                if(x >= 0 && x < width && y >= 0 && y < height){
-                    Scalar intensity = imLeft.at<uchar>(y,x);
-                    template_.at<float>(j,i) = (int) intensity[0];
-                }else{
-                    template_.at<float>(j,i) = 0;
+                if (x >= 0 && x < width && y >= 0 && y < height) {
+                    Scalar intensity = imLeft.at<uchar>(y, x);
+                    template_.at<float>(j, i) = (int) intensity[0];
+                } else {
+                    template_.at<float>(j, i) = 0;
                 }
             }
         }
-
-        // Set the min column bounds for the template search.
-        int minc = MAX(blockSize, (int) pt.x - disparityRange);
 
         int minSAD = INT_MAX;
         Point2f bestPt;
 
+        //flag to know when the point has no matching
+        bool noMatching = true;
 
-        for (int k = pt.x; k >= minc; k--){
+        for (auto &pt_r:pts_r) {
+            int deltay = (int) abs(pt_l.y - pt_r.y);
+            int deltax = (int) pt_l.x - (int) pt_r.x;
 
-            Point point (k, pt.y);
+            //epipolar constraints, the correspondent keypoint must be in the same row and disparity should be positive
+            if (deltax > 0 && deltay <= MAX_DELTAY && abs (deltax) <= MAX_DELTAX) {
+                noMatching = false;
 
-//            Mat block = imRight(Rect (i - halfBlockSize, i - halfBlockSize, halfBlockSize, halfBlockSize)).clone();
-
-            //compute SAD
-            int sum =0;
-            for (int i=0; i < blockSize; i++){
-                for(int j=0; j < blockSize; j++){
-                    int x = (int) point.x - (halfBlockSize - i);
-                    int y = (int) point.y - (halfBlockSize - j);
-                    //check frame limits
-                    if(x >= 0 && x < width && y >= 0 && y < height){
-                        Scalar intensity = imRight.at<uchar>(y,x);
-                        sum += abs(template_.at<float>(j,i) - intensity[0]);
-                    }else{
-                        sum += abs(template_.at<float>(j,i) - 0);
+                //compute SAD
+                int sum = 0;
+                for (int i = 0; i < blockSize; i++) {
+                    for (int j = 0; j < blockSize; j++) {
+                        int x = (int) pt_r.x - (halfBlockSize - i);
+                        int y = (int) pt_r.y - (halfBlockSize - j);
+                        //check frame limits
+                        if (x >= 0 && x < width && y >= 0 && y < height) {
+                            Scalar intensity = imRight.at<uchar>(y, x);
+                            sum += abs(template_.at<float>(j, i) - intensity[0]);
+                        } else {
+                            sum += abs(template_.at<float>(j, i) - 0);
+                        }
                     }
                 }
-            }
 
-            if(sum < minSAD){
-                minSAD = sum;
-                bestPt = point;
+                if (sum < minSAD) {
+                    minSAD = sum;
+                    bestPt = pt_r;
+                }
             }
+        }
+
+        if (!noMatching) {
+            new_pts_l.push_back(pt_l);
+            new_pts_r.push_back(bestPt);
+
+            double dst = norm(Mat(pt_l), Mat(bestPt));
+            DMatch match(pos, pos, dst);
+            matches.push_back(match);
+
+            pos++;
 
         }
-        pts_r.push_back(bestPt);
-        double dst = norm(Mat(pts_l.at(pos)), Mat(pts_r.at(pos)));
-        DMatch match (pos,pos, dst);
-        matches.push_back(match);
-
-        pos ++;
     }
 
-    cornerSubPix(imRight, pts_r, Size(7,7), Size(-1,-1), criteria);
+
+//    std::cout << "Size left points: " << new_pts_l.size() << std::endl;
+//    std::cout << "Size right points: "<< new_pts_r.size() << std::endl;
+//    std::cout << "Number of matches: "<< matches.size()   << std::endl;
 }
 
 void Tracking::localMapping(const std::vector<cv::Point2d> &pts_l, const std::vector<cv::Point2d> &pts_r,
