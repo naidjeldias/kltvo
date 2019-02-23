@@ -22,6 +22,6 @@ void load_camCalib_yaml(string path, cv::Mat &K, double &baseline) {
     baseline = baseline / K.at<double>(0,0);
 
     //std::cout << K << std::endl;
-    //std::cout << baseline << std::endl;
+//    std::cout << baseline << std::endl;
 
 }

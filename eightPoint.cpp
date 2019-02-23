@@ -8,7 +8,7 @@ using namespace cv;
 
 EightPoint::EightPoint(){
     //initialize random seed for ransac
-    srand((unsigned)time(NULL));
+    //srand((unsigned)time(NULL));
 }
 
 void EightPoint::setRansacParameters(double probability, int minSet, int maxIteration, double maxError) {
@@ -34,7 +34,7 @@ std::vector<int> EightPoint::generateRandomIndices(const unsigned long &maxIndic
     return randValues;
 }
 
-cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
+cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2d> &kpt_l, const std::vector<Point2d> &kpt_r,
                                               std::vector<DMatch>& finalMatches, std::vector<bool> &bestInliers, bool normalize, int method) {
 
     finalMatches.clear();
@@ -161,7 +161,7 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
     return bestFmat;
 }
 
-cv::Mat EightPoint::computeFundamentalMatrix(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r, const std::vector<int> &indices,
+cv::Mat EightPoint::computeFundamentalMatrix(const std::vector<Point2d> &kpt_l, const std::vector<Point2d> &kpt_r, const std::vector<int> &indices,
                                              const cv::Mat &T, const cv::Mat &T_l, bool normalize){
     //square matrix 9x9
     Mat A   = Mat::zeros(9,9,CV_64F);
@@ -236,7 +236,7 @@ cv::Mat EightPoint::computeFundamentalMatrix(const std::vector<Point2f> &kpt_l, 
 
 }
 
-void EightPoint::computeMatNormTransform(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r, unsigned long nPts,
+void EightPoint::computeMatNormTransform(const std::vector<Point2d> &kpt_l, const std::vector<Point2d> &kpt_r, unsigned long nPts,
                                          cv::Mat &leftScalingMat, cv::Mat &rightScalingMat){
 
     Point2f meanLeft;

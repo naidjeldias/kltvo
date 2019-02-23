@@ -26,19 +26,25 @@ int main() {
 
     load_camCalib_yaml(path_calib, tracking.K, tracking.baseline);
 
-    tracking.P1 = cv::Mat::eye(4,4, CV_32F);
-    tracking.P2 = cv::Mat::eye(4,4, CV_32F);
+    tracking.P1 = cv::Mat::eye(3,4, CV_64F);
+    tracking.P2 = cv::Mat::eye(3,4, CV_64F);
 
-    tracking.K.convertTo(tracking.K, CV_32F);
+
+    tracking.fu = tracking.K.at<double>(0,0);
+    tracking.uc = tracking.K.at<double>(0,2);
+    tracking.fv = tracking.K.at<double>(1,1);
+    tracking.vc = tracking.K.at<double>(1,2);
+
 
     tracking.K.copyTo(tracking.P1.rowRange(0,3).colRange(0,3));
     tracking.K.copyTo(tracking.P2.rowRange(0,3).colRange(0,3));
 
-    tracking.P2.at<float>(0,3) = - tracking.baseline * tracking.K.at<float>(0,0);
 
-    //std::cout << tracking.P1 << std::endl;
-    //std::cout << tracking.P2 << std::endl;
-    //std::cout << tracking.K << std::endl;
+    tracking.P2.at<double>(0,3) = - tracking.baseline * tracking.K.at<double>(0,0);
+
+//    std::cout << tracking.fu << std::endl;
+//    std::cout << tracking.fv << std::endl;
+//    std::cout << tracking.uc << std::endl;
 
     cv::VideoCapture left_vd, right_vd;
 
@@ -46,7 +52,7 @@ int main() {
     bool isright_vd = right_vd.open(path_data+path_right);
 
     int count = 0;
-    while( isleft_vd && isright_vd /* && count < 2 */){
+    while( isleft_vd && isright_vd  && count < 2 ){
 
         cv::Mat imleft, imright;
 

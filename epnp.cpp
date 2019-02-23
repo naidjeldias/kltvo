@@ -739,7 +739,8 @@ void epnp::mat_to_quat(const double R[3][3], double q[4])
     q[3] *= scale;
 }
 
-double epnp::iterate(const std::vector<cv::Point3d> &points3D, const std::vector<cv::Point2d> &points2D, double R_est[3][3], double T_est[3]){
+double epnp::iterate(const std::vector<cv::Point3d> &points3D, const std::vector<cv::Point2d> &points2D, double R_est[3][3],
+                     double T_est[3], const cv::Mat &Pcw){
 
     int bestNumInliers = ransacMinSet;
     int n = 0;
@@ -769,6 +770,10 @@ double epnp::iterate(const std::vector<cv::Point3d> &points3D, const std::vector
         double R[3][3], t[3];
         double err2 = compute_pose(R, t);
 
+//        cv::Mat PcwT1;
+//        poseUpdate(R, t, Pcw, PcwT1);
+
+
         //validate againts the init set
         for(int i = 0; i < points3D.size(); i++){
             //validadte against other elements
@@ -776,6 +781,10 @@ double epnp::iterate(const std::vector<cv::Point3d> &points3D, const std::vector
 
                 cv::Point3d P3Dw = points3D.at(i);
                 cv::Point2d P2D  = points2D.at(i);
+
+//                double Xc = PcwT1.at<double>(0,0)*P3Dw.x+PcwT1.at<double>(0,1)*P3Dw.y+PcwT1.at<double>(0,2)*P3Dw.z+PcwT1.at<double>(0,3);
+//                double Yc = PcwT1.at<double>(1,0)*P3Dw.x+PcwT1.at<double>(1,1)*P3Dw.y+PcwT1.at<double>(1,2)*P3Dw.z+PcwT1.at<double>(1,3);
+//                double invZc = 1/(PcwT1.at<double>(2,0)*P3Dw.x+PcwT1.at<double>(2,1)*P3Dw.y+PcwT1.at<double>(2,2)*P3Dw.z+PcwT1.at<double>(2,3));
 
                 double Xc = R[0][0]*P3Dw.x+R[0][1]*P3Dw.y+R[0][2]*P3Dw.z+t[0];
                 double Yc = R[1][0]*P3Dw.x+R[1][1]*P3Dw.y+R[1][2]*P3Dw.z+t[1];
@@ -787,7 +796,7 @@ double epnp::iterate(const std::vector<cv::Point3d> &points3D, const std::vector
                 double distX = P2D.x-ue;
                 double distY = P2D.y-ve;
 
-                float error2 = distX*distX+distY*distY;
+                double error2 = distX*distX+distY*distY;
 
                 if(error2<ransacTh)
                 {
@@ -878,4 +887,37 @@ void epnp::refineEstimation(const std::vector<cv::Point3d> &points3D,
     }
 
     compute_pose(R, t);
+}
+
+
+void epnp::poseUpdate(double R_est[3][3], double t_est[3], const cv::Mat &Pt0, cv::Mat & Pt1){
+
+//    cout << R_est[0][0] << " " << R_est[0][1] << " " << R_est[0][2] << " " << t_est[0] << endl;
+//    cout << R_est[1][0] << " " << R_est[1][1] << " " << R_est[1][2] << " " << t_est[1] << endl;
+//    cout << R_est[2][0] << " " << R_est[2][1] << " " << R_est[2][2] << " " << t_est[2] << endl;
+
+    cv::Mat Rcw(3,3,CV_64F,R_est);
+    cv::Mat tcw(3,1,CV_64F,t_est);
+    Rcw.convertTo(Rcw,CV_32F);
+    tcw.convertTo(tcw,CV_32F);
+
+//    cout << Rcw << endl;
+//    cout << tcw << endl;
+
+    cv::Mat rel_R = Rcw.t();
+//    cout << rel_R << endl;
+
+    cv::Mat rel_T = (- rel_R ) * tcw;
+//    cout << rel_T << endl;
+
+    cv::Mat auxTcw = cv::Mat::eye(4,4,CV_32F);
+
+    Rcw.copyTo(auxTcw.rowRange(0,3).colRange(0,3));
+    tcw.copyTo(auxTcw.rowRange(0,3).col(3));
+
+//    cout << auxTcw << endl;
+
+    Pt1 = Pt0 * auxTcw;
+
+//    cout << Pt1 << endl;
 }

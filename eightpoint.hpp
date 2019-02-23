@@ -22,15 +22,15 @@ public:
     double ransacProb, ransacTh;
     int ransacMinSet, ransacMaxIt;
 
-    cv::Mat ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
+    cv::Mat ransacEightPointAlgorithm(const std::vector<Point2d> &kpt_l, const std::vector<Point2d> &kpt_r,
                                       std::vector<DMatch> &finalMatches, std::vector<bool> &inliers2D, bool normalize, int method);
     //using normalized 8-point algorithm
-    cv::Mat computeFundamentalMatrix(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
+    cv::Mat computeFundamentalMatrix(const std::vector<Point2d> &kpt_l, const std::vector<Point2d> &kpt_r,
                                      const std::vector<int> &indices, const cv::Mat &leftScalingMat, const cv::Mat &rightScalingMat, bool normalize);
 
     //normalize data before compute fundamental matrix - translation and scaling of each umage so that
     //the centroid of the reference points is at the origin of the coordinates and the RMS distance from the origin is equal to sqrt(2)
-    void computeMatNormTransform(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r, unsigned long nPts, cv::Mat &leftScalingMat, cv::Mat &rightScalingMat);
+    void computeMatNormTransform(const std::vector<Point2d> &kpt_l, const std::vector<Point2d> &kpt_r, unsigned long nPts, cv::Mat &leftScalingMat, cv::Mat &rightScalingMat);
     double sampsonError(cv::Mat fmat, cv::Mat left_pt, cv::Mat right_pt);
     cv::Mat drawEpLines(const std::vector<Point2f> &pts_l, const std::vector<Point2f> &pts_r, const cv::Mat &F, const std::vector<bool> &inliers, int rightFlag, const cv::Mat &image);
 
