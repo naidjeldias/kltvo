@@ -52,7 +52,7 @@ int main() {
     bool isright_vd = right_vd.open(path_data+path_right);
 
     int count = 0;
-    while( isleft_vd && isright_vd  && count < 2 ){
+    while( isleft_vd && isright_vd && count < 2  ){
 
         cv::Mat imleft, imright;
 

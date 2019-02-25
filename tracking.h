@@ -49,14 +49,18 @@ private:
 
 
     void bucketFeatureExtraction (cv::Mat &image, cv::Size block, std::vector<cv::KeyPoint> &keypoints);
-    void localMapping (const std::vector<cv::Point2d> &pts_l, const std::vector<cv::Point2d> &pts_r,
-                       std::vector<cv::Point3d> &pts3D, const std::vector<cv::DMatch> &macthes);
-    void stereoMatching(const std::vector<cv::Point2d>& pts_l, const std::vector<cv::Point2d>& pts_r, const cv::Mat& imLeft,
-                        const cv::Mat& imRight,  std::vector<cv::DMatch> &matches, std::vector<cv::Point2d> &new_pts_l,
-                        std::vector<cv::Point2d> &new_pts_r);
+    void localMapping (const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
+                       std::vector<cv::Point3f> &pts3D, const std::vector<cv::DMatch> &macthes);
 
-    int poseEstimationRansac(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr, const std::vector<cv::Point3d> &pts3d
-            , std::vector<double> p0);
+    void stereoMatching(const std::vector<cv::Point2f>& pts_l, const std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
+                        const cv::Mat& imRight,  std::vector<cv::DMatch> &matches, std::vector<cv::Point2f> &new_pts_l,
+                        std::vector<cv::Point2f> &new_pts_r);
+
+    bool findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat& imLeft, const cv::Mat& imRight,
+                         std::vector<cv::Point2f>& pts_r, cv::Point2f &ptr_m, int &index);
+
+    int poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr, const std::vector<cv::Point3f> &pts3d
+            , std::vector<double> &p0);
 
     int poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr, const std::vector<cv::Point3d> &pts3d
             , std::vector<double> &p0, const int numPts);
@@ -64,8 +68,14 @@ private:
     void computeJacobian(const int numPts, const std::vector<cv::Point3d> &pts3D, const std::vector<cv::Point2d> &pts2d_l,
                          const std::vector<cv::Point2d> &pts2d_r, std::vector<double> &p0, cv::Mat &J, cv::Mat &res, bool reweigh);
 
-    int checkInliers(const std::vector<cv::Point3d> &pts3d, const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr,
+    int checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
                      const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers);
+
+    double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
+
+    void quadMatching(const std::vector<cv::Point3f> &pts3D, const std::vector<cv::Point2f> &pts2D_l, const std::vector<cv::Point2f> &pts2D_r
+            , std::vector<bool> &inliers, const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::Point3f> &new_pts3D,
+                      std::vector<cv::Point2f> &new_pts2D_l, std::vector<cv::Point2f> &new_pts2D_r);
 
 
 };

@@ -32,7 +32,7 @@ using namespace std;
 
 epnp::epnp(void)
 {
-    srand((unsigned)time(NULL));
+    //srand((unsigned)time(NULL));
 
     maximum_number_of_correspondences = 0;
     number_of_correspondences = 0;

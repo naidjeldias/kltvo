@@ -34,7 +34,7 @@ std::vector<int> EightPoint::generateRandomIndices(const unsigned long &maxIndic
     return randValues;
 }
 
-cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2d> &kpt_l, const std::vector<Point2d> &kpt_r,
+cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
                                               std::vector<DMatch>& finalMatches, std::vector<bool> &bestInliers, bool normalize, int method) {
 
     finalMatches.clear();
@@ -99,7 +99,8 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2d> &kpt_l,
                 if( d < ransacTh){
                     inliers.push_back(true);
                     numInliers++;
-                    double dst = norm(Mat(kpt_l.at(i)), Mat(kpt_r.at(i)));
+                    double dst = euclideanDist(kpt_l.at(i), kpt_r.at(i));
+//                    double dst = norm(Mat(kpt_l.at(i)), Mat(kpt_r.at(i)));
                     DMatch match (i,i, dst);
                     matches_.push_back(match);
                     // std::cout << "matches inliers: " << matches_.size() << std::endl;
@@ -114,7 +115,8 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2d> &kpt_l,
 
             }else{
                 inliers.push_back(true);//the points from subset are considered as inliers
-                double dst = norm(Mat(kpt_l.at(i)), Mat(kpt_r.at(i)));
+                double dst = euclideanDist(kpt_l.at(i), kpt_r.at(i));
+//                double dst = norm(Mat(kpt_l.at(i)), Mat(kpt_r.at(i)));
                 DMatch match (i,i, dst);
                 matches_.push_back(match);
             }
@@ -149,8 +151,8 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2d> &kpt_l,
 
     // std::cout << "Inliers 2d: " << bestNumInliers << std::endl;
 
-     std::cout << "Number of iterations: " << n << std::endl;
-     std::cout << "Best num of inliers: " << bestNumInliers <<std::endl;
+//     std::cout << "Number of iterations: " << n << std::endl;
+//     std::cout << "Best num of inliers: " << bestNumInliers <<std::endl;
     // std::cout << "Size inliers vec: " << finalMatches.size() << std::endl;
 
     //draw epipole lines on left image
@@ -161,7 +163,7 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2d> &kpt_l,
     return bestFmat;
 }
 
-cv::Mat EightPoint::computeFundamentalMatrix(const std::vector<Point2d> &kpt_l, const std::vector<Point2d> &kpt_r, const std::vector<int> &indices,
+cv::Mat EightPoint::computeFundamentalMatrix(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r, const std::vector<int> &indices,
                                              const cv::Mat &T, const cv::Mat &T_l, bool normalize){
     //square matrix 9x9
     Mat A   = Mat::zeros(9,9,CV_64F);
@@ -236,7 +238,7 @@ cv::Mat EightPoint::computeFundamentalMatrix(const std::vector<Point2d> &kpt_l, 
 
 }
 
-void EightPoint::computeMatNormTransform(const std::vector<Point2d> &kpt_l, const std::vector<Point2d> &kpt_r, unsigned long nPts,
+void EightPoint::computeMatNormTransform(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r, unsigned long nPts,
                                          cv::Mat &leftScalingMat, cv::Mat &rightScalingMat){
 
     Point2f meanLeft;
@@ -421,4 +423,9 @@ cv::Mat EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right
 
     return imageMatches;
 
+}
+
+double EightPoint::euclideanDist(const cv::Point2d &p, const cv::Point2d &q) {
+    Point2d diff = p - q;
+    return cv::sqrt(diff.x*diff.x + diff.y*diff.y);
 }

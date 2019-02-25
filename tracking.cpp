@@ -23,7 +23,7 @@ Tracking::Tracking() {
     ransacMinSet        = 3;
     ransacMaxIt         = 100;
     minIncTh            = 10E-6;
-    maxIteration    = 20;
+    maxIteration        = 20;
 
 
     //init pose
@@ -49,7 +49,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         detector -> detect(imRight0, kpts_r);
 
         //convert vector of keypoints to vector of Point2f
-        std::vector<Point2d> pts_l0, pts_l1, pts_r0, pts_r1, new_pts_l0, new_pts_r0, new_pts_l1, new_pts_r1;
+        std::vector<Point2f> pts_l0, pts_l1, pts_r0, pts_r1, new_pts_l0, new_pts_r0;
         std::vector<DMatch> mlr0, mlr1, mll;
 
         //convert vector of keypoints to vector of Point2f
@@ -63,29 +63,59 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0);
 
         //triangulate previous keypoints
-        std::vector<Point3d> pts3D;
+        std::vector<Point3f> pts3D;
         localMapping(new_pts_l0, new_pts_r0, pts3D, mlr0);
 
-        std::vector <Mat> left0_pyr, left1_pyr;
+//        std::cout << "Size pts 2d : " << new_pts_l0.size() << std::endl;
+//        std::cout << "Size pts 3d : " << pts3D.size() << std::endl;
 
+        //tracking features from previous frames to current frames
+        std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
         Size win (21,21);
         int maxLevel = 4;
-
-        //tracking features on left frame to next left frame
         Mat status0, status1, error0, error1;
+
         buildOpticalFlowPyramid(imLeft0, left0_pyr, win, maxLevel, true);
         buildOpticalFlowPyramid(imLeft, left1_pyr, win, maxLevel, true);
 
-        calcOpticalFlowPyrLK(left0_pyr, left1_pyr, new_pts_l0, pts_l1, status1, error0, win, maxLevel,
+        buildOpticalFlowPyramid(imRight0, right0_pyr, win, maxLevel, true);
+        buildOpticalFlowPyramid(imRight,  right1_pyr, win, maxLevel, true);
+
+        calcOpticalFlowPyrLK(left0_pyr, left1_pyr, new_pts_l0, pts_l1, status0, error0, win, maxLevel,
                              TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01), 1);
 
+        calcOpticalFlowPyrLK(right0_pyr, right1_pyr, new_pts_r0, pts_r1, status1, error1, win, maxLevel,
+                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01), 1);
+
+//        std::cout << "Size pts left 0 : " << new_pts_l0.size() << std::endl;
+//        std::cout << "Size pts left 1 : " << pts_l1.size() << std::endl;
+//
+//        std::cout << "Size pts right 0 : " << new_pts_r0.size() << std::endl;
+//        std::cout << "Size pts right 1 : " << pts_r1.size() << std::endl;
+
         EightPoint eightPoint;
-
+//
         std::vector<bool>       inliers;
-
+//
         eightPoint.setRansacParameters(0.99, 8, 10, 2.0);
         Mat fmat = eightPoint.ransacEightPointAlgorithm(new_pts_l0, pts_l1, mll, inliers, true, 0);
 
+//        std::cout << "inlier vector size : " << inliers.size() << std::endl;
+
+        std::vector<Point3f> new_pts3D;
+        std::vector<Point2f> new_pts_l1, new_pts_r1;
+
+        quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1);
+
+        std::vector<double> p0(6, 0.0);
+
+        poseEstimationRansac(new_pts_l1, new_pts_r1, new_pts3D, p0);
+
+        std::cout << "==============="<< std::endl;
+        std::cout << "Parameters: "<< std::endl;
+        for (int i=0; i < p0.size(); i++)
+            std::cout << p0.at(i) << std::endl;
+        std::cout << "==============="<< std::endl;
 
 
         imLeft0     = imLeft;
@@ -95,99 +125,9 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
 }
 
-void Tracking::stereoMatching(const std::vector<cv::Point2d> &pts_l, const std::vector<cv::Point2d> &pts_r,
-                              const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::DMatch> &matches,
-                              std::vector<cv::Point2d> &new_pts_l, std::vector<cv::Point2d> &new_pts_r) {
 
-    //Define the size of the blocks for block matching.
-    int halfBlockSize = 3;
-    int blockSize = 2 * halfBlockSize + 1;
-
-    int width = imRight.size().width;
-    int height = imRight.size().height;
-
-
-    int index_l = 0;
-    for (auto &pt_l:pts_l) {
-        Mat template_(blockSize, blockSize, CV_64F);
-        //get pixel neighbors
-        //        Mat template_ = imLeft(Rect ((int)pt.x - halfBlockSize, (int)pt.y - halfBlockSize, halfBlockSize, halfBlockSize)).clone();
-        for (int i = 0; i < blockSize; i++) {
-            for (int j = 0; j < blockSize; j++) {
-                int x = (int) pt_l.x - (halfBlockSize - i);
-                int y = (int) pt_l.y - (halfBlockSize - j);
-                //check frame limits
-                if (x >= 0 && x < width && y >= 0 && y < height) {
-                    Scalar intensity = imLeft.at<uchar>(y, x);
-                    template_.at<double>(j, i) = (int) intensity[0];
-                } else {
-                    template_.at<double>(j, i) = 0;
-                }
-            }
-        }
-
-        int minSAD = INT_MAX;
-        Point2f bestPt;
-
-        //flag to know when the point has no matching
-        bool noMatching = true;
-
-        int index_r = 0, bestIndex_r = 0;
-        for (auto &pt_r:pts_r) {
-            auto deltay = (int) abs(pt_l.y - pt_r.y);
-            auto deltax = (int) pt_l.x - (int) pt_r.x;
-
-            //epipolar constraints, the correspondent keypoint must be in the same row and disparity should be positive
-            if (deltax > 0 && deltay <= MAX_DELTAY && abs (deltax) <= MAX_DELTAX) {
-                noMatching = false;
-
-                //compute SAD
-                int sum = 0;
-                for (int i = 0; i < blockSize; i++) {
-                    for (int j = 0; j < blockSize; j++) {
-                        int x = (int) pt_r.x - (halfBlockSize - i);
-                        int y = (int) pt_r.y - (halfBlockSize - j);
-                        //check frame limits
-                        if (x >= 0 && x < width && y >= 0 && y < height) {
-                            Scalar intensity = imRight.at<uchar>(y, x);
-                            sum += abs(template_.at<double>(j, i) - intensity[0]);
-                        } else {
-                            sum += abs(template_.at<double>(j, i) - 0);
-                        }
-                    }
-                }
-
-                if (sum < minSAD) {
-                    minSAD = sum;
-                    bestPt = pt_r;
-                    bestIndex_r = index_r;
-                }
-            }
-
-            index_r ++;
-        }
-
-        if (!noMatching) {
-            new_pts_l.push_back(pt_l);
-            new_pts_r.push_back(bestPt);
-
-            float dst = (float) norm(Mat(pt_l), Mat(bestPt));
-            DMatch match(index_l, bestIndex_r, dst);
-            matches.push_back(match);
-
-        }
-
-        index_l ++;
-    }
-
-
-//    std::cout << "Size left points: " << new_pts_l.size() << std::endl;
-//    std::cout << "Size right points: "<< new_pts_r.size() << std::endl;
-//    std::cout << "Number of matches: "<< matches.size()   << std::endl;
-}
-
-void Tracking::localMapping(const std::vector<cv::Point2d> &pts_l, const std::vector<cv::Point2d> &pts_r,
-                            std::vector<cv::Point3d> &pts3D, const std::vector<DMatch> &matches) {
+void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
+                            std::vector<cv::Point3f> &pts3D, const std::vector<DMatch> &matches) {
 
     Point2f kp_l, kp_r;
     // std::vector<Landmark> points3d;
@@ -269,12 +209,12 @@ void Tracking::localMapping(const std::vector<cv::Point2d> &pts_l, const std::ve
 
 
         // std::cout << "dist2: " << dist << std::endl;
-        Point3d pt3d;
+        Point3f pt3d;
 
-        pt3d.z           = point3d.at<double>(0);
+        pt3d.z           = point3d.at<float>(0);
 //        std::cout << "pt3d z: " << pt3d.z << std::endl;
-        pt3d.y           = point3d.at<double>(1);
-        pt3d.x           = point3d.at<double>(2);
+        pt3d.y           = point3d.at<float>(1);
+        pt3d.x           = point3d.at<float>(2);
 
         pts3D.push_back(pt3d);
 //        std::cout << "Num points 3D: " << pts3D.size() << std::endl;
@@ -359,8 +299,8 @@ void Tracking::bucketFeatureExtraction(Mat &image, Size block, std::vector<KeyPo
 
 }
 
-int Tracking::poseEstimationRansac(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr,
-                              const std::vector<cv::Point3d> &pts3d, std::vector<double> p0) {
+int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
+                              const std::vector<cv::Point3f> &pts3d, std::vector<double> &p0) {
 
     int n = 0;
     long int r          = 1000;//adjusted dinamically
@@ -415,10 +355,6 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2d> &pts2dl, const
         n++;
     }
 
-
-
-
-
 }
 
 int Tracking::poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr,
@@ -443,7 +379,7 @@ int Tracking::poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::
 
         //computing augmented normal equations
         A = J.t() * J;
-        B = -J.t() * res;
+        B = J.t() * res;
 
         bool status = cv::solve(A, B, S, DECOMP_NORMAL);
 
@@ -453,12 +389,15 @@ int Tracking::poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::
             converged = true;
             //compute increments
             for(int j = 0; j < 6; j++){
-                p0.(j) += S.at<double>(j);
+                p0.at(j) += S.at<double>(j);
                 if(fabs(S.at<double>(j)) > minIncTh)
                     converged = false;
             }
-            if(converged)
+            if(converged){
+//                std::cout << "CONVERGED" << std::endl;
                 break;
+            }
+
         }
     }
 
@@ -607,8 +546,8 @@ void Tracking::computeJacobian(const int numPts, const std::vector<cv::Point3d> 
 }
 
 
-int Tracking::checkInliers(const std::vector<cv::Point3d> &pts3d, const std::vector<cv::Point2d> &pts2dl,
-                           const std::vector<cv::Point2d> &pts2dr, const std::vector<int> &index,
+int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vector<cv::Point2f> &pts2dl,
+                           const std::vector<cv::Point2f> &pts2dr, const std::vector<int> &index,
                            const std::vector<double> &p0, std::vector<bool> &inliers) {
 
     //6 parameters to be estimated
@@ -700,4 +639,160 @@ std::vector<int> Tracking::generateRandomIndices(const unsigned long &maxIndice,
 //         std::cout << randValues.at(i) << std::endl;
 
     return randValues;
+}
+
+double Tracking::euclideanDist(const cv::Point2d &p, const cv::Point2d &q) {
+    Point2d diff = p - q;
+    return cv::sqrt(diff.x*diff.x + diff.y*diff.y);
+}
+
+
+void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
+                              const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::DMatch> &matches,
+                              std::vector<cv::Point2f> &new_pts_l, std::vector<cv::Point2f> &new_pts_r) {
+
+    std::vector<Point2f> aux_pts_r(pts_r);
+
+    int pos = 0;
+    int index_l = 0;
+    for (auto &pt_l:pts_l) {
+
+        Point2f ptr;
+        int index;
+        bool found = findMatchingSAD(pt_l, imLeft, imRight, aux_pts_r, ptr, index);
+        if(found){
+            new_pts_l.push_back(pt_l);
+            new_pts_r.push_back(ptr);
+
+            double dst = euclideanDist(pt_l, ptr);
+            DMatch match(pos, pos, dst);
+            matches.push_back(match);
+            pos++;
+
+        }
+
+        index_l ++;
+    }
+
+
+//    std::cout << "remaining left points: " << new_pts_l.size() << std::endl;
+//    std::cout << "remaining right points: "<< new_pts_r.size() << std::endl;
+//    std::cout << "Number of matches: "<< matches.size()   << std::endl;
+
+}
+
+
+bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, const cv::Mat &imRight,
+                               std::vector<cv::Point2f> &pts_r, cv::Point2f &ptr_m, int &index) {
+
+    int halfBlockSize = 3;
+    int blockSize = 2 * halfBlockSize + 1;
+
+    int width = imRight.size().width;
+    int height = imRight.size().height;
+
+    Mat template_(blockSize, blockSize, CV_64F);
+    //get pixel neighbors
+    //        Mat template_ = imLeft(Rect ((int)pt.x - halfBlockSize, (int)pt.y - halfBlockSize, halfBlockSize, halfBlockSize)).clone();
+    for (int i = 0; i < blockSize; i++) {
+        for (int j = 0; j < blockSize; j++) {
+            int x = (int) pt_l.x - (halfBlockSize - i);
+            int y = (int) pt_l.y - (halfBlockSize - j);
+            //check frame limits
+            if (x >= 0 && x < width && y >= 0 && y < height) {
+                Scalar intensity = imLeft.at<uchar>(y, x);
+                template_.at<float>(j, i) = (int) intensity[0];
+            } else {
+                template_.at<float>(j, i) = 0;
+            }
+        }
+    }
+
+    int minSAD = INT_MAX;
+    Point2f bestPt;
+
+    //flag to know when the point has no matching
+    bool noMatching = true;
+
+    int index_r = 0, bestIndex_r = 0;
+    for (auto &pt_r:pts_r) {
+
+        if(!(pt_r.x == -1 && pt_r.y == -1)){
+
+            int deltay = (int) abs(pt_l.y - pt_r.y);
+            int deltax = (int) pt_l.x - (int) pt_r.x;
+
+            //epipolar constraints, the correspondent keypoint must be in the same row and disparity should be positive
+            if (deltax > 0 && deltay <= MAX_DELTAY && abs (deltax) <= MAX_DELTAX) {
+                noMatching = false;
+
+                //compute SAD
+                int sum = 0;
+                for (int i = 0; i < blockSize; i++) {
+                    for (int j = 0; j < blockSize; j++) {
+                        int x = (int) pt_r.x - (halfBlockSize - i);
+                        int y = (int) pt_r.y - (halfBlockSize - j);
+                        //check frame limits
+                        if (x >= 0 && x < width && y >= 0 && y < height) {
+                            Scalar intensity = imRight.at<uchar>(y, x);
+                            sum += abs(template_.at<float>(j, i) - intensity[0]);
+                        } else {
+                            sum += abs(template_.at<float>(j, i) - 0);
+                        }
+                    }
+                }
+
+                if (sum < minSAD) {
+                    minSAD = sum;
+                    bestPt = pt_r;
+                    bestIndex_r = index_r;
+                }
+            }
+
+        }
+        index_r ++;
+    }
+
+    if (!noMatching) {
+        pts_r[bestIndex_r] = Point (-1,-1);
+        ptr_m = bestPt;
+        index = bestIndex_r;
+
+        return true;
+    }else{
+        return false;
+    }
+}
+
+void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::vector<cv::Point2f> &pts2D_l,
+                            const std::vector<cv::Point2f> &pts2D_r, std::vector<bool> &inliers, const cv::Mat &imLeft,
+                            const cv::Mat &imRight, std::vector<cv::Point3f> &new_pts3D,
+                            std::vector<cv::Point2f> &new_pts2D_l, std::vector<cv::Point2f> &new_pts2D_r) {
+
+    std::vector<Point2f> aux_pts_r(pts2D_r);
+
+    for (int i = 0; i < inliers.size(); i++){
+
+        if(inliers.at(i)){
+
+            Point2f pt2Dr;
+
+            int index;
+
+            bool found = findMatchingSAD(pts2D_l.at(i), imLeft, imRight, aux_pts_r, pt2Dr, index);
+
+            if(found){
+                new_pts3D.push_back(pts3D.at(i));
+                new_pts2D_l.push_back(pts2D_l.at(i));
+                new_pts2D_r.push_back(pts2D_r.at(index));
+            }
+
+        }
+
+    }
+
+//    std::cout << "remaining left points: " << new_pts2D_l.size() << std::endl;
+//    std::cout << "remaining right points: "<< new_pts2D_r.size() << std::endl;
+//    std::cout << "remaining 3D points: "<< new_pts3D.size()   << std::endl;
+
 }
