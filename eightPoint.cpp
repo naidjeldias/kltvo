@@ -149,7 +149,7 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
         n ++;
     }
 
-    // std::cout << "Inliers 2d: " << bestNumInliers << std::endl;
+//     std::cout << "Number of pts left 0 after ransac : " << bestNumInliers << std::endl;
 
 //     std::cout << "Number of iterations: " << n << std::endl;
 //     std::cout << "Best num of inliers: " << bestNumInliers <<std::endl;
