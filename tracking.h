@@ -10,12 +10,22 @@
 
 #include "utils.h"
 #include "epnp.h"
+#include <iostream>
+#include <stdio.h>
 
 #include "opencv2/features2d/features2d.hpp"
+
+#include "eightpoint.hpp"
+#include "ORBextractor.h"
 
 class Tracking{
 
 public:
+
+//    fstream myfile;
+//    FILE * (file);
+
+    ofstream f;
 
     enum status {CONVERGED, UPDATE, FAILED};
 
@@ -26,7 +36,8 @@ public:
     cv::Mat P1, P2;
     double uc, vc, fu, fv;
 
-    cv::Mat PcwT0;
+    //Current global pose
+    cv::Mat Pcw;
 
     bool initPhase;
 
@@ -48,7 +59,6 @@ private:
     int maxIteration;   // max number of iteration for pose update
 
 
-    void bucketFeatureExtraction (cv::Mat &image, cv::Size block, std::vector<cv::KeyPoint> &keypoints);
     void localMapping (const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
                        std::vector<cv::Point3f> &pts3D, const std::vector<cv::DMatch> &macthes);
 
@@ -76,6 +86,15 @@ private:
     void quadMatching(const std::vector<cv::Point3f> &pts3D, const std::vector<cv::Point2f> &pts2D_l, const std::vector<cv::Point2f> &pts2D_r
             , std::vector<bool> &inliers, const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::Point3f> &new_pts3D,
                       std::vector<cv::Point2f> &new_pts2D_l, std::vector<cv::Point2f> &new_pts2D_r, std::vector<cv::DMatch> &matches);
+
+    void essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, const cv::Mat &K_l, const std::vector<cv::Point2f> &pts_l,
+                                      const std::vector<cv::Point2f> &pts_r, const std::vector<bool> &inliers , cv::Mat &R_est, cv::Mat &t_est);
+
+    void checkSolution(const cv::Mat &U, const cv::Mat &Vt, const cv::Mat &u3, const cv::Mat W, const cv::Mat &K, const cv::Mat &K_l, const cv::Point2f &pt_l
+            , const cv::Point2f &pt_r, cv::Mat &R_est, cv::Mat &t_est);
+
+    bool pointFrontCamera(const cv::Mat &R, const cv::Mat &u3, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
+            const cv::Mat &K, const cv::Mat &K_l);
 
 
 };

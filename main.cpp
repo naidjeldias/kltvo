@@ -3,6 +3,9 @@
 #include "tracking.h"
 #include "utils.h"
 
+
+class time_point;
+
 using namespace std;
 
 int main() {
@@ -70,7 +73,9 @@ int main() {
         auto startTime = std::chrono::steady_clock::now();
 
         tracking.start(imleft,imright);
+        std::cout << "Frame: "<< count <<  std::endl;
 
+        std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
         auto endTime = std::chrono::steady_clock::now();
 
         std::cout << "Time elapsed: "<< std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count()
@@ -86,6 +91,9 @@ int main() {
         count ++;
 
     }
+
+//    tracking.myfile.close();
+    tracking.f.close();
 
     left_vd.release();
     right_vd.release();

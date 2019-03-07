@@ -3,7 +3,7 @@
 //
 
 #include "tracking.h"
-#include "eightpoint.hpp"
+
 
 
 using namespace cv;
@@ -27,7 +27,13 @@ Tracking::Tracking() {
 
 
     //init pose
-    PcwT0 = cv::Mat::eye(4,4,CV_32F);
+    Pcw = cv::Mat::eye(4,4,CV_32F);
+
+//    myfile.open("/media/nigel/Dados/Documents/Projetos/CLionProjects/kltVO/RESULT_KLTVO.txt",fstream::out);
+    f.open("/media/nigel/Dados/Documents/Projetos/CLionProjects/kltVO/RESULT_KLTVO.txt");
+    f << std::fixed;
+
+
 }
 
 void Tracking::start(const Mat &imLeft, const Mat &imRight) {
@@ -43,10 +49,15 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
         std::vector<KeyPoint> kpts_l, kpts_r;
 
-        Ptr<FeatureDetector> detector = ORB::create(500, 1.2f, 8, 31, 0, 2, ORB::FAST_SCORE, 31);
+//        Ptr<FeatureDetector> detector = ORB::create(500, 1.2f, 8, 31, 0, 2, ORB::FAST_SCORE, 31);
+        ORBextractor detector(500, 1.2, 8, 20, 7);
 
-        detector -> detect(imLeft0, kpts_l);
-        detector -> detect(imRight0, kpts_r);
+//        detector -> detect(imLeft0, kpts_l);
+//        detector -> detect(imRight0, kpts_r);
+
+        detector(imLeft0, cv::Mat(), kpts_l);
+        detector(imRight0, cv::Mat(), kpts_r);
+
 
         //convert vector of keypoints to vector of Point2f
         std::vector<Point2f> pts_l0, pts_l1, pts_r0, pts_r1, new_pts_l0, new_pts_r0;
@@ -71,8 +82,8 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
         //tracking features from previous frames to current frames
         std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
-        Size win (21,21);
-        int maxLevel = 4;
+        Size win (15,15);
+        int maxLevel = 3;
         Mat status0, status1, error0, error1;
 
         buildOpticalFlowPyramid(imLeft0, left0_pyr, win, maxLevel, true);
@@ -82,10 +93,10 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         buildOpticalFlowPyramid(imRight,  right1_pyr, win, maxLevel, true);
 
         calcOpticalFlowPyrLK(left0_pyr, left1_pyr, new_pts_l0, pts_l1, status0, error0, win, maxLevel,
-                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01), 1);
+                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
 
         calcOpticalFlowPyrLK(right0_pyr, right1_pyr, new_pts_r0, pts_r1, status1, error1, win, maxLevel,
-                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01), 1);
+                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
 
 //        std::cout << "Number of pts left 0 : " << new_pts_l0.size() << std::endl;
 //        std::cout << "Size pts left 1 : " << pts_l1.size() << std::endl;
@@ -100,6 +111,16 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 //
         eightPoint.setRansacParameters(0.99, 8, 10, 2.0);
         Mat fmat = eightPoint.ransacEightPointAlgorithm(new_pts_l0, pts_l1, mll, inliers, true, 0);
+
+        Mat R_est, t_est;
+        essentialMatrixDecomposition(fmat, K, K, new_pts_l0, pts_l1, inliers, R_est, t_est);
+
+        std::cout << "R_est_t: \n" << R_est.t() << "\n";
+        std::cout << "t_est: \n" << t_est << "\n";
+
+        std::vector<double> rvec_est;
+        Rodrigues(R_est, rvec_est, noArray());
+
 
 //        Mat imMatches0 = eightPoint.drawMatches_(imLeft0, imRight0, new_pts_l0, new_pts_r0, mlr0);
 //
@@ -122,7 +143,16 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 //
 //        waitKey(0);
 
+        //initialize vector of parameters with rotation and translation from essential matrix
         std::vector<double> p0 (6, 0.0);
+        p0.at(0) = rvec_est.at(0);
+        p0.at(1) = rvec_est.at(1);
+        p0.at(2) = rvec_est.at(2);
+
+        p0.at(3) = t_est.at<double>(0);
+        p0.at(4) = t_est.at<double>(1);
+        p0.at(5) = t_est.at<double>(2);
+
         std::vector<bool> inliers2;
         std::vector<Point2d> inPts_l1, inPts_r1;
         std::vector<Point3d> inPts_3D;
@@ -142,12 +172,21 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
             }
         }
 
+//        std::cout << "Number of inliers : " << inPts_3D.size() << std::endl;
+
         int status = 0;
         for (int i = 0; i < maxIteration; i++){
             status = poseEstimation(inPts_l1, inPts_r1, inPts_3D, p0, inPts_l1.size());
             if(status != UPDATE)
                 break;
         }
+
+        /*
+         * The global pose is computed in reference to the first frame by concatanation
+         * The current global pose is computed by
+         * so Pcw * inv(Pc) where Pc is current relative pose estimated and Pcw is the last global pose
+         * Initial Pcw = [I | 0]
+        */
 
         Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
         Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
@@ -156,6 +195,8 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         rot_vec.at<double>(1) = p0.at(1);
         rot_vec.at<double>(2) = p0.at(2);
 
+        //Compute the inverse of relative pose estimation inv(Pc) = [R' | C]
+        //where C = -1 * R' * t
         Mat Rotmat;
         Rodrigues(rot_vec, Rotmat, noArray());
 //        std::cout << "Rodrigues Rotation mat: \n" << Rotmat << std::endl;
@@ -165,23 +206,44 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         tr_vec.at<double>(0)  = p0.at(3);
         tr_vec.at<double>(1)  = p0.at(4);
         tr_vec.at<double>(2)  = p0.at(5);
-//        std::cout << "Translation matrix: \n" << aux_tr << std::endl;
 
         //camera center
         Mat C = -1 * (Rt * tr_vec);
 
 //        std::cout << "C: \n" << C << std::endl;
 
-        cv::Mat Tcw = cv::Mat::eye(4,4,CV_32F);
-        Rt.copyTo(Tcw.rowRange(0,3).colRange(0,3));
-        tr_vec.copyTo(Tcw.rowRange(0,3).col(3));
-        std::cout << "Transformation matrix: \n" << PcwT0 * Tcw << std::endl;
+        cv::Mat Pc_inv = cv::Mat::eye(4,4,CV_32F);
+        Rt.convertTo(Rt, CV_32F);
+        C.convertTo(C, CV_32F);
+        Rt.copyTo(Pc_inv.rowRange(0,3).colRange(0,3));
+        C.copyTo(Pc_inv.rowRange(0,3).col(3));
+//        std::cout << "Inverse of matrix: \n" << Pc_inv << std::endl;
 
+
+        Pcw = Pcw * Pc_inv;
+        std::cout << "Transformation matrix: \n" << Pcw << std::endl;
 
         imLeft0     = imLeft;
         imRight0    = imRight;
 
     }
+
+//    std::cout << "Transformation matrix: \n" << PcwT0 << std::endl;
+
+//    for (int i=0; i< 3; i++){
+//        for(int j=0; j<4; j++){
+//            std::cout << PcwT0.at<float>(i,j) << std::endl;
+//            if(i== 2 && j == 3)
+//                myfile << PcwT0.at<float>(i,j);
+//            else
+//                myfile << PcwT0.at<float>(i,j) << "\t";
+//        }
+//    }
+//    myfile << "\n";
+
+//    f << setprecision(9) << PcwT0.at<float>(0,0) << " " << PcwT0.at<float>(0,1)  << " " << PcwT0.at<float>(0,2) << " "  << PcwT0.at<float>(0,3) << " " <<
+//    PcwT0.at<float>(1,0) << " " << PcwT0.at<float>(1,1)  << " " << PcwT0.at<float>(1,2) << " "  << PcwT0.at<float>(1,3) << " " <<
+//    PcwT0.at<float>(2,0) << " " << PcwT0.at<float>(2,1)  << " " << PcwT0.at<float>(2,2) << " "  << PcwT0.at<float>(2,3) << endl;
 
 }
 
@@ -192,7 +254,9 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
     Point2f kp_l, kp_r;
     // std::vector<Landmark> points3d;
     double w0, w1;
+    double dist;
 
+    double sum = 0;
     for( int i = 0; i < pts_l.size() ; i++ ){
 
         kp_l = pts_l.at(i);
@@ -221,7 +285,7 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
 
 //             std::cout << "Mat A: " << A << std::endl;
 
-            SVD::compute(A,D,U,Vt);
+            SVD::compute(A,D,U,Vt, SVD::MODIFY_A| SVD::FULL_UV);
 
 //             std::cout << "Vt: " << Vt << std::endl;
 
@@ -252,18 +316,22 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
             double dx1 = kp_r.x - p1.at<double>(0)/p1.at<double>(2);
             double dy1 = kp_r.y - p1.at<double>(1)/p1.at<double>(2);
 
-            double dist = sqrt(dx0*dx0+dy0*dy0) + sqrt(dx1*dx1+dy1*dy1);
+            dist = sqrt(dx0*dx0+dy0*dy0) + sqrt(dx1*dx1+dy1*dy1);
 
 //            std::cout << "dist: " << dist << std::endl;
 //            std::cout << "it: " << j << std::endl;
 
             if(dist < 2*th_3d){
+
 //                 std::cout << "p_0: [ " << p0.at<double>(0)/p0.at<double>(2) << "," << p0.at<double>(1)/p0.at<double>(2) << "]" << std::endl;
 //                 std::cout << "p_1: [ " << p1.at<double>(0)/p1.at<double>(2) << "," << p1.at<double>(1)/p1.at<double>(2) << "]" << std::endl;
 //                std::cout << "dist: " << dist << std::endl;
                 break;
             }
         }
+
+//        sum += dist;
+
         // p0 = p0.rowRange(0,3)/p0.at<double>(2);
 
         // std::cout << "p0 : " << p0 << std::endl;
@@ -285,84 +353,12 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
 //        std::cout << "Num points 3D: " << pts3D.size() << std::endl;
     }
 
-    //  std::cout << "Num points 3D: " << points3d.size() << std::endl;
+
+
+//      std::cout << "Mean error: " << sum/pts_l.size() << std::endl;
 
 }
 
-void Tracking::bucketFeatureExtraction(Mat &image, Size block, std::vector<KeyPoint> &kpts) {
-
-    //Ptr<FeatureDetector> detector = ORB::create();
-    Ptr<FeatureDetector> detector = ORB::create(500, 1.2f, 8, 31, 0, 2, ORB::HARRIS_SCORE, 31);
-
-    int maxFeature =50;
-
-    int W = image.size().width;
-    int H = image.size().height;
-
-    //std::cout << "Image width : " << W << std::endl;
-    //std::cout << "Image height : " << H << std::endl;
-
-    int w = block.width;
-    int h = block.height;
-
-    //std::cout << "Patch width : " << w << std::endl;
-    //std::cout << "Patch height : " << h << std::endl;
-
-    int cont = 0;
-
-    for (int y = 0; y <= H - h; y += h){
-        for(int x = 0; x <= W - w; x += w){
-            //cont ++;
-            //std::cout << "Patch: " << cont << std::endl;
-            Mat imPatch = image(Rect (x, y, w, h)).clone();
-
-            std::vector<KeyPoint> aux;
-            detector -> detect(imPatch, aux);
-
-            //std::cout << "Num features: " << aux.size() << std::endl;
-
-            //sort keypoints by response
-            std::sort(aux.begin(), aux.end(), []( const KeyPoint &p1, const KeyPoint &p2){
-                return p1.response > p2.response;
-            });
-
-            if(aux.size() >= maxFeature ){
-                for (int i = 0; i < maxFeature; i++){
-                    KeyPoint kpt_ = aux.at(i);
-
-                    //std::cout << "Harris score : " << kpt_.response <<std::endl;
-                    KeyPoint kpt;
-                    kpt.pt.x = kpt_.pt.x + x;
-                    kpt.pt.y = kpt_.pt.y + y;
-
-                    kpts.push_back(kpt);
-                }
-            }else if (aux.size() > 0 && aux.size() < maxFeature ){
-                for (int i = 0; i < aux.size(); i++){
-                    KeyPoint kpt_ = aux.at(i);
-
-                    //std::cout << "Harris score : " << kpt_.response <<std::endl;
-                    KeyPoint kpt;
-                    kpt.pt.x = kpt_.pt.x + x;
-                    kpt.pt.y = kpt_.pt.y + y;
-
-                    kpts.push_back(kpt);
-                }
-            }
-            //rectangle(image,Rect (x, y, w, h),(0,0,255),1);
-        }
-    }
-    //Mat rgb;
-    //cvtColor(image, rgb, COLOR_GRAY2RGB);
-
-    //drawKeypoints(rgb, kpts, rgb, (0,0,255), 1);
-
-    //std::cout << "Num features: " << kpts.size() << std::endl;
-
-    //imshow("Image", rgb); // visualization
-    //waitKey(25); // visualization
-
-}
 
 int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
                               const std::vector<cv::Point3f> &pts3d, std::vector<double> &p0, std::vector<bool> &bestInliers) {
@@ -372,6 +368,11 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
 
 //    std::vector<bool> bestInliers;
     int bestNumInliers = ransacMinSet;
+
+    //initialize parameters
+    for (int i = 0; i < 6; i++)
+        std::cout << p0.at(i) << "\n";
+
 
     while (n < r && n < ransacMaxIt){
 
@@ -390,9 +391,6 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
             aux_pt2dr.push_back(pts2dr.at(index));
         }
 
-        //initialize parameters
-        for (int i = 0; i < 6; i++)
-            p0.at(i) = 0.0;
 
         int status = 0;
         for (int i = 0; i < maxIteration; i++){
@@ -433,8 +431,8 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
         n++;
     }
 
-    std::cout << "Best Num inliers: " << bestNumInliers << std::endl;
-    std::cout << "Num iterations: " << n << std::endl;
+//    std::cout << "Best Num inliers: " << bestNumInliers << std::endl;
+//    std::cout << "Num iterations: " << n << std::endl;
 
 }
 
@@ -447,7 +445,7 @@ int Tracking::poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::
     //residual matrix,
     Mat res = cv::Mat::zeros(4*numPts, 1, CV_64F);
 
-    computeJacobian(numPts, pts3d, pts2dl, pts2dr, p0, J, res, true);
+    computeJacobian(numPts, pts3d, pts2dl, pts2dr, p0, J, res, false);
 
     cv::Mat A = cv::Mat(6,6,CV_64F);
     cv::Mat B = cv::Mat(6,1,CV_64F);
@@ -810,7 +808,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
 
             //epipolar constraints, the correspondent keypoint must be in the same row and disparity should be positive
             if (deltax > 0 && deltay <= MAX_DELTAY && abs (deltax) <= MAX_DELTAX) {
-                noMatching = false;
+
 
                 //compute SAD
                 int sum = 0;
@@ -829,6 +827,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
                 }
 
                 if (sum < minSAD) {
+                    noMatching = false;
                     minSAD = sum;
                     bestPt = pt_r;
                     bestIndex_r = index_r;
@@ -887,5 +886,207 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
 //    std::cout << "remaining left points: " << new_pts2D_l.size() << std::endl;
 //    std::cout << "remaining right points: "<< new_pts2D_r.size() << std::endl;
 //    std::cout << "remaining 3D points: "<< new_pts3D.size()   << std::endl;
+
+}
+
+void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, const cv::Mat &K_l,
+                                            const std::vector<cv::Point2f> &pts_l,
+                                            const std::vector<cv::Point2f> &pts_r, const std::vector<bool> &inliers, cv::Mat &R_est, cv::Mat &t_est) {
+
+//    std::cout << "K: \n"  << K << std::endl;
+
+    Mat E = K_l.t() * F * K;
+
+    double mW [3][3];
+
+    mW[0][0] = 0; mW[0][1] = -1; mW[0][2] = 0;
+    mW[1][0] = 1; mW[1][1] = 0 ; mW[1][2] = 0;
+    mW[2][0] = 0; mW[2][1] = 0 ; mW[2][2] = 1;
+
+    Mat W (3,3, CV_64F, mW);
+
+//    std::cout << "W: \n"  << W << std::endl;
+
+    double mZ [3][3];
+
+    mZ[0][0] = 0 ;  mZ[0][1] = 1; mZ[0][2] = 0;
+    mZ[1][0] = -1;  mZ[1][1] = 0; mZ[1][2] = 0;
+    mZ[2][0] = 0 ;  mZ[2][1] = 0; mZ[2][2] = 0;
+
+    Mat Z (3,3, CV_64F, mZ);
+
+//    std::cout << "Z: \n"  << Z << std::endl;
+
+    Mat D, U, Vt;
+
+    SVD::compute(E, D, U, Vt, SVD::MODIFY_A| SVD::FULL_UV);
+
+//    std::cout << "D: \n"  << D << std::endl;
+//    std::cout << "U: \n"  << U << std::endl;
+//    std::cout << "Vt: \n" << Vt << std::endl;
+
+
+//    std::cout << "Last column U: \n"  << U.col(2) << std::endl;
+//    std::cout << "Norm of last column of U: " << norm(U.col(2)) << std::endl;
+
+    Point2f pt_l, pt_r;
+    //get first inlier par to check solution
+    for(int i = 0; i < inliers.size(); i++){
+        if(inliers.at(i)){
+            pt_l = pts_l.at(i);
+            pt_r = pts_r.at(i);
+        }
+    }
+
+    checkSolution(U,Vt, U.col(2), W, K, K, pt_l, pt_r, R_est, t_est);
+
+}
+
+void Tracking::checkSolution(const cv::Mat &U, const cv::Mat &Vt, const cv::Mat &u3, const cv::Mat W, const cv::Mat &K, const cv::Mat &K_l, const cv::Point2f &pt_l
+        , const cv::Point2f &pt_r, cv::Mat &R_est, cv::Mat &t_est) {
+
+
+    cv::Mat P    = cv::Mat::eye(3,4,CV_64F);
+    cv::Mat P_l  = cv::Mat::eye(3,4,CV_64F);
+//    cv::Mat R    = cv::Mat::zeros(3,3, CV_64F);
+//    cv::Mat u3_  = cv::Mat::zeros(3,1, CV_64F);
+
+    cv::Mat R;
+    cv::Mat u3_;
+
+    // pick a random point to check the solution
+//    vector<int> index = generateRandomIndices(pts_r.size() - 1, 1);
+//    std::cout << "index: \n" << index.at(0) << std::endl;
+
+    Mat x_r = cv::Mat::zeros(3,1, CV_64F);
+    x_r.at<double>(0) = pt_r.x;
+    x_r.at<double>(1) = pt_r.y;
+    x_r.at<double>(2) = 1.0;
+
+    Mat x_l = cv::Mat::zeros(3,1, CV_64F);
+    x_l.at<double>(0) = pt_l.x;
+    x_l.at<double>(1) = pt_l.y;
+    x_l.at<double>(2) = 1.0;
+
+//    std::cout << "x_r: \n" << x_r << std::endl;
+
+    //point in normalized coordinates
+//    Mat xn_r = K_l.inv() * x_r;
+
+//    std::cout << "xn_r: \n" << xn_r << std::endl;
+
+    //compute the 4 possible solutions
+
+    for (int i = 0; i < 4; i++){
+
+        switch (i){
+
+            //------- solution 1
+            // [UWVt | +u3]
+            case 0:
+                R   = U * W * Vt;
+                u3_ = u3.clone();
+//                std::cout << "u3: \n" << u3 << std::endl;
+                break;
+            //------- solution 2
+            // [UWVt | -u3]
+            case 1:
+                R   = U * W * Vt;
+                u3_  = -1 * u3.clone();
+//                std::cout << "u3: \n" << u3 << std::endl;
+                break;
+            //------ solution 3
+            // [UWtVt | +u3]
+            case 2:
+                R = U * W.t() * Vt;
+                u3_ = 1 * u3.clone();
+//                std::cout << "u3: \n" << u3 << std::endl;
+                break;
+            //------ solution 4
+            // [UWtVt | -u3]
+            case 3:
+                R = U * W.t() * Vt;
+                u3_  = -1 * u3.clone();
+//                std::cout << "u3: \n" << u3 << std::endl;
+                break;
+        }
+
+        if(pointFrontCamera(R,u3_,x_l, x_r, P, P_l, K, K_l)){
+//            std::cout << "Good solution: " << i <<"\n";
+//
+//            std::cout << "R_est: \n" << R << "\n";
+//            std::cout << "t_est: \n" << u3_ << "\n";
+
+            R_est = R;
+            t_est = u3_;
+            break;
+        }
+    }
+
+//    return P_l;
+
+}
+
+bool Tracking::pointFrontCamera(const cv::Mat &R2, const cv::Mat &t2, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
+                                const cv::Mat &K, const cv::Mat &K_l) {
+
+    R2.copyTo(P_l.rowRange(0,3).colRange(0,3));
+    t2.copyTo(P_l.rowRange(0,3).col(3));
+
+    Mat R1 = cv::Mat::eye(3,3, CV_64F);
+    Mat t1 = cv::Mat::zeros(3,1, CV_64F);
+
+//    std::cout << "t2: \n" << t2 << std::endl;
+
+//    std::cout << "P: \n" << P << std::endl;
+//    std::cout << "P_l: \n" << P_l << std::endl;
+
+    // Linear Triangulation Method
+    cv::Mat A = Mat::zeros(4,4,CV_64F);
+
+    A.row(0) = pt_l.at<double>(0)*P.row(2)   -   P.row(0);
+    A.row(1) = pt_l.at<double>(1)*P.row(2)   -   P.row(1);
+    A.row(2) = pt_r.at<double>(0)*P_l.row(2) -   P_l.row(0);
+    A.row(3) = pt_r.at<double>(1)*P_l.row(2) -   P_l.row(1);
+
+    cv::Mat D,U,Vt;
+    cv::SVD::compute(A,D,U,Vt,cv::SVD::MODIFY_A| cv::SVD::FULL_UV);
+
+    Mat pt3D = Vt.row(3).t();
+
+//    std::cout << "pt3D \n" << pt3D << "\n";
+
+    if(pt3D.at<double>(3) == 0)
+        std::cerr << "pt3D.at<float>(3) == 0 \n";
+
+    //Euclidean coordinates
+    pt3D = pt3D.rowRange(0,3)/pt3D.at<double>(3);
+
+//    std::cout << "pt3D \n" << pt3D << "\n";
+
+
+    Mat pt3D_t = pt3D.t();
+
+//    std::cout << "R.row(2) \n" << R.row(2) << "\n";
+//    std::cout << "pt3D_t \n" << pt3D_t << "\n";
+//    std::cout << "u3.at<double>(2) \n" << u3.at<double>(2) << "\n";
+
+//    std::cout << "R.row(2).dot(pt3D_t) \n" << R.row(2).dot(pt3D_t) << "\n";
+
+    double Z1c = R2.row(2).dot(pt3D_t) + t2.at<double>(2);
+//    if(Z1c <= 0)
+//        std::cout << "Behind camera \n";
+//    else
+//        std::cout << "Front of camera \n";
+
+    double Z2c = R1.row(2).dot(pt3D_t) + t1.at<double>(2);
+//    if(Z2c <= 0)
+//        std::cout << "Behind camera \n";
+//    else
+//        std::cout << "Front of camera \n";
+
+    return Z1c > 0 && Z2c > 0;
+
+
 
 }
