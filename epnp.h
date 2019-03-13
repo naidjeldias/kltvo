@@ -53,8 +53,8 @@ public:
     double reprojection_error(const double R[3][3], const double t[3]);
 
     //------------------------- Ransac------------------------------------------
-    double  iterate (const std::vector<cv::Point3d> &points3D, const std::vector<cv::Point2d> &points2D, double R_est[3][3],
-                     double T_est[3], const cv::Mat &Pcw);
+    double  iterate (const std::vector<cv::Point3f> &points3D, const std::vector<cv::Point2f> &points2D, double R_est[3][3],
+                     double T_est[3], cv::Mat &Pcw);
     void    setRansacParameters(double probability, int minSet, int maxIteration, double maxError);
 
     void poseUpdate(double R_est[3][3], double t_est[3], const cv::Mat &Pt0, cv::Mat &Pt1);
@@ -110,7 +110,7 @@ private:
     double ransacProb, ransacTh;
     int ransacMinSet, ransacMaxIt;
 
-    void refineEstimation (const std::vector<cv::Point3d> &, const std::vector<cv::Point2d> &,
+    void refineEstimation (const std::vector<cv::Point3f> &, const std::vector<cv::Point2f> &,
                            const std::vector<bool> inliers, double R[3][3], double t[3]);
 
 

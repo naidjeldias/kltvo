@@ -24,12 +24,14 @@ std::vector<int> EightPoint::generateRandomIndices(const unsigned long &maxIndic
 
     do{
         index = rand() % maxIndice;
-        randValues.push_back(index);
+        if(!(std::find(randValues.begin(), randValues.end(), index) != randValues.end()))
+            randValues.push_back(index);
     }while(randValues.size() < vecSize);
-
-//     std::cout << "Rand vector: ";
+//    std::cout << "----------------------------- \n";
+//    std::cout << "Rand vector: \n";
 //     for(int i = 0; i < randValues.size(); i++)
 //         std::cout << randValues.at(i) << std::endl;
+//    std::cout << "----------------------------- \n";
 
     return randValues;
 }
@@ -76,6 +78,7 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
         if(fmat.empty()) continue;
 
         //validate model againts the init set
+        int pos = 0;
         for(int i = 0; i < kpt_l.size() ; i++){
 
             //validadte against other elements
@@ -96,13 +99,14 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
                 double d   =  sampsonError(fmat, X_l, X_r);
 //                std::cout<< "Sampson error" << d << std::endl;
 
-                if( d < ransacTh){
+                if( d < ransacTh*ransacTh){
                     inliers.push_back(true);
                     numInliers++;
                     double dst = euclideanDist(kpt_l.at(i), kpt_r.at(i));
 //                    double dst = norm(Mat(kpt_l.at(i)), Mat(kpt_r.at(i)));
-                    DMatch match (i,i, dst);
+                    DMatch match (pos,pos, dst);
                     matches_.push_back(match);
+                    pos++;
                     // std::cout << "matches inliers: " << matches_.size() << std::endl;
 //                    std::cout << "Distance: " << d << std::endl;
 
@@ -115,10 +119,12 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
 
             }else{
                 inliers.push_back(true);//the points from subset are considered as inliers
+                numInliers++;
                 double dst = euclideanDist(kpt_l.at(i), kpt_r.at(i));
 //                double dst = norm(Mat(kpt_l.at(i)), Mat(kpt_r.at(i)));
-                DMatch match (i,i, dst);
+                DMatch match (pos,pos, dst);
                 matches_.push_back(match);
+                pos++;
             }
 
         }
@@ -152,13 +158,9 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
 //     std::cout << "Number of pts left 0 after ransac : " << bestNumInliers << std::endl;
 
 //     std::cout << "Number of iterations: " << n << std::endl;
-//     std::cout << "Best num of inliers: " << bestNumInliers <<std::endl;
-    // std::cout << "Size inliers vec: " << finalMatches.size() << std::endl;
+//     std::cout << "Best num of inliers: " << bestNumInliers  <<std::endl;
+//     std::cout << "Size inliers vec: " << finalMatches.size() << std::endl;
 
-    //draw epipole lines on left image
-    // drawEpLines (kpt_l, kpt_r, matches, bestFmat, bestInliers, 0,im0);
-    //draw epipole lines on right image
-    // drawEpLines (kpt_l, kpt_r, matches, bestFmat, bestInliers, 1,im1);
 
     return bestFmat;
 }
@@ -322,20 +324,25 @@ double EightPoint::sampsonError(cv::Mat fmat, cv::Mat left_pt, cv::Mat right_pt)
     return ((num*num)/den);
 }
 
-cv::Mat EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vector<Point2f> &pts_r, const cv::Mat &F,
-                                const std::vector<bool> &inliers, int rightFlag, const cv::Mat &image){
+void EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vector<Point2f> &pts_r, const cv::Mat &F,
+                                const std::vector<bool> &inliers, int rightFlag, const cv::Mat &image, const cv::Mat &image1,
+                             const std::vector<cv::DMatch> &matches){
 
     Mat border = Mat::zeros(4,2,CV_64F);
     Mat X_l   = Mat::zeros(3,1,CV_64F);
     Mat X_r   = Mat::zeros(3,1,CV_64F);
     Mat eplines;
 
+    std::vector<Point2f> ptsl_, ptsr_;
+    std::vector<cv::DMatch> matches_;
+
     int w = image.size().width;
     int h = image.size().height;
 
 //    Mat rgb = image.clone();
-    Mat rgb;
+    Mat rgb, rgb1;
     cvtColor(image, rgb, COLOR_GRAY2BGR);
+    cvtColor(image1, rgb1, COLOR_GRAY2BGR);
     int count = 0;
     // std::vector<Point2f> points;
     for(int i = 0; i < inliers.size(); i++ ){
@@ -350,15 +357,25 @@ cv::Mat EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::ve
             X_r.at<double>(1)   = pts_r.at(i).y;
             X_r.at<double>(2)   = 1.0;
 
-            Mat ep_line;
+            ptsl_.push_back(pts_l.at(i));
+            ptsr_.push_back(pts_r.at(i));
+//            matches_.push_back(matches.at(i));
+
+            Mat ep_line, ep_line1;
 
             //if zero draw in left image else draw in right image
-            if(rightFlag == 0){
-                ep_line = F.t() * X_r;
-            }else
-                ep_line = F * X_l;
+//            if(rightFlag == 0){
+//                ep_line = F.t() * X_r;
+//            }else
+//                ep_line = F * X_l;
 
-            //computing ep lines
+            ep_line  = F.t() * X_r;
+
+            ep_line1 = F * X_l;
+
+            std::vector<double> linePts, linePts1;
+
+            //computing ep lines Left
             double a    =   ep_line.at<double>(0);
             double b    =   ep_line.at<double>(1);
             double c    =   ep_line.at<double>(2);
@@ -369,7 +386,7 @@ cv::Mat EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::ve
             border.at<double>(2,0) = -c/a;          border.at<double>(2,1) = 0.0;           //up
             border.at<double>(3,0) = (-c-b*h)/a;    border.at<double>(3,1) = h;             //down
             //points of epipolar lines
-            std::vector<double> linePts;
+
 
             for(int i = 0; i < 4; i++){
                 double x = border.at<double>(i,0);
@@ -380,34 +397,89 @@ cv::Mat EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::ve
                 }
             }
 
+            //computing ep lines Right
+            a    =   ep_line1.at<double>(0);
+            b    =   ep_line1.at<double>(1);
+            c    =   ep_line1.at<double>(2);
+
+            //borders and epipolar line intersection points
+            border.at<double>(0,0) = 0.0;           border.at<double>(0,1) = -c/b;          //left
+            border.at<double>(1,0) = w;             border.at<double>(1,1) = (-c-a*w)/b;    //right
+            border.at<double>(2,0) = -c/a;          border.at<double>(2,1) = 0.0;           //up
+            border.at<double>(3,0) = (-c-b*h)/a;    border.at<double>(3,1) = h;             //down
+            //points of epipolar lines
+
+
+            for(int i = 0; i < 4; i++){
+                double x = border.at<double>(i,0);
+                double y = border.at<double>(i,1);
+                if( x>=0 && x<=w && y>=0 && y<=h){
+                    linePts1.push_back(x);
+                    linePts1.push_back(y);
+                }
+            }
+
             if(linePts.size()>=4){
                 Scalar color (rand() % 255,rand() % 255,rand() % 255);
                 Point2d x0(linePts.at(0), linePts.at(1));
                 Point2d x1(linePts.at(2), linePts.at(3));
                 line(rgb, x0, x1, color, 1);
+//
+//                if(rightFlag == 0){
+//                    Point2d x(X_l.at<double>(0), X_l.at<double>(1));
+//                    circle(rgb,x, 5, color, -1);
+//                }else{
+//                    Point2d x(X_r.at<double>(0), X_r.at<double>(1));
+//                    circle(rgb,x, 5, color, -1);
+//                }
 
-                if(rightFlag == 0){
-                    Point2d x(X_l.at<double>(0), X_l.at<double>(1));
-                    circle(rgb,x, 5, color, -1);
-                }else{
-                    Point2d x(X_r.at<double>(0), X_r.at<double>(1));
-                    circle(rgb,x, 5, color, -1);
-                }
+                Point2d x(X_l.at<double>(0), X_l.at<double>(1));
+                circle(rgb,x, 5, color, -1);
+
+            }
+
+            if(linePts1.size()>=4){
+                Scalar color (rand() % 255,rand() % 255,rand() % 255);
+                Point2d x0(linePts1.at(0), linePts1.at(1));
+                Point2d x1(linePts1.at(2), linePts1.at(3));
+                line(rgb1, x0, x1, color, 1);
+
+//                if(rightFlag == 0){
+//                    Point2d x(X_l.at<double>(0), X_l.at<double>(1));
+//                    circle(rgb,x, 5, color, -1);
+//                }else{
+//                    Point2d x(X_r.at<double>(0), X_r.at<double>(1));
+//                    circle(rgb,x, 5, color, -1);
+//                }
+                Point2d x(X_r.at<double>(0), X_r.at<double>(1));
+                circle(rgb1,x, 5, color, -1);
 
             }
         }
     }
+
+//    std::cout << "Num pts left inlier: " << ptsl_.size() << std::endl;
+//    std::cout << "Num pts right inlier: " << ptsr_.size() << std::endl;
+//    std::cout << "Num matches: " << matches.size() << std::endl;
+
+    drawMatches_(image, image1, ptsl_, ptsr_, matches, false);
 //    std::cout << "Num of points and lines: " << count << std::endl;
-    return rgb;
+//    if(rightFlag == 0)
+//        imshow("Epipole lines left", rgb);
+//    else
+//        imshow("Epipole lines Right", rgb1);
+    imshow("Epipole lines left", rgb);
+    imshow("Epipole lines Right", rgb1);
+    waitKey(0);
     // computeCorrespondEpilines(points,1,F, eplines);
 
 }
 
-cv::Mat EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right_image,
-                                const std::vector<Point2f> &kpts_l, std::vector<Point2f> &kpts_r,
-                                const std::vector<cv::DMatch> &matches) {
+void EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right_image,
+                                const std::vector<Point2f> &kpts_l, const std::vector<Point2f> &kpts_r,
+                                const std::vector<cv::DMatch> &matches, bool hold) {
 
-    cv::Mat imageMatches;
+    cv::Mat imageMatches, imageKptsLeft, imageKptsRight;
     //convert vector of Point2f to vector of Keypoint
     std::vector<KeyPoint> prevPoints, nextPoints;
     for (int i = 0; i < kpts_l.size(); i++){
@@ -418,10 +490,23 @@ cv::Mat EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right
         nextPoints.push_back(kpt_r);
     }
 
+//    std::cout << "Num pts left : " << prevPoints.size() << std::endl;
+//    std::cout << "Num pts right : " << nextPoints.size() << std::endl;
+//    std::cout << "Num matches: " << matches.size() << std::endl;
+
     drawMatches(left_image, prevPoints, right_image, nextPoints, matches, imageMatches, Scalar::all(-1), Scalar::all(-1),
             std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
-    return imageMatches;
+    drawKeypoints( left_image, prevPoints, imageKptsLeft, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+    drawKeypoints( right_image, nextPoints, imageKptsRight, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+
+
+    imshow("Matches", imageMatches);
+    imshow("Keypoints on left", imageKptsLeft);
+    imshow("Keypoints on RIght", imageKptsRight);
+//
+    if(hold)
+        waitKey(0);
 
 }
 

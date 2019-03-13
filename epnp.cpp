@@ -739,8 +739,8 @@ void epnp::mat_to_quat(const double R[3][3], double q[4])
     q[3] *= scale;
 }
 
-double epnp::iterate(const std::vector<cv::Point3d> &points3D, const std::vector<cv::Point2d> &points2D, double R_est[3][3],
-                     double T_est[3], const cv::Mat &Pcw){
+double epnp::iterate(const std::vector<cv::Point3f> &points3D, const std::vector<cv::Point2f> &points2D, double R_est[3][3],
+                     double T_est[3], cv::Mat &Pcw){
 
     int bestNumInliers = ransacMinSet;
     int n = 0;
@@ -847,6 +847,23 @@ double epnp::iterate(const std::vector<cv::Point3d> &points3D, const std::vector
 
     refineEstimation(points3D, points2D, bestInliers, R_est, T_est);
 
+    cv::Mat Rcw_ (3,3, CV_64F, R_est);
+    cv::Mat tcw_ (3,1, CV_64F, T_est);
+
+    cv::Mat Rt = Rcw_.t();
+    cv::Mat C = -1 * (Rt * tcw_);
+
+    cv::Mat Pc_inv = cv::Mat::eye(4,4,CV_32F);
+    Rt.convertTo(Rt, CV_32F);
+    C.convertTo(C, CV_32F);
+    Rt.copyTo(Pc_inv.rowRange(0,3).colRange(0,3));
+    C.copyTo(Pc_inv.rowRange(0,3).col(3));
+
+    Pcw = Pcw * Pc_inv;
+    std::cout << "Transformation matrix: \n" << Pcw << std::endl;
+
+
+
     std::cout << "Number of iterations: " << n << std::endl;
     std::cout << "Best num of inliers: " << bestNumInliers <<std::endl;
 
@@ -876,8 +893,8 @@ std::vector<int> epnp::generateRandomIndices(const unsigned long &maxIndice, con
     return randValues;
 }
 
-void epnp::refineEstimation(const std::vector<cv::Point3d> &points3D,
-                            const std::vector<cv::Point2d> &points2D , const std::vector<bool> inliers, double R[3][3],double t[3]){
+void epnp::refineEstimation(const std::vector<cv::Point3f> &points3D,
+                            const std::vector<cv::Point2f> &points2D , const std::vector<bool> inliers, double R[3][3],double t[3]){
 
 
     for (int i = 0; i < inliers.size(); i++){

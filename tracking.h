@@ -6,7 +6,7 @@
 #define KLTVO_TRACKING_H
 
 #define MAX_DELTAY 0
-#define MAX_DELTAX 60
+#define MAX_DELTAX 32
 
 #include "utils.h"
 #include "epnp.h"
@@ -46,6 +46,8 @@ public:
 
 private:
 
+    EightPoint eightPoint;
+
     //----------local mapping
     int max_iter_3d;
     double th_3d;
@@ -55,8 +57,10 @@ private:
     double ransacProb, ransacTh;
     int ransacMinSet, ransacMaxIt;
     std::vector<int> generateRandomIndices(const unsigned long &maxIndice, const int &vecSize);
-    double minIncTh;    // min increment for pose optimization
-    int maxIteration;   // max number of iteration for pose update
+    double minIncTh;            // min increment for pose optimization
+    int maxIteration;           // max number of iteration for pose update
+    int finalMaxIteration;      // max iterations for minimization final refinement
+    bool reweigh;               // reweight in optimization
 
 
     void localMapping (const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
@@ -70,16 +74,16 @@ private:
                          std::vector<cv::Point2f>& pts_r, cv::Point2f &ptr_m, int &index);
 
     int poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr, const std::vector<cv::Point3f> &pts3d
-            , std::vector<double> &p0, std::vector<bool> &inliers);
+            , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh);
 
     int poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr, const std::vector<cv::Point3d> &pts3d
-            , std::vector<double> &p0, const int numPts);
+            , std::vector<double> &p0, const int numPts, bool reweigh);
 
     void computeJacobian(const int numPts, const std::vector<cv::Point3d> &pts3D, const std::vector<cv::Point2d> &pts2d_l,
                          const std::vector<cv::Point2d> &pts2d_r, std::vector<double> &p0, cv::Mat &J, cv::Mat &res, bool reweigh);
 
     int checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
-                     const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers);
+                     const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh);
 
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
 
