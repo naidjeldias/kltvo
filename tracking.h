@@ -97,7 +97,7 @@ private:
     void checkSolution(const cv::Mat &U, const cv::Mat &Vt, const cv::Mat &u3, const cv::Mat W, const cv::Mat &K, const cv::Mat &K_l, const cv::Point2f &pt_l
             , const cv::Point2f &pt_r, cv::Mat &R_est, cv::Mat &t_est);
 
-    bool pointFrontCamera(const cv::Mat &R, const cv::Mat &u3, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
+    bool pointFrontCamera(cv::Mat &R, const cv::Mat &u3, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
             const cv::Mat &K, const cv::Mat &K_l);
 
 

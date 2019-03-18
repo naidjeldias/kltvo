@@ -48,13 +48,16 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
     //Fundamental matrix
     Mat fmat, bestFmat;
 
+    double* errorVect = new double[kpt_l.size()];
+
     if(normalize && method == 0) computeMatNormTransform(kpt_l, kpt_r, kpt_l.size(), leftScaling, rightScaling);
 
     // std::vector<bool> bestInliers;
     int bestNumInliers = ransacMinSet;
 
     int n = 0;
-    long int r          = 1000;//adjusted dinamically
+    long int r              = 1000;//adjusted dinamically
+    long double bestStdDev  = LDBL_MAX;
     while (n < r && n < ransacMaxIt){
 
         std::vector<int> randValues;    //vector of rand index
@@ -79,6 +82,7 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
 
         //validate model againts the init set
         int pos = 0;
+        long double meanError = 0;
         for(int i = 0; i < kpt_l.size() ; i++){
 
             //validadte against other elements
@@ -101,6 +105,8 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
 
                 if( d < ransacTh*ransacTh){
                     inliers.push_back(true);
+                    errorVect[numInliers] = sqrt(d);
+                    meanError += sqrt(d);
                     numInliers++;
                     double dst = euclideanDist(kpt_l.at(i), kpt_r.at(i));
 //                    double dst = norm(Mat(kpt_l.at(i)), Mat(kpt_r.at(i)));
@@ -119,9 +125,8 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
 
             }else{
                 inliers.push_back(true);//the points from subset are considered as inliers
-                numInliers++;
+//                numInliers++;
                 double dst = euclideanDist(kpt_l.at(i), kpt_r.at(i));
-//                double dst = norm(Mat(kpt_l.at(i)), Mat(kpt_r.at(i)));
                 DMatch match (pos,pos, dst);
                 matches_.push_back(match);
                 pos++;
@@ -129,13 +134,25 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
 
         }
 
-        if(numInliers > bestNumInliers){
+        meanError /= (long double) numInliers;
+
+        long double stdDev = 0;
+        {
+            for (unsigned int p=0; p<numInliers; p++)
+            {
+                long double delta = errorVect[p]-meanError;
+                stdDev += delta*delta;
+            }
+        }
+        stdDev /= (double)(numInliers);
+
+        if((numInliers > bestNumInliers) || (numInliers == bestNumInliers && stdDev<bestStdDev)){
 //            std::cout << "Num inliers: " << numInliers << std::endl;
             bestInliers     = inliers;
             finalMatches    = matches_;
 
             bestFmat        = fmat;
-
+            bestStdDev      = stdDev;
             bestNumInliers  = numInliers;
 
             //fraction of inliers in the set of points
@@ -156,7 +173,7 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
     }
 
 //     std::cout << "Number of pts left 0 after ransac : " << bestNumInliers << std::endl;
-
+//       std::cout << "Error standard deviation: " << bestStdDev << std::endl;
 //     std::cout << "Number of iterations: " << n << std::endl;
 //     std::cout << "Best num of inliers: " << bestNumInliers  <<std::endl;
 //     std::cout << "Size inliers vec: " << finalMatches.size() << std::endl;

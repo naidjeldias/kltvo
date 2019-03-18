@@ -54,7 +54,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 //        Ptr<FeatureDetector> detector = ORB::create(500, 1.2f, 8, 31, 0, 2, ORB::FAST_SCORE, 31);
 
         //init orb detector
-        ORBextractor detector(500, 1.2, 8, 20, 7);
+        ORBextractor detector(1000, 1.2, 8, 20, 7);
 
 //        detector -> detect(imLeft0, kpts_l);
 //        detector -> detect(imRight0, kpts_r);
@@ -118,6 +118,8 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 //
         eightPoint.setRansacParameters(0.99, 8, 20, 2.0);
         Mat fmat = eightPoint.ransacEightPointAlgorithm(new_pts_l0, pts_l1, mll, inliers, true, 0);
+//        std::cout << "F mat: " << fmat << std::endl;
+//        std::cout << "det(F): " << determinant(fmat) << std::endl;
 
 //        eightPoint.drawEpLines(new_pts_l0, pts_l1, fmat, inliers, 0, imLeft0, imLeft, mll);
 
@@ -126,6 +128,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         essentialMatrixDecomposition(fmat, K, K, new_pts_l0, pts_l1, inliers, R_est, t_est);
 
 //        std::cout << "R_est_t: \n" << R_est.t() << "\n";
+//        std::cout << "Determinant: \n" << determinant(R_est.t())  << "\n";
 //        std::cout << "t_est: \n" << t_est << "\n";
 
         std::vector<double> rvec_est;
@@ -231,29 +234,17 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
 
         Pcw = Pcw * Pc_inv;
-        std::cout << "Transformation matrix: \n" << Pcw << std::endl;
+//        std::cout << "Transformation matrix: \n" << Pcw << std::endl;
 
         imLeft0     = imLeft.clone();
         imRight0    = imRight.clone();
 
     }
 
-//    std::cout << "Transformation matrix: \n" << PcwT0 << std::endl;
 
-//    for (int i=0; i< 3; i++){
-//        for(int j=0; j<4; j++){
-//            std::cout << PcwT0.at<float>(i,j) << std::endl;
-//            if(i== 2 && j == 3)
-//                myfile << PcwT0.at<float>(i,j);
-//            else
-//                myfile << PcwT0.at<float>(i,j) << "\t";
-//        }
-//    }
-//    myfile << "\n";
-
-//    f << setprecision(9) << PcwT0.at<float>(0,0) << " " << PcwT0.at<float>(0,1)  << " " << PcwT0.at<float>(0,2) << " "  << PcwT0.at<float>(0,3) << " " <<
-//    PcwT0.at<float>(1,0) << " " << PcwT0.at<float>(1,1)  << " " << PcwT0.at<float>(1,2) << " "  << PcwT0.at<float>(1,3) << " " <<
-//    PcwT0.at<float>(2,0) << " " << PcwT0.at<float>(2,1)  << " " << PcwT0.at<float>(2,2) << " "  << PcwT0.at<float>(2,3) << endl;
+    f << setprecision(9) << Pcw.at<float>(0,0) << " " << Pcw.at<float>(0,1)  << " " << Pcw.at<float>(0,2) << " "  << Pcw.at<float>(0,3) << " " <<
+    Pcw.at<float>(1,0) << " " << Pcw.at<float>(1,1)  << " " << Pcw.at<float>(1,2) << " "  << Pcw.at<float>(1,3) << " " <<
+    Pcw.at<float>(2,0) << " " << Pcw.at<float>(2,1)  << " " << Pcw.at<float>(2,2) << " "  << Pcw.at<float>(2,3) << endl;
 
 }
 
@@ -365,7 +356,7 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
 
 
 
-      std::cout << "Mean error: " << sum/pts_l.size() << std::endl;
+//      std::cout << "Mean error: " << sum/pts_l.size() << std::endl;
 
 }
 
@@ -911,23 +902,31 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
 
     double mW [3][3];
 
-    mW[0][0] = 0; mW[0][1] = -1; mW[0][2] = 0;
-    mW[1][0] = 1; mW[1][1] = 0 ; mW[1][2] = 0;
-    mW[2][0] = 0; mW[2][1] = 0 ; mW[2][2] = 1;
+    mW[0][0] = 0;  mW[0][1] = -1; mW[0][2] = 0;
+    mW[1][0] = 1;  mW[1][1] = 0 ; mW[1][2] = 0;
+    mW[2][0] = 0;  mW[2][1] = 0 ; mW[2][2] = 1;
 
     Mat W (3,3, CV_64F, mW);
 
-//    std::cout << "W: \n"  << W << std::endl;
-
     double mZ [3][3];
 
-    mZ[0][0] = 0 ;  mZ[0][1] = 1; mZ[0][2] = 0;
-    mZ[1][0] = -1;  mZ[1][1] = 0; mZ[1][2] = 0;
-    mZ[2][0] = 0 ;  mZ[2][1] = 0; mZ[2][2] = 0;
+    mZ[0][0] = 0;  mZ[0][1] = 1;  mZ[0][2] = 0;
+    mZ[1][0] = -1; mZ[1][1] = 0 ; mZ[1][2] = 0;
+    mZ[2][0] = 0;  mZ[2][1] = 0 ; mZ[2][2] = 1;
 
     Mat Z (3,3, CV_64F, mZ);
 
-//    std::cout << "Z: \n"  << Z << std::endl;
+//    std::cout << "W: \n"  << W << std::endl;
+
+    double mDiag [3][3];
+
+    mDiag[0][0] = 1;  mDiag[0][1] = 0; mDiag[0][2] = 0;
+    mDiag[1][0] = 0;  mDiag[1][1] = 1; mDiag[1][2] = 0;
+    mDiag[2][0] = 0;  mDiag[2][1] = 0; mDiag[2][2] = 0;
+
+    Mat Diag (3,3, CV_64F, mDiag);
+
+//    std::cout << "Diag: \n"  << Diag << std::endl;
 
     Mat D, U, Vt;
 
@@ -936,6 +935,21 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
 //    std::cout << "D: \n"  << D << std::endl;
 //    std::cout << "U: \n"  << U << std::endl;
 //    std::cout << "Vt: \n" << Vt << std::endl;
+//
+//    std::cout << "Det (U): " << determinant(U) << std::endl;
+//    std::cout << "Det (Vt): " << determinant(Vt) << std::endl;
+
+
+    Mat newE = U*Diag*Vt;
+
+    SVD::compute(newE, D, U, Vt, SVD::MODIFY_A| SVD::FULL_UV);
+
+//    std::cout << "new D: \n"  << D << std::endl;
+//    std::cout << "new U: \n"  << U << std::endl;
+//    std::cout << "new Vt: \n" << Vt << std::endl;
+//
+//    std::cout << "new det (U): " << determinant(U) << std::endl;
+//    std::cout << "new det (Vt): " << determinant(Vt) << std::endl;
 
 
 //    std::cout << "Last column U: \n"  << U.col(2) << std::endl;
@@ -1039,11 +1053,16 @@ void Tracking::checkSolution(const cv::Mat &U, const cv::Mat &Vt, const cv::Mat 
 
 }
 
-bool Tracking::pointFrontCamera(const cv::Mat &R2, const cv::Mat &t2, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
+bool Tracking::pointFrontCamera(cv::Mat &R2, const cv::Mat &t2, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
                                 const cv::Mat &K, const cv::Mat &K_l) {
 
     R2.copyTo(P_l.rowRange(0,3).colRange(0,3));
     t2.copyTo(P_l.rowRange(0,3).col(3));
+
+//    std::cout << "Determinant: \n" << determinant(R2)  << "\n";
+//    if(determinant(R2) == -1)
+//        R2 = -1*R2;
+//    std::cout << "Determinant: \n" << determinant(R2)  << "\n";
 
     Mat R1 = cv::Mat::eye(3,3, CV_64F);
     Mat t1 = cv::Mat::zeros(3,1, CV_64F);
