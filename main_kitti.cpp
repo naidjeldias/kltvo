@@ -11,15 +11,15 @@ using namespace std;
 int main() {
 
     //kitti dataset
-//    string path_data    = string("kitti");
-//    string path_left    = string ("/video_0.avi");
-//    string path_right   = string ("/video_1.avi");
+   string path_data    = string("kitti");
+   string path_left    = string ("/video_0.avi");
+   string path_right   = string ("/video_1.avi");
 
 
     //full kitti dataset
-    string path_data = string("../../KITTI_DATASET/dataset/sequences/00");
-    string path_left    = string ("/image_0/%06d.png");
-    string path_right   = string ("/image_1/%06d.png");
+    // string path_data = string("../../KITTI_DATASET/dataset/sequences/00");
+    // string path_left    = string ("/image_0/%06d.png");
+    // string path_right   = string ("/image_1/%06d.png");
 
 
     Tracking tracking;

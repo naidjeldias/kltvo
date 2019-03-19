@@ -1117,6 +1117,10 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
     f << std::fixed;
 
     cv::Mat Twc = cv::Mat::eye(4,4,CV_32F);
+
+    f << setprecision(9) << Twc.at<float>(0,0) << " " << Twc.at<float>(0,1)  << " " << Twc.at<float>(0,2) << " "  << Twc.at<float>(0,3) << " " <<
+    Twc.at<float>(1,0) << " " << Twc.at<float>(1,1)  << " " << Twc.at<float>(1,2) << " "  << Twc.at<float>(1,3) << " " <<
+    Twc.at<float>(2,0) << " " << Twc.at<float>(2,1)  << " " << Twc.at<float>(2,2) << " "  << Twc.at<float>(2,3) << endl;
     /*
         * The global pose is computed in reference to the first frame by concatanation
         * The current global pose is computed by
