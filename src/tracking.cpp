@@ -28,12 +28,9 @@ Tracking::Tracking() {
     reweigh             = true;     // reweight in optimization
 
 
-    //init pose
-    Pcw = cv::Mat::eye(4,4,CV_32F);
 
 //    myfile.open("/media/nigel/Dados/Documents/Projetos/CLionProjects/kltVO/RESULT_KLTVO.txt",fstream::out);
-    f.open("/media/nigel/Dados/Documents/Projetos/CLionProjects/kltVO/RESULT_KLTVO.txt");
-    f << std::fixed;
+
 
 
 }
@@ -194,12 +191,6 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 //        std::cout << p.at(4) << std::endl;
 //        std::cout << p.at(5) << std::endl;
 
-        /*
-         * The global pose is computed in reference to the first frame by concatanation
-         * The current global pose is computed by
-         * so Pcw * inv(Pc) where Pc is current relative pose estimated and Pcw is the last global pose
-         * Initial Pcw = [I | 0]
-        */
 
         Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
         Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
@@ -208,43 +199,36 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         rot_vec.at<double>(1) = p.at(1);
         rot_vec.at<double>(2) = p.at(2);
 
-        //Compute the inverse of relative pose estimation inv(Pc) = [R' | C]
-        //where C = -1 * R' * t
+
         Mat Rotmat;
         Rodrigues(rot_vec, Rotmat, noArray());
 //        std::cout << "Rodrigues Rotation mat: \n" << Rotmat << std::endl;
-
-        Mat Rt = Rotmat.t();
 
         tr_vec.at<double>(0)  = p.at(3);
         tr_vec.at<double>(1)  = p.at(4);
         tr_vec.at<double>(2)  = p.at(5);
 
-        //camera center
-        Mat C = -1 * (Rt * tr_vec);
-
-//        std::cout << "C: \n" << C << std::endl;
-
-        cv::Mat Pc_inv = cv::Mat::eye(4,4,CV_32F);
-        Rt.convertTo(Rt, CV_32F);
-        C.convertTo(C, CV_32F);
-        Rt.copyTo(Pc_inv.rowRange(0,3).colRange(0,3));
-        C.copyTo(Pc_inv.rowRange(0,3).col(3));
-//        std::cout << "Inverse of matrix: \n" << Pc_inv << std::endl;
+//        Rotmat.convertTo(Rotmat, CV_32F);
+//        tr_vec.convertTo(tr_vec, CV_32F);
 
 
-        Pcw = Pcw * Pc_inv;
-//        std::cout << "Transformation matrix: \n" << Pcw << std::endl;
+        Mat Tcw_ = cv::Mat::eye(3,4,CV_64F);
+
+        Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
+        tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
+
+//        std::cout << "Tcw: " << Tcw_ << std::endl;
+
+        //saving relative pose estimated
+        relativeFramePoses.push_back(Tcw_);
+
+        Tcw = Tcw_.clone();
 
         imLeft0     = imLeft.clone();
         imRight0    = imRight.clone();
 
     }
 
-
-    f << setprecision(9) << Pcw.at<float>(0,0) << " " << Pcw.at<float>(0,1)  << " " << Pcw.at<float>(0,2) << " "  << Pcw.at<float>(0,3) << " " <<
-    Pcw.at<float>(1,0) << " " << Pcw.at<float>(1,1)  << " " << Pcw.at<float>(1,2) << " "  << Pcw.at<float>(1,3) << " " <<
-    Pcw.at<float>(2,0) << " " << Pcw.at<float>(2,1)  << " " << Pcw.at<float>(2,2) << " "  << Pcw.at<float>(2,3) << endl;
 
 }
 
@@ -1120,4 +1104,62 @@ bool Tracking::pointFrontCamera(cv::Mat &R2, const cv::Mat &t2, const cv::Mat &p
 
 
 
+}
+
+cv::Mat Tracking::getCurrentPose() {
+    return Tcw;
+}
+
+void Tracking::saveTrajectoryKitti(const string &filename) {
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << std::fixed;
+
+    cv::Mat Twc = cv::Mat::eye(4,4,CV_32F);
+    /*
+        * The global pose is computed in reference to the first frame by concatanation
+        * The current global pose is computed by
+        * so Twc * inv(Tcw) where Tcw is current relative pose estimated and Twc is the last global pose
+        * Initial Pwc = [I | 0]
+    */
+    std::list<cv::Mat>::iterator lit;
+    for(lit = relativeFramePoses.begin(); lit != relativeFramePoses.end(); ++lit){
+
+
+        //Compute the inverse of relative pose estimation inv(Tcw) = [R' | C]
+        //where C = -1 * R' * t
+
+        Mat rot_mat = cv::Mat::zeros(3,1, CV_64F);
+        Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
+
+        rot_mat = (*lit).rowRange(0,3).colRange(0,3);
+        tr_vec  = (*lit).col(3);
+
+//        std::cout << "rot_mat: " << rot_mat << std::endl;
+//        std::cout << "tr_vec: "  << tr_vec << std::endl;
+
+        cv::Mat Rt  = rot_mat.t();
+        cv::Mat C   = -1 * (Rt * tr_vec);
+
+        cv::Mat Tcw_inv = cv::Mat::eye(4,4,CV_32F);
+        Rt.convertTo(Rt, CV_32F);
+        C.convertTo(C, CV_32F);
+
+        Rt.copyTo(Tcw_inv.rowRange(0,3).colRange(0,3));
+        C.copyTo(Tcw_inv.rowRange(0,3).col(3));
+
+
+        Twc = Twc * Tcw_inv;
+
+//        std::cout << "Twc: " << Twc << std::endl;
+
+        f << setprecision(9) << Twc.at<float>(0,0) << " " << Twc.at<float>(0,1)  << " " << Twc.at<float>(0,2) << " "  << Twc.at<float>(0,3) << " " <<
+        Twc.at<float>(1,0) << " " << Twc.at<float>(1,1)  << " " << Twc.at<float>(1,2) << " "  << Twc.at<float>(1,3) << " " <<
+        Twc.at<float>(2,0) << " " << Twc.at<float>(2,1)  << " " << Twc.at<float>(2,2) << " "  << Twc.at<float>(2,3) << endl;
+
+    }
+
+    f.close();
+    std::cout << endl << "trajectory saved!" << std::endl;
 }

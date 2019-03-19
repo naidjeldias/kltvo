@@ -12,6 +12,8 @@
 #include "epnp.h"
 #include <iostream>
 #include <stdio.h>
+#include <list>
+#include <iterator>
 
 #include "opencv2/features2d/features2d.hpp"
 
@@ -22,11 +24,6 @@ class Tracking{
 
 public:
 
-//    fstream myfile;
-//    FILE * (file);
-
-    ofstream f;
-
     enum status {CONVERGED, UPDATE, FAILED};
 
     Tracking();
@@ -36,17 +33,24 @@ public:
     cv::Mat P1, P2;
     double uc, vc, fu, fv;
 
-    //Current global pose
-    cv::Mat Pcw;
+    //Current relative pose
+    cv::Mat Tcw;
 
-    bool initPhase;
+    cv::Mat getCurrentPose();
+
+    void saveTrajectoryKitti(const string &filename);
 
 
     void start(const cv::Mat &imLeft, const cv::Mat &imRight);
 
 private:
 
+    bool initPhase;
+
     EightPoint eightPoint;
+
+    std::list<cv::Mat> relativeFramePoses;
+
 
     //----------local mapping
     int max_iter_3d;

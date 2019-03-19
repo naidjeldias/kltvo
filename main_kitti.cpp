@@ -11,20 +11,20 @@ using namespace std;
 int main() {
 
     //kitti dataset
-//    string path_data    = string("/media/nigel/Dados/Documents/Projetos/CLionProjects/kltVO/kitti");
+//    string path_data    = string("kitti");
 //    string path_left    = string ("/video_0.avi");
 //    string path_right   = string ("/video_1.avi");
 
 
     //full kitti dataset
-    string path_data = string("/media/nigel/Dados/Documents/Projetos/KITTI_DATASET/dataset/sequences/00");
+    string path_data = string("../../KITTI_DATASET/dataset/sequences/00");
     string path_left    = string ("/image_0/%06d.png");
     string path_right   = string ("/image_1/%06d.png");
 
 
     Tracking tracking;
 
-    string path_calib   = string("/media/nigel/Dados/Documents/Projetos/CLionProjects/kltVO/kitti/KITTI00-02.yaml");
+    string path_calib   = string("kitti/KITTI00-02.yaml");
     tracking.K           = cv::Mat::eye(3,3, CV_64F);
 
     load_camCalib_yaml(path_calib, tracking.K, tracking.baseline);
@@ -55,7 +55,7 @@ int main() {
     bool isright_vd = right_vd.open(path_data+path_right);
 
     int count = 0;
-    while( isleft_vd && isright_vd /*&& count < 2*/  ){
+    while( isleft_vd && isright_vd /*&& count < 3*/  ){
 
         cv::Mat imleft, imright;
 
@@ -92,8 +92,7 @@ int main() {
 
     }
 
-//    tracking.myfile.close();
-    tracking.f.close();
+    tracking.saveTrajectoryKitti("KLTVO_KITTI.txt");
 
     left_vd.release();
     right_vd.release();
