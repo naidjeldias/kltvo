@@ -27,7 +27,7 @@ Tracking::Tracking() {
     finalMaxIteration   = 100;      // max iterations for minimization final refinement
     reweigh             = true;     // reweight in optimization
 
-    debug_               = true;
+    debug_               = false;
     if(debug_){
         logFile.open("LOG_FILE.txt");
         logFile << std::fixed;
@@ -731,7 +731,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
         Point2f ptr;
         int index;
         //find point correspondece in the right image using epipolar constraints
-        bool found = findMatchingSAD(pt_l, imLeft.clone(), imRight.clone(), aux_pts_r, ptr, index);
+        bool found = findMatchingSAD(pt_l, imLeft, imRight, aux_pts_r, ptr, index);
         if(found){
             new_pts_l.push_back(pt_l);
             new_pts_r.push_back(ptr);
