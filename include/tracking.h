@@ -28,6 +28,8 @@ public:
 
     Tracking();
 
+    ~Tracking();
+
     cv::Mat K;
     double  baseline;
     cv::Mat P1, P2;
@@ -98,7 +100,7 @@ private:
     void essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, const cv::Mat &K_l, const std::vector<cv::Point2f> &pts_l,
                                       const std::vector<cv::Point2f> &pts_r, const std::vector<bool> &inliers , cv::Mat &R_est, cv::Mat &t_est);
 
-    void checkSolution(const cv::Mat &U, const cv::Mat &Vt, const cv::Mat &u3, const cv::Mat W, const cv::Mat &K, const cv::Mat &K_l, const cv::Point2f &pt_l
+    void checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat &u3, const cv::Mat &K, const cv::Mat &K_l, const cv::Point2f &pt_l
             , const cv::Point2f &pt_r, cv::Mat &R_est, cv::Mat &t_est);
 
     bool pointFrontCamera(cv::Mat &R, const cv::Mat &u3, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,

@@ -35,12 +35,16 @@ Tracking::Tracking() {
 
 }
 
+
+Tracking::~Tracking() {
+}
+
 void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
 
     if (initPhase){
-        imLeft0     = imLeft;
-        imRight0    = imRight;
+        imLeft0     = imLeft.clone();
+        imRight0    = imRight.clone();
 
         initPhase = false;
     }else{
@@ -124,9 +128,9 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         Mat R_est, t_est;
         essentialMatrixDecomposition(fmat, K, K, new_pts_l0, pts_l1, inliers, R_est, t_est);
 
-//        std::cout << "R_est_t: \n" << R_est.t() << "\n";
-//        std::cout << "Determinant: \n" << determinant(R_est.t())  << "\n";
-//        std::cout << "t_est: \n" << t_est << "\n";
+        std::cout << "R_est_t: \n" << R_est.t() << "\n";
+        std::cout << "Determinant: \n" << determinant(R_est.t())  << "\n";
+        std::cout << "t_est: \n" << t_est << "\n";
 
         std::vector<double> rvec_est;
         Rodrigues(R_est, rvec_est, noArray());
@@ -916,6 +920,8 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
 
     SVD::compute(E, D, U, Vt, SVD::MODIFY_A| SVD::FULL_UV);
 
+
+
 //    std::cout << "D: \n"  << D << std::endl;
 //    std::cout << "U: \n"  << U << std::endl;
 //    std::cout << "Vt: \n" << Vt << std::endl;
@@ -925,8 +931,38 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
 
 
     Mat newE = U*Diag*Vt;
-
+//
     SVD::compute(newE, D, U, Vt, SVD::MODIFY_A| SVD::FULL_UV);
+
+    std::vector<cv::Mat> vec_R;
+    //four possible rotation matrix
+    Mat R1 =  U * Z * Vt;
+//    std::cout << "R1: " << R1 <<std::endl;
+    if(determinant(R1) > 0)
+        vec_R.push_back(R1);
+//    std::cout << "Determinant R1: " << determinant(R1) <<std::endl;
+    Mat R2 = -U * Z * Vt;
+//    std::cout << "R2: " << R2 <<std::endl;
+    if(determinant(R2) > 0)
+        vec_R.push_back(R2);
+//    std::cout << "Determinant R2: " << determinant(R2) <<std::endl;
+    Mat R3 =  U * W * Vt;
+//    std::cout << "R3: " << R3 <<std::endl;
+    if(determinant(R3) > 0)
+        vec_R.push_back(R3);
+//    std::cout << "Determinant R3: " << determinant(R3) <<std::endl;
+    Mat R4 = -U * W * Vt;
+//    std::cout << "R4: " << R4 <<std::endl;
+    if(determinant(R4) > 0)
+        vec_R.push_back(R4);
+//    std::cout << "Determinant R4: " << determinant(R4) <<std::endl;
+//    std::cout << "Num of valid Rotation matrix: " << vec_R.size() <<std::endl;
+
+    Mat R1_ = vec_R[0].clone();
+    Mat R2_ = vec_R[1].clone();
+//    std::cout << "R1_: " << R1_ <<std::endl;
+//    std::cout << "R2_: " << R2_ <<std::endl;
+
 
 //    std::cout << "new D: \n"  << D << std::endl;
 //    std::cout << "new U: \n"  << U << std::endl;
@@ -945,14 +981,15 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
         if(inliers.at(i)){
             pt_l = pts_l.at(i);
             pt_r = pts_r.at(i);
+            break;
         }
     }
 
-    checkSolution(U,Vt, U.col(2), W, K, K, pt_l, pt_r, R_est, t_est);
+    checkSolution(R1_,R2_, U.col(2), K, K, pt_l, pt_r, R_est, t_est);
 
 }
 
-void Tracking::checkSolution(const cv::Mat &U, const cv::Mat &Vt, const cv::Mat &u3, const cv::Mat W, const cv::Mat &K, const cv::Mat &K_l, const cv::Point2f &pt_l
+void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat &u3, const cv::Mat &K, const cv::Mat &K_l, const cv::Point2f &pt_l
         , const cv::Point2f &pt_r, cv::Mat &R_est, cv::Mat &t_est) {
 
 
@@ -994,28 +1031,28 @@ void Tracking::checkSolution(const cv::Mat &U, const cv::Mat &Vt, const cv::Mat 
             //------- solution 1
             // [UWVt | +u3]
             case 0:
-                R   = U * W * Vt;
+                R   = R1;
                 u3_ = u3.clone();
 //                std::cout << "u3: \n" << u3 << std::endl;
                 break;
             //------- solution 2
             // [UWVt | -u3]
             case 1:
-                R   = U * W * Vt;
+                R   = R1;
                 u3_  = -1 * u3.clone();
 //                std::cout << "u3: \n" << u3 << std::endl;
                 break;
             //------ solution 3
             // [UWtVt | +u3]
             case 2:
-                R = U * W.t() * Vt;
+                R = R2;
                 u3_ = 1 * u3.clone();
 //                std::cout << "u3: \n" << u3 << std::endl;
                 break;
             //------ solution 4
             // [UWtVt | -u3]
             case 3:
-                R = U * W.t() * Vt;
+                R = R2;
                 u3_  = -1 * u3.clone();
 //                std::cout << "u3: \n" << u3 << std::endl;
                 break;
