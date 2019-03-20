@@ -27,16 +27,18 @@ Tracking::Tracking() {
     finalMaxIteration   = 100;      // max iterations for minimization final refinement
     reweigh             = true;     // reweight in optimization
 
-
-
-//    myfile.open("/media/nigel/Dados/Documents/Projetos/CLionProjects/kltVO/RESULT_KLTVO.txt",fstream::out);
-
-
+    debug_               = true;
+    if(debug_){
+        logFile.open("LOG_FILE.txt");
+        logFile << std::fixed;
+    }
 
 }
 
 
 Tracking::~Tracking() {
+    if(debug_)
+        logFile.close();
 }
 
 void Tracking::start(const Mat &imLeft, const Mat &imRight) {
@@ -47,8 +49,14 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         imRight0    = imRight.clone();
 
         initPhase = false;
+        numFrame  = 0;
     }else{
 //        std::cout << "Entrou " << std::endl;
+
+        if(debug_){
+            numFrame ++;
+            writeOnLogFile("Frame:", std::to_string(numFrame));
+        }
 
         std::vector<KeyPoint> kpts_l, kpts_r;
 
@@ -64,6 +72,10 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         detector(imLeft0, cv::Mat(), kpts_l);
         detector(imRight0, cv::Mat(), kpts_r);
 
+        if(debug_){
+            writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
+            writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
+        }
 
         //convert vector of keypoints to vector of Point2f
         std::vector<Point2f> pts_l0, pts_l1, pts_r0, pts_r1, new_pts_l0, new_pts_r0;
@@ -79,14 +91,18 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         //finding matches in left and right previous frames
         stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0);
 
+        if(debug_){
+            writeOnLogFile("Number of stereo matches:", std::to_string(new_pts_l0.size()));
+        }
+
 //        eightPoint.drawMatches_(imLeft0, imRight0, new_pts_l0, new_pts_r0, mlr0, true);
 
         //triangulate previous keypoints
         std::vector<Point3f> pts3D;
         localMapping(new_pts_l0, new_pts_r0, pts3D, mlr0);
-
-//        std::cout << "Size pts 2d : " << new_pts_l0.size() << std::endl;
-//        std::cout << "Size pts 3d : " << pts3D.size() << std::endl;
+        if(debug_){
+            writeOnLogFile("Number of 3D points:", std::to_string(pts3D.size()));
+        }
 
         //tracking features from previous frames to current frames
         std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
@@ -106,47 +122,38 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         calcOpticalFlowPyrLK(right0_pyr, right1_pyr, new_pts_r0, pts_r1, status1, error1, win, maxLevel,
                              TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
 
-//        std::cout << "Number of pts left 0 : " << new_pts_l0.size() << std::endl;
-//        std::cout << "Size pts left 1 : " << pts_l1.size() << std::endl;
-//
-//        std::cout << "Size pts right 0 : " << new_pts_r0.size() << std::endl;
-//        std::cout << "Size pts right 1 : " << pts_r1.size() << std::endl;
+        if(debug_){
+            writeOnLogFile("Number of left points tracked:", std::to_string(pts_l1.size()));
+            writeOnLogFile("Number of right points tracked:", std::to_string(pts_r1.size()));
+        }
 
-//
+
         std::vector<bool>       inliers;
-
-
-//
         eightPoint.setRansacParameters(0.99, 8, 20, 2.0);
         Mat fmat = eightPoint.ransacEightPointAlgorithm(new_pts_l0, pts_l1, mll, inliers, true, 0);
-//        std::cout << "F mat: " << fmat << std::endl;
-//        std::cout << "det(F): " << determinant(fmat) << std::endl;
-
 //        eightPoint.drawEpLines(new_pts_l0, pts_l1, fmat, inliers, 0, imLeft0, imLeft, mll);
-
+//        Mat imMatches0 = eightPoint.drawMatches_(imLeft0, imRight0, new_pts_l0, new_pts_r0, mlr0);
+        if(debug_){
+            writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
+            writeOnLogFile("Number of infliers:", std::to_string(mll.size()));
+        }
 
         Mat R_est, t_est;
         essentialMatrixDecomposition(fmat, K, K, new_pts_l0, pts_l1, inliers, R_est, t_est);
-
-        std::cout << "R_est_t: \n" << R_est.t() << "\n";
-        std::cout << "Determinant: \n" << determinant(R_est.t())  << "\n";
-        std::cout << "t_est: \n" << t_est << "\n";
+        if(debug_){
+            writeOnLogFile("det(R) of E:", std::to_string(determinant(R_est)));
+        }
 
         std::vector<double> rvec_est;
         Rodrigues(R_est, rvec_est, noArray());
-//        Mat imMatches0 = eightPoint.drawMatches_(imLeft0, imRight0, new_pts_l0, new_pts_r0, mlr0);
-
-
-//        std::cout << "inlier vector size : " << inliers.size() << std::endl;
 
         std::vector<Point3f> new_pts3D;
         std::vector<Point2f> new_pts_l1, new_pts_r1;
-
         quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1);
-//        std::cout << "Number of left points before quadMatching : " << new_pts_l1.size() << std::endl;
-
 //        Mat imMatches = eightPoint.drawMatches_(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1);
-
+        if(debug_){
+            writeOnLogFile("left points before quadMatching:", std::to_string(determinant(new_pts_l1.size())));
+        }
 
         //initialize vector of parameters with rotation and translation from essential matrix
         std::vector<double> p0 (6, 0.0);
@@ -163,9 +170,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         std::vector<Point3d> inPts_3D;
 
         std::vector<double> p (6, 0.0);
-
         poseEstimationRansac(new_pts_l1, new_pts_r1, new_pts3D, p0, inliers2, p, reweigh);
-
         //pose refinment with all inliers
         for (int i=0; i<inliers2.size(); i++){
             if(inliers2.at(i)){
@@ -177,8 +182,9 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
                 inPts_3D.push_back(aux3);
             }
         }
-
-//        std::cout << "Number of inliers : " << inPts_3D.size() << std::endl;
+        if(debug_){
+            writeOnLogFile("Inlier pose estimation:", std::to_string(determinant(inPts_3D.size())));
+        }
 
         // pose refinement with all inliers
         int status = 0;
@@ -187,14 +193,6 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
             if(status != UPDATE)
                 break;
         }
-//        std::cout << "p: \n";
-//        std::cout << p.at(0) << std::endl;
-//        std::cout << p.at(1) << std::endl;
-//        std::cout << p.at(2) << std::endl;
-//        std::cout << p.at(3) << std::endl;
-//        std::cout << p.at(4) << std::endl;
-//        std::cout << p.at(5) << std::endl;
-
 
         Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
         Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
@@ -215,13 +213,10 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 //        Rotmat.convertTo(Rotmat, CV_32F);
 //        tr_vec.convertTo(tr_vec, CV_32F);
 
-
         Mat Tcw_ = cv::Mat::eye(3,4,CV_64F);
 
         Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
         tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
-
-//        std::cout << "Tcw: " << Tcw_ << std::endl;
 
         //saving relative pose estimated
         relativeFramePoses.push_back(Tcw_);
@@ -231,8 +226,12 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         imLeft0     = imLeft.clone();
         imRight0    = imRight.clone();
 
-    }
+        if(debug_){
+            writeOnLogFile("----------------------------", " ");
+        }
 
+
+    }
 
 }
 
@@ -732,7 +731,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
         Point2f ptr;
         int index;
         //find point correspondece in the right image using epipolar constraints
-        bool found = findMatchingSAD(pt_l, imLeft, imRight, aux_pts_r, ptr, index);
+        bool found = findMatchingSAD(pt_l, imLeft.clone(), imRight.clone(), aux_pts_r, ptr, index);
         if(found){
             new_pts_l.push_back(pt_l);
             new_pts_r.push_back(ptr);
@@ -884,7 +883,6 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
                                             const std::vector<cv::Point2f> &pts_l,
                                             const std::vector<cv::Point2f> &pts_r, const std::vector<bool> &inliers, cv::Mat &R_est, cv::Mat &t_est) {
 
-//    std::cout << "K: \n"  << K << std::endl;
 
     Mat E = K_l.t() * F * K;
 
@@ -896,16 +894,6 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
 
     Mat W (3,3, CV_64F, mW);
 
-    double mZ [3][3];
-
-    mZ[0][0] = 0;  mZ[0][1] = 1;  mZ[0][2] = 0;
-    mZ[1][0] = -1; mZ[1][1] = 0 ; mZ[1][2] = 0;
-    mZ[2][0] = 0;  mZ[2][1] = 0 ; mZ[2][2] = 1;
-
-    Mat Z (3,3, CV_64F, mZ);
-
-//    std::cout << "W: \n"  << W << std::endl;
-
     double mDiag [3][3];
 
     mDiag[0][0] = 1;  mDiag[0][1] = 0; mDiag[0][2] = 0;
@@ -914,66 +902,20 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
 
     Mat Diag (3,3, CV_64F, mDiag);
 
-//    std::cout << "Diag: \n"  << Diag << std::endl;
-
     Mat D, U, Vt;
 
     SVD::compute(E, D, U, Vt, SVD::MODIFY_A| SVD::FULL_UV);
 
-
-
-//    std::cout << "D: \n"  << D << std::endl;
-//    std::cout << "U: \n"  << U << std::endl;
-//    std::cout << "Vt: \n" << Vt << std::endl;
-//
-//    std::cout << "Det (U): " << determinant(U) << std::endl;
-//    std::cout << "Det (Vt): " << determinant(Vt) << std::endl;
-
-
     Mat newE = U*Diag*Vt;
-//
     SVD::compute(newE, D, U, Vt, SVD::MODIFY_A| SVD::FULL_UV);
 
-    std::vector<cv::Mat> vec_R;
-    //four possible rotation matrix
-    Mat R1 =  U * Z * Vt;
-//    std::cout << "R1: " << R1 <<std::endl;
-    if(determinant(R1) > 0)
-        vec_R.push_back(R1);
-//    std::cout << "Determinant R1: " << determinant(R1) <<std::endl;
-    Mat R2 = -U * Z * Vt;
-//    std::cout << "R2: " << R2 <<std::endl;
-    if(determinant(R2) > 0)
-        vec_R.push_back(R2);
-//    std::cout << "Determinant R2: " << determinant(R2) <<std::endl;
-    Mat R3 =  U * W * Vt;
-//    std::cout << "R3: " << R3 <<std::endl;
-    if(determinant(R3) > 0)
-        vec_R.push_back(R3);
-//    std::cout << "Determinant R3: " << determinant(R3) <<std::endl;
-    Mat R4 = -U * W * Vt;
-//    std::cout << "R4: " << R4 <<std::endl;
-    if(determinant(R4) > 0)
-        vec_R.push_back(R4);
-//    std::cout << "Determinant R4: " << determinant(R4) <<std::endl;
-//    std::cout << "Num of valid Rotation matrix: " << vec_R.size() <<std::endl;
+    Mat R1 =  U * W * Vt;
+    if(determinant(R1) < 0)
+        R1 = -R1;
 
-    Mat R1_ = vec_R[0].clone();
-    Mat R2_ = vec_R[1].clone();
-//    std::cout << "R1_: " << R1_ <<std::endl;
-//    std::cout << "R2_: " << R2_ <<std::endl;
-
-
-//    std::cout << "new D: \n"  << D << std::endl;
-//    std::cout << "new U: \n"  << U << std::endl;
-//    std::cout << "new Vt: \n" << Vt << std::endl;
-//
-//    std::cout << "new det (U): " << determinant(U) << std::endl;
-//    std::cout << "new det (Vt): " << determinant(Vt) << std::endl;
-
-
-//    std::cout << "Last column U: \n"  << U.col(2) << std::endl;
-//    std::cout << "Norm of last column of U: " << norm(U.col(2)) << std::endl;
+    Mat R2 = U * W.t() * Vt;
+    if(determinant(R2) < 0)
+        R2 = -R2;
 
     Point2f pt_l, pt_r;
     //get first inlier par to check solution
@@ -985,7 +927,7 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
         }
     }
 
-    checkSolution(R1_,R2_, U.col(2), K, K, pt_l, pt_r, R_est, t_est);
+    checkSolution(R1,R2, U.col(2), K, K, pt_l, pt_r, R_est, t_est);
 
 }
 
@@ -995,8 +937,7 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
 
     cv::Mat P    = cv::Mat::eye(3,4,CV_64F);
     cv::Mat P_l  = cv::Mat::eye(3,4,CV_64F);
-//    cv::Mat R    = cv::Mat::zeros(3,3, CV_64F);
-//    cv::Mat u3_  = cv::Mat::zeros(3,1, CV_64F);
+
 
     cv::Mat R;
     cv::Mat u3_;
@@ -1059,18 +1000,11 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
         }
 
         if(pointFrontCamera(R,u3_,x_l, x_r, P, P_l, K, K_l)){
-//            std::cout << "Good solution: " << i <<"\n";
-//
-//            std::cout << "R_est: \n" << R << "\n";
-//            std::cout << "t_est: \n" << u3_ << "\n";
-
             R_est = R;
             t_est = u3_;
             break;
         }
     }
-
-//    return P_l;
 
 }
 
@@ -1203,4 +1137,9 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
 
     f.close();
     std::cout << endl << "trajectory saved!" << std::endl;
+}
+
+
+void Tracking::writeOnLogFile(const string &name, const string &value) {
+    logFile << name << " " << value << "\n";
 }

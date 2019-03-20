@@ -42,12 +42,18 @@ public:
 
     void saveTrajectoryKitti(const string &filename);
 
-
     void start(const cv::Mat &imLeft, const cv::Mat &imRight);
+
+    //create log file for debug
+    bool debug_;
+    ofstream logFile;
+
 
 private:
 
     bool initPhase;
+
+    int numFrame;
 
     EightPoint eightPoint;
 
@@ -105,6 +111,8 @@ private:
 
     bool pointFrontCamera(cv::Mat &R, const cv::Mat &u3, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
             const cv::Mat &K, const cv::Mat &K_l);
+
+    void writeOnLogFile(const string &name, const string &value);
 
 
 };

@@ -151,7 +151,7 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
             bestInliers     = inliers;
             finalMatches    = matches_;
 
-            bestFmat        = fmat;
+            bestFmat        = fmat.clone();
             bestStdDev      = stdDev;
             bestNumInliers  = numInliers;
 
