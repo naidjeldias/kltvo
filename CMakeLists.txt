@@ -4,7 +4,7 @@ project(kltVO)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-find_package(OpenCV REQUIRED)
+find_package(OpenCV 4.0.0 REQUIRED)
 
 set(SOURCE_FILES
         main_kitti.cpp

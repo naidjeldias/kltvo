@@ -27,7 +27,7 @@ Tracking::Tracking() {
     finalMaxIteration   = 100;      // max iterations for minimization final refinement
     reweigh             = true;     // reweight in optimization
 
-    debug_               = false;
+    debug_               = true;
     if(debug_){
         logFile.open("LOG_FILE.txt");
         logFile << std::fixed;
@@ -129,7 +129,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
 
         std::vector<bool>       inliers;
-        eightPoint.setRansacParameters(0.99, 8, 20, 2.0);
+        eightPoint.setRansacParameters(0.99, 8, 200, 2.0);
         Mat fmat = eightPoint.ransacEightPointAlgorithm(new_pts_l0, pts_l1, mll, inliers, true, 0);
 //        eightPoint.drawEpLines(new_pts_l0, pts_l1, fmat, inliers, 0, imLeft0, imLeft, mll);
 //        Mat imMatches0 = eightPoint.drawMatches_(imLeft0, imRight0, new_pts_l0, new_pts_r0, mlr0);
@@ -1141,5 +1141,6 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
 
 
 void Tracking::writeOnLogFile(const string &name, const string &value) {
+    std::cout << name << value << std::endl;
     logFile << name << " " << value << "\n";
 }

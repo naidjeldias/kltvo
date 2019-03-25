@@ -6,7 +6,7 @@
 #define KLTVO_TRACKING_H
 
 #define MAX_DELTAY 0
-#define MAX_DELTAX 32
+#define MAX_DELTAX 62
 
 #include "utils.h"
 #include "epnp.h"

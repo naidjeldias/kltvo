@@ -174,7 +174,7 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
 
 //     std::cout << "Number of pts left 0 after ransac : " << bestNumInliers << std::endl;
 //       std::cout << "Error standard deviation: " << bestStdDev << std::endl;
-//     std::cout << "Number of iterations: " << n << std::endl;
+     std::cout << "Number of iterations: " << n << std::endl;
 //     std::cout << "Best num of inliers: " << bestNumInliers  <<std::endl;
 //     std::cout << "Size inliers vec: " << finalMatches.size() << std::endl;
 
