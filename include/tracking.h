@@ -8,6 +8,9 @@
 #define MAX_DELTAY 0
 #define MAX_DELTAX 62
 
+#define FRAME_GRID_COLS 64
+#define FRAME_GRID_ROWS 48
+
 #include "utils.h"
 #include "epnp.h"
 #include <iostream>
@@ -55,6 +58,17 @@ public:
 
 
 private:
+
+    //--------------ORB extractor variables
+    int nFeatures;
+    float fScaleFactor;
+    int nLevels ;
+    int fIniThFAST;
+    int fMinThFAST;
+    std::mutex mtxORB;
+
+    //______________Image grid for non-maximum suppression
+    std::vector<size_t > imageGrids[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     //--------------Stereo matching
     double maxDisp, minDisp, initTimestamp;
@@ -134,10 +148,16 @@ private:
 
     void writeOnLogFile(const string &name, const string &value);
 
-    void extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt);
+    void extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts);
 
     void opticalFlowFeatureTrack(cv::Mat &imT0, cv::Mat &imT1, Size win, int maxLevel, cv::Mat &status, cv::Mat &error,
                                  std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, cv::Mat &imT0_pyr, cv::Mat &imT1_pyr);
+
+    void gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im);
+
+    bool assignFeatureToGrid(const cv::KeyPoint &kp, int &posX, int &posXY, const cv::Mat &im);
+
+    void drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts, const string &filename);
 
 };
 

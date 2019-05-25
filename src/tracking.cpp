@@ -44,30 +44,11 @@ Tracking::Tracking(const string &strSettingPath) {
     mP1.copyTo(P1);
     mP2.copyTo(P2);
 
-//    cout << endl << "Camera Parameters: " << endl;
-//    cout << "- fu: " << fu << endl;
-//    cout << "- fv: " << fv << endl;
-//    cout << "- uc: " << uc << endl;
-//    cout << "- vc: " << vc << endl;
-//    cout << "- Bf: " << bf << endl;
-//    cout << "- K:  " << K << endl;
-//    cout << "- B : " << baseline << endl;
-//    cout << "- P1: " << P1 << endl;
-//    cout << "- P2: " << P2 << endl;
-
-
-    int nFeatures       = fsSettings["ORBextractor.nFeatures"];
-    float fScaleFactor  = fsSettings["ORBextractor.scaleFactor"];
-    int nLevels         = fsSettings["ORBextractor.nLevels"];
-    int fIniThFAST      = fsSettings["ORBextractor.iniThFAST"];
-    int fMinThFAST      = fsSettings["ORBextractor.minThFAST"];
-
-//    cout << endl  << "ORB Extractor Parameters: " << endl;
-//    cout << "- Number of Features: " << nFeatures << endl;
-//    cout << "- Scale Levels: " << nLevels << endl;
-//    cout << "- Scale Factor: " << fScaleFactor << endl;
-//    cout << "- Initial Fast Threshold: " << fIniThFAST << endl;
-//    cout << "- Minimum Fast Threshold: " << fMinThFAST << endl;
+    nFeatures       = fsSettings["ORBextractor.nFeatures"];
+    fScaleFactor  = fsSettings["ORBextractor.scaleFactor"];
+    nLevels         = fsSettings["ORBextractor.nLevels"];
+    fIniThFAST      = fsSettings["ORBextractor.iniThFAST"];
+    fMinThFAST      = fsSettings["ORBextractor.minThFAST"];
 
     mpORBextractorLeft  = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
     mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
@@ -130,11 +111,23 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
         //detect features
         std::vector<KeyPoint> kpts_l, kpts_r;
-        std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(imLeft0), std::ref (kpts_l));
-        std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(imRight0), std::ref (kpts_r));
+        std::vector<Point2f> pts_l0, pts_r0;
+
+        pts_l0.reserve(nFeatures);
+        pts_r0.reserve(nFeatures);
+        std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(imLeft0), std::ref (kpts_l), std::ref (pts_l0));
+        std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(imRight0), std::ref (kpts_r), std::ref(pts_r0));
 
         orbThreadLeft.join();
         orbThreadRight.join();
+
+        if(debug_){
+            cv::Mat imOut;
+            drawKeypoints(imLeft,kpts_l,imOut);
+            imwrite("kptsORBoctree.png", imOut);
+
+            drawPointfImage(imLeft,pts_l0,"ptsNonMaxSup.png");
+        }
 
 
         if(debug_){
@@ -142,16 +135,16 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
             writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
         }
 
-        //convert vector of keypoints to vector of Point2f
-        std::vector<Point2f> pts_l0, pts_l1, pts_r0, pts_r1, new_pts_l0, new_pts_r0;
+
+        std::vector<Point2f> pts_l1, pts_r1, new_pts_l0, new_pts_r0;
         std::vector<DMatch> mlr0, mlr1, mll;
 
         //convert vector of keypoints to vector of Point2f
-        for (auto& kpt:kpts_l)
-            pts_l0.push_back(kpt.pt);
-
-        for (auto& kpt:kpts_r)
-            pts_r0.push_back(kpt.pt);
+//        for (auto& kpt:kpts_l)
+//            pts_l0.push_back(kpt.pt);
+//
+//        for (auto& kpt:kpts_r)
+//            pts_r0.push_back(kpt.pt);
 
         //finding matches in left and right previous frames
         stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0);
@@ -175,6 +168,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         Size win (15,15);
         int maxLevel = 3;
         Mat status0, status1, error0, error1;
+
 
 //        std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imLeft0), std::ref(imLeft), win, maxLevel,
 //                        std::ref(status0), std::ref(error0), std::ref(new_pts_l0), std::ref(pts_l1), std::ref(left0_pyr), std::ref(left1_pyr));
@@ -318,12 +312,92 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
 }
 
-void Tracking::extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt) {
+void Tracking::extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts) {
 
     if(flag == 0)
         (*mpORBextractorLeft) (im, cv::Mat(), kpt);
     else
         (*mpORBextractorRight)(im, cv::Mat(), kpt);
+    mtxORB.lock();
+    gridNonMaximumSuppression(pts,kpt,im);
+    mtxORB.unlock();
+
+}
+
+void Tracking::gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im) {
+
+    int nBucketX = im.cols / FRAME_GRID_COLS;
+    int nBucketY = im.rows / FRAME_GRID_ROWS;
+
+    int nReserve =  nFeatures/(nBucketX*nBucketY);
+
+    for(unsigned int i=0; i<FRAME_GRID_COLS;i++)
+        for (unsigned int j=0; j<FRAME_GRID_ROWS;j++)
+            imageGrids[i][j].reserve(nReserve);
+
+    //assigning each feature to a bucket
+    for(int i=0; i<nFeatures; i++){
+
+        const cv::KeyPoint &kp = kpts.at(i);
+
+        int gridPosX, gridPosY;
+        if(assignFeatureToGrid(kp,gridPosX,gridPosY,im))
+            imageGrids[gridPosX][gridPosY].push_back(i);
+    }
+
+
+    for(unsigned int i=0; i<FRAME_GRID_COLS;i++) {
+        for (unsigned int j = 0; j < FRAME_GRID_ROWS; j++) {
+
+            const vector<size_t> bucket = imageGrids[i][j];
+            if (bucket.empty())
+                continue;
+
+            int bestIndex;
+            double bestScore = 0;
+            for (size_t k = 0; k < bucket.size(); k++) {
+                const cv::KeyPoint &kp = kpts[bucket[k]];
+                if (kp.response > bestScore) {
+                    bestScore = kp.response;
+                    bestIndex = k;
+                }
+            }
+
+            pts.push_back(kpts[bucket[bestIndex]].pt);
+        }
+    }
+
+
+}
+
+bool Tracking::assignFeatureToGrid(const cv::KeyPoint &kp, int &posX, int &posY, const cv::Mat &im) {
+
+
+    double posX_ = std::round(kp.pt.x * ((double)FRAME_GRID_COLS/(double)im.cols));
+    posX = (int) posX_;
+    double posY_ = std::round(kp.pt.y * ((double) FRAME_GRID_ROWS/(double) im.rows));
+    posY = (int) posY_;
+
+    //check if coordinates are inside the image dimension
+    if(posX < 0 || posX >= FRAME_GRID_COLS || posY < 0 || posY >= FRAME_GRID_ROWS)
+        return false;
+
+    return true;
+
+}
+
+void Tracking::drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts, const string &filename) {
+    std::vector<KeyPoint> kpts;
+    cv::Mat imOut;
+    for (int i = 0; i < pts.size(); i++){
+        KeyPoint kpt;
+        kpt.pt = pts.at(i);
+
+        kpts.push_back(kpt);
+    }
+
+    drawKeypoints( im, kpts, imOut, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+    imwrite(filename, imOut);
 }
 
 
