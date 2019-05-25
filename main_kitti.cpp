@@ -1,5 +1,7 @@
 #include <iostream>
 #include <chrono>
+#include <opencv2/opencv.hpp>
+#include <zconf.h>
 #include "tracking.h"
 #include "utils.h"
 
@@ -7,6 +9,41 @@
 class time_point;
 
 using namespace std;
+
+void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
+                vector<string> &vstrImageRight, vector<double> &vTimestamps){
+    ifstream fTimes;
+    string strPathTimeFile = strPathToSequence + "/times.txt";
+    fTimes.open(strPathTimeFile.c_str());
+    while(!fTimes.eof())
+    {
+        string s;
+        getline(fTimes,s);
+        if(!s.empty())
+        {
+            stringstream ss;
+            ss << s;
+            double t;
+            ss >> t;
+            vTimestamps.push_back(t);
+        }
+    }
+
+    string strPrefixLeft = strPathToSequence + "/image_0/";
+    string strPrefixRight = strPathToSequence + "/image_1/";
+
+    const int nTimes = vTimestamps.size();
+    vstrImageLeft.resize(nTimes);
+    vstrImageRight.resize(nTimes);
+
+    for(int i=0; i<nTimes; i++)
+    {
+        stringstream ss;
+        ss << setfill('0') << setw(6) << i;
+        vstrImageLeft[i] = strPrefixLeft + ss.str() + ".png";
+        vstrImageRight[i] = strPrefixRight + ss.str() + ".png";
+    }
+}
 
 int main() {
 
@@ -16,86 +53,89 @@ int main() {
 //   string path_right   = string ("/video_1.avi");
 
 
+    // Retrieve paths to images
     //full kitti dataset
-     string path_data = string("../../KITTI_DATASET/dataset/sequences/00");
-     string path_left    = string ("/image_0/%06d.png");
-     string path_right   = string ("/image_1/%06d.png");
+    string path_data = string("../../KITTI_DATASET/dataset/sequences/03");
+    vector<string> vstrImageLeft;
+    vector<string> vstrImageRight;
+    vector<double> vTimestamps;
+    LoadImages(path_data, vstrImageLeft, vstrImageRight, vTimestamps);
 
+    const int nImages = vstrImageLeft.size();
 
-    Tracking tracking;
+    // Vector for tracking time statistics
+    vector<float> vTimesTrack;
+    vTimesTrack.resize(nImages);
 
-    string path_calib   = string("kitti/KITTI00-02.yaml");
-    tracking.K           = cv::Mat::eye(3,3, CV_64F);
+    cout << endl << "-------" << endl;
+    cout << "Start processing sequence ..." << endl;
+    cout << "Images in the sequence: " << nImages << endl << endl;
 
-    load_camCalib_yaml(path_calib, tracking.K, tracking.baseline);
+    string path_calib   = string("kitti/KITTI03.yaml");
+    Tracking tracking(path_calib);
 
-    tracking.P1 = cv::Mat::eye(3,4, CV_64F);
-    tracking.P2 = cv::Mat::eye(3,4, CV_64F);
+    // Main loop
+    cv::Mat imLeft, imRight;
+    int current_ni;
+    for(int ni=0; ni<nImages; ni++)
+    {
+        // Read left and right images from file
+        imLeft = cv::imread(vstrImageLeft[ni],IMREAD_UNCHANGED);
+        imRight = cv::imread(vstrImageRight[ni],IMREAD_UNCHANGED);
 
+        if(imLeft.channels() == 3)
+            cvtColor(imLeft,imLeft,CV_RGB2GRAY);
+        if(imRight.channels() == 3)
+            cvtColor(imRight,imRight,CV_RGB2GRAY);
 
-    tracking.fu = tracking.K.at<double>(0,0);
-    tracking.uc = tracking.K.at<double>(0,2);
-    tracking.fv = tracking.K.at<double>(1,1);
-    tracking.vc = tracking.K.at<double>(1,2);
+        double tframe = vTimestamps[ni];
 
+        if(imLeft.empty())
+        {
+            cerr << endl << "Failed to load image at: "
+                 << string(vstrImageLeft[ni]) << endl;
+            return 1;
+        }
 
-    tracking.K.copyTo(tracking.P1.rowRange(0,3).colRange(0,3));
-    tracking.K.copyTo(tracking.P2.rowRange(0,3).colRange(0,3));
+        std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
-
-    tracking.P2.at<double>(0,3) = - tracking.baseline * tracking.K.at<double>(0,0);
-
-//    std::cout << tracking.fu << std::endl;
-//    std::cout << tracking.fv << std::endl;
-//    std::cout << tracking.uc << std::endl;
-
-    cv::VideoCapture left_vd, right_vd;
-
-    bool isleft_vd  = left_vd.open(path_data+path_left);
-    bool isright_vd = right_vd.open(path_data+path_right);
-
-    int count = 0;
-    while( isleft_vd && isright_vd /*&& count < 3*/){
-
-        cv::Mat imleft, imright;
-
-        left_vd.read(imleft);
-        right_vd.read(imright);
-
-        if(imleft.empty() || imright.empty())
-            break;
-
-        if(imleft.channels() == 3)
-            cvtColor(imleft, imleft, cv::COLOR_RGB2GRAY);
-        if(imright.channels() == 3)
-            cvtColor(imright, imright, cv::COLOR_RGB2GRAY);
-
-        auto startTime = std::chrono::steady_clock::now();
-
-        tracking.start(imleft,imright);
-        std::cout << "Frame: "<< count <<  std::endl;
+        tracking.start(imLeft,imRight, tframe);
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-        auto endTime = std::chrono::steady_clock::now();
 
-        std::cout << "Time elapsed: "<< std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count()
-                  << " ms" << std::endl;
+        double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
 
-        cv::imshow("Left Frame", imleft);
-//        cv::imshow("Right Frame", imright);
-//
-////         Press  ESC on keyboard to exit
-        char c=(char) cv::waitKey(30);
+        vTimesTrack[ni]=ttrack;
+
+        // Wait to load the next frame
+        double T=0;
+        if(ni<nImages-1)
+            T = vTimestamps[ni+1]-tframe;
+        else if(ni>0)
+            T = tframe-vTimestamps[ni-1];
+
+        if(ttrack<T)
+            usleep((T-ttrack)*1e6);
+
+        current_ni = ni;
+
+        cv::imshow("Left Frame", imLeft);
+        char c=(char) cv::waitKey(1);
         if(c==27)
             break;
-        count ++;
-
     }
 
-    tracking.saveTrajectoryKitti("KLTVO_KITTI.txt");
+    // Tracking time statistics
+    sort(vTimesTrack.begin(),vTimesTrack.end());
+    float totaltime = 0;
+    for(int ni=0; ni<nImages; ni++)
+    {
+        totaltime+=vTimesTrack[ni];
+    }
+    cout << "-------" << endl << endl;
+    cout << "mean tracking time: " << totaltime/current_ni << endl;
 
-    left_vd.release();
-    right_vd.release();
+    tracking.saveTrajectoryKitti("KLTVO_KITTI.txt");
 
     cv::destroyAllWindows();
 
