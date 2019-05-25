@@ -6,9 +6,13 @@
 
 using namespace cv;
 
-EightPoint::EightPoint(){
+EightPoint::EightPoint(double probability, int minSet, int maxIteration, double maxError){
     //initialize random seed for ransac
     //srand((unsigned)time(NULL));
+    ransacMaxIt     = maxIteration;
+    ransacMinSet    = minSet;
+    ransacProb      = probability;
+    ransacTh        = maxError;
 }
 
 void EightPoint::setRansacParameters(double probability, int minSet, int maxIteration, double maxError) {
@@ -36,8 +40,9 @@ std::vector<int> EightPoint::generateRandomIndices(const unsigned long &maxIndic
     return randValues;
 }
 
-cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
-                                              std::vector<DMatch>& finalMatches, std::vector<bool> &bestInliers, bool normalize, int method) {
+void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
+                                              std::vector<DMatch>& finalMatches, std::vector<bool> &bestInliers, bool normalize,
+                                              int method, cv::Mat &bestFmat) {
 
     finalMatches.clear();
 
@@ -46,7 +51,7 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
     Mat leftScaling     =  Mat::zeros(3,3,CV_64F);
     Mat rightScaling    =  Mat::zeros(3,3,CV_64F);
     //Fundamental matrix
-    Mat fmat, bestFmat;
+    Mat fmat;
 
     double* errorVect = new double[kpt_l.size()];
 
@@ -174,12 +179,10 @@ cv::Mat EightPoint::ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l,
 
 //     std::cout << "Number of pts left 0 after ransac : " << bestNumInliers << std::endl;
 //       std::cout << "Error standard deviation: " << bestStdDev << std::endl;
-     std::cout << "Number of iterations: " << n << std::endl;
+//     std::cout << "Number of iterations: " << n << std::endl;
 //     std::cout << "Best num of inliers: " << bestNumInliers  <<std::endl;
 //     std::cout << "Size inliers vec: " << finalMatches.size() << std::endl;
 
-
-    return bestFmat;
 }
 
 cv::Mat EightPoint::computeFundamentalMatrix(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r, const std::vector<int> &indices,
@@ -487,6 +490,9 @@ void EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vecto
 //        imshow("Epipole lines Right", rgb1);
     imshow("Epipole lines left", rgb);
     imshow("Epipole lines Right", rgb1);
+
+    imwrite("lefteplines.png",rgb);
+    imwrite("righteplines.png",rgb1);
     waitKey(0);
     // computeCorrespondEpilines(points,1,F, eplines);
 
@@ -521,6 +527,8 @@ void EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right_im
     imshow("Matches", imageMatches);
     imshow("Keypoints on left", imageKptsLeft);
     imshow("Keypoints on RIght", imageKptsRight);
+
+    imwrite("matches.png", imageMatches);
 //
     if(hold)
         waitKey(0);

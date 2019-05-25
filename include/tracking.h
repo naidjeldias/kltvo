@@ -14,6 +14,9 @@
 #include <stdio.h>
 #include <list>
 #include <iterator>
+#include <thread>
+#include <mutex>
+#include <functional>
 
 #include "opencv2/features2d/features2d.hpp"
 
@@ -26,7 +29,7 @@ public:
 
     enum status {CONVERGED, UPDATE, FAILED};
 
-    Tracking();
+    Tracking(const string &strSettingPath);
 
     ~Tracking();
 
@@ -42,7 +45,9 @@ public:
 
     void saveTrajectoryKitti(const string &filename);
 
-    void start(const cv::Mat &imLeft, const cv::Mat &imRight);
+    void saveTrajectoryEuroc(const string &filename);
+
+    void start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
 
     //create log file for debug
     bool debug_;
@@ -51,13 +56,28 @@ public:
 
 private:
 
+    //--------------Stereo matching
+    double maxDisp, minDisp, initTimestamp;
+
+    //-------------threads
+    std::mutex mtx1, mtx2, mtx3;
+
+
+    //--------------ORB extractor
+    ORBextractor* mpORBextractorLeft;
+    ORBextractor* mpORBextractorRight;
+
     bool initPhase;
 
     int numFrame;
 
-    EightPoint eightPoint;
+    //--------------Eight Point Algorithm
+    EightPoint* mEightPointLeft;
+
+
 
     std::list<cv::Mat> relativeFramePoses;
+    std::list<double>  frameTimeStamp;
 
 
     //----------local mapping
@@ -114,6 +134,10 @@ private:
 
     void writeOnLogFile(const string &name, const string &value);
 
+    void extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt);
+
+    void opticalFlowFeatureTrack(cv::Mat &imT0, cv::Mat &imT1, Size win, int maxLevel, cv::Mat &status, cv::Mat &error,
+                                 std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, cv::Mat &imT0_pyr, cv::Mat &imT1_pyr);
 
 };
 

@@ -15,15 +15,16 @@ class EightPoint{
 
 public:
 
-    EightPoint();
+    EightPoint(double probability, int minSet, int maxIteration, double maxError);
     //----------------Ransac Parameters
     std::vector<int> generateRandomIndices(const unsigned long &maxIndice, const int &vecSize);
     void setRansacParameters(double probability, int minSet, int maxIteration, double maxError);
     double ransacProb, ransacTh;
     int ransacMinSet, ransacMaxIt;
 
-    cv::Mat ransacEightPointAlgorithm(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
-                                      std::vector<DMatch> &finalMatches, std::vector<bool> &inliers2D, bool normalize, int method);
+    void operator() (const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
+                                      std::vector<DMatch> &finalMatches, std::vector<bool> &inliers2D, bool normalize,
+                                      int method, cv::Mat &bestFmat);
     //using normalized 8-point algorithm
     cv::Mat computeFundamentalMatrix(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
                                      const std::vector<int> &indices, const cv::Mat &leftScalingMat, const cv::Mat &rightScalingMat, bool normalize);

@@ -2,32 +2,101 @@
 // Created by nigel on 21/01/19.
 //
 
+
 #include "tracking.h"
 
 
 
 using namespace cv;
 
-Tracking::Tracking() {
+Tracking::Tracking(const string &strSettingPath) {
     srand(time(0));
+
+    cv::FileStorage fsSettings(strSettingPath, cv::FileStorage::READ);
+    if(!fsSettings.isOpened())
+    {
+        std::cerr << "ERROR: Wrong path to settings" << std::endl;
+    }
+
+    fu = fsSettings["Camera.fx"];
+    fv = fsSettings["Camera.fy"];
+    uc = fsSettings["Camera.cx"];
+    vc = fsSettings["Camera.cy"];
+
+    cv::Mat mK = cv::Mat::eye(3,3,CV_64F);
+    mK.at<double>(0,0) = fu;
+    mK.at<double>(1,1) = fv;
+    mK.at<double>(0,2) = uc;
+    mK.at<double>(1,2) = vc;
+    mK.copyTo(K);
+
+    double bf = fsSettings["Camera.bf"];
+    baseline = bf / fu;
+
+    Mat mP1 = cv::Mat::eye(3,4, CV_64F);
+    Mat mP2 = cv::Mat::eye(3,4, CV_64F);
+
+    mK.copyTo(mP1.rowRange(0,3).colRange(0,3));
+    mK.copyTo(mP2.rowRange(0,3).colRange(0,3));
+
+    mP2.at<double>(0,3) = -bf;
+
+    mP1.copyTo(P1);
+    mP2.copyTo(P2);
+
+//    cout << endl << "Camera Parameters: " << endl;
+//    cout << "- fu: " << fu << endl;
+//    cout << "- fv: " << fv << endl;
+//    cout << "- uc: " << uc << endl;
+//    cout << "- vc: " << vc << endl;
+//    cout << "- Bf: " << bf << endl;
+//    cout << "- K:  " << K << endl;
+//    cout << "- B : " << baseline << endl;
+//    cout << "- P1: " << P1 << endl;
+//    cout << "- P2: " << P2 << endl;
+
+
+    int nFeatures       = fsSettings["ORBextractor.nFeatures"];
+    float fScaleFactor  = fsSettings["ORBextractor.scaleFactor"];
+    int nLevels         = fsSettings["ORBextractor.nLevels"];
+    int fIniThFAST      = fsSettings["ORBextractor.iniThFAST"];
+    int fMinThFAST      = fsSettings["ORBextractor.minThFAST"];
+
+//    cout << endl  << "ORB Extractor Parameters: " << endl;
+//    cout << "- Number of Features: " << nFeatures << endl;
+//    cout << "- Scale Levels: " << nLevels << endl;
+//    cout << "- Scale Factor: " << fScaleFactor << endl;
+//    cout << "- Initial Fast Threshold: " << fIniThFAST << endl;
+//    cout << "- Minimum Fast Threshold: " << fMinThFAST << endl;
+
+    mpORBextractorLeft  = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+    mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+
+    mEightPointLeft     = new EightPoint(0.99, 8, 200, 2.0);
 
     initPhase = true;
 
     //----local mapping
-    max_iter_3d         = 10;       // max iteration for 3D estimation
+    max_iter_3d         = 1;       // max iteration for 3D estimation
     th_3d               = 0.5;      // max reprojection error for 3D estimation
 
     //----Pose estimation
     ransacProb          = 0.99;
     ransacTh            = 7.0;      // th for RANSAC inlier selection using reprojection error
     ransacMinSet        = 3;
-    ransacMaxIt         = 15;       // RANSAC iteration for pose estimation
+    ransacMaxIt         = 50;       // RANSAC iteration for pose estimation
     minIncTh            = 10E-5;    // min increment for pose optimization
     maxIteration        = 20;       // max iteration for minimization into RANSAC routine
     finalMaxIteration   = 100;      // max iterations for minimization final refinement
     reweigh             = true;     // reweight in optimization
 
-    debug_               = true;
+    //----Stereo Matching
+    minDisp = (0.0F);
+    maxDisp = bf/baseline;
+
+//    std::cout << "Max disparity: " << maxDisp << std::endl;
+
+    debug_              = false;
     if(debug_){
         logFile.open("LOG_FILE.txt");
         logFile << std::fixed;
@@ -41,15 +110,16 @@ Tracking::~Tracking() {
         logFile.close();
 }
 
-void Tracking::start(const Mat &imLeft, const Mat &imRight) {
+void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
 
 
     if (initPhase){
-        imLeft0     = imLeft.clone();
-        imRight0    = imRight.clone();
+        imLeft0         = imLeft.clone();
+        imRight0        = imRight.clone();
 
-        initPhase = false;
-        numFrame  = 0;
+        initPhase       = false;
+        numFrame        = 0;
+        initTimestamp   = timestamp;
     }else{
 //        std::cout << "Entrou " << std::endl;
 
@@ -58,19 +128,14 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
             writeOnLogFile("Frame:", std::to_string(numFrame));
         }
 
-        std::vector<KeyPoint> kpts_l, kpts_r;
-
-//        Ptr<FeatureDetector> detector = ORB::create(500, 1.2f, 8, 31, 0, 2, ORB::FAST_SCORE, 31);
-
-        //init orb detector
-        ORBextractor detector(1000, 1.2, 8, 20, 7);
-
-//        detector -> detect(imLeft0, kpts_l);
-//        detector -> detect(imRight0, kpts_r);
-
         //detect features
-        detector(imLeft0, cv::Mat(), kpts_l);
-        detector(imRight0, cv::Mat(), kpts_r);
+        std::vector<KeyPoint> kpts_l, kpts_r;
+        std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(imLeft0), std::ref (kpts_l));
+        std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(imRight0), std::ref (kpts_r));
+
+        orbThreadLeft.join();
+        orbThreadRight.join();
+
 
         if(debug_){
             writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
@@ -90,6 +155,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
         //finding matches in left and right previous frames
         stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0);
+//        eightPoint.drawMatches_(imLeft0, imRight0, new_pts_l0, new_pts_r0, mlr0, true);
 
         if(debug_){
             writeOnLogFile("Number of stereo matches:", std::to_string(new_pts_l0.size()));
@@ -110,6 +176,15 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         int maxLevel = 3;
         Mat status0, status1, error0, error1;
 
+//        std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imLeft0), std::ref(imLeft), win, maxLevel,
+//                        std::ref(status0), std::ref(error0), std::ref(new_pts_l0), std::ref(pts_l1), std::ref(left0_pyr), std::ref(left1_pyr));
+//
+//        std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imRight0), std::ref(imRight), win, maxLevel,
+//                        std::ref(status1), std::ref(error1), std::ref(new_pts_r0), std::ref(pts_r1), std::ref(right0_pyr), std::ref(right1_pyr));
+//
+//        kltThreadLeft.join();
+//        kltThreadRight.join();
+
         buildOpticalFlowPyramid(imLeft0, left0_pyr, win, maxLevel, true);
         buildOpticalFlowPyramid(imLeft, left1_pyr, win, maxLevel, true);
 
@@ -129,10 +204,10 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
 
         std::vector<bool>       inliers;
-        eightPoint.setRansacParameters(0.99, 8, 200, 2.0);
-        Mat fmat = eightPoint.ransacEightPointAlgorithm(new_pts_l0, pts_l1, mll, inliers, true, 0);
-//        eightPoint.drawEpLines(new_pts_l0, pts_l1, fmat, inliers, 0, imLeft0, imLeft, mll);
-//        Mat imMatches0 = eightPoint.drawMatches_(imLeft0, imRight0, new_pts_l0, new_pts_r0, mlr0);
+        Mat fmat;
+        (*mEightPointLeft) (new_pts_l0, pts_l1, mll, inliers, true, 0, fmat);
+//        mEightPointLeft->drawEpLines(new_pts_l0, pts_l1, fmat, inliers, 0, imLeft0, imLeft, mll);
+
         if(debug_){
             writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
             writeOnLogFile("Number of infliers:", std::to_string(mll.size()));
@@ -152,7 +227,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1);
 //        Mat imMatches = eightPoint.drawMatches_(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1);
         if(debug_){
-            writeOnLogFile("left points before quadMatching:", std::to_string(determinant(new_pts_l1.size())));
+            writeOnLogFile("left points before quadMatching:", std::to_string(pts3D.size()));
         }
 
         //initialize vector of parameters with rotation and translation from essential matrix
@@ -171,19 +246,26 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
         std::vector<double> p (6, 0.0);
         poseEstimationRansac(new_pts_l1, new_pts_r1, new_pts3D, p0, inliers2, p, reweigh);
+
+//        std::cout << p0.at(0) << " " << p0.at(1) << " " << p0.at(2) << std::endl;
+//        std::cout << p0.at(3) << " " << p0.at(4) << " " << p0.at(5) << std::endl;
+
         //pose refinment with all inliers
         for (int i=0; i<inliers2.size(); i++){
             if(inliers2.at(i)){
-                Point2f aux1 = new_pts_l1.at(i);
+                Point2f aux1 = new_pts_l1[i];
                 inPts_l1.push_back(aux1);
-                Point2f aux2 = new_pts_r1.at(i);
+                Point2f aux2 = new_pts_r1[i];
                 inPts_r1.push_back(aux2);
-                Point3f aux3 = new_pts3D.at(i);
+                Point3f aux3 = new_pts3D[i];
                 inPts_3D.push_back(aux3);
             }
         }
         if(debug_){
-            writeOnLogFile("Inlier pose estimation:", std::to_string(determinant(inPts_3D.size())));
+            writeOnLogFile("Pts 3D Inlier pose estimation:", std::to_string(determinant(inPts_3D.size())));
+            writeOnLogFile("left pts Inlier pose estimation:", std::to_string(determinant(inPts_l1.size())));
+            writeOnLogFile("right pts Inlier pose estimation:", std::to_string(determinant(inPts_r1.size())));
+
         }
 
         // pose refinement with all inliers
@@ -219,7 +301,8 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
         tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
 
         //saving relative pose estimated
-        relativeFramePoses.push_back(Tcw_);
+        relativeFramePoses.push_back(Tcw_.clone());
+        frameTimeStamp.push_back(timestamp);
 
         Tcw = Tcw_.clone();
 
@@ -232,6 +315,29 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight) {
 
 
     }
+
+}
+
+void Tracking::extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt) {
+
+    if(flag == 0)
+        (*mpORBextractorLeft) (im, cv::Mat(), kpt);
+    else
+        (*mpORBextractorRight)(im, cv::Mat(), kpt);
+}
+
+
+void Tracking::opticalFlowFeatureTrack(cv::Mat &imT0, cv::Mat &imT1, Size win, int maxLevel, cv::Mat &status, cv::Mat &error,
+                                       std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, cv::Mat &imT0_pyr, cv::Mat &imT1_pyr) {
+
+//    Mat imT0_pyr, imT1_pyr;
+    std::lock_guard<std::mutex> lock(mtx1);
+    buildOpticalFlowPyramid(imT0, imT0_pyr, win, maxLevel, true);
+    std::lock_guard<std::mutex> lock1(mtx2);
+    buildOpticalFlowPyramid(imT1, imT1_pyr, win, maxLevel, true);
+    std::lock_guard<std::mutex> lock2(mtx3);
+    calcOpticalFlowPyrLK(imT0_pyr, imT1_pyr, prevPts, nextPts, status, error, win, maxLevel,
+                         TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
 
 }
 
@@ -381,7 +487,6 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
         // initialize p0_ for pose otimization iteration
         std::vector<double> p0_ = p0;
 
-//        std::cout << "Aqui 2" << std::endl;
         int status = 0;
         for (int i = 0; i < maxIteration; i++){
             status = poseEstimation(aux_pt2dl, aux_pt2dr, aux_pt3d, p0_, randIndex.size(), reweigh);
@@ -397,7 +502,6 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
 
         long double sumErr = 0;
         //validate model againts the init set
-//        std::cout << "Aqui 1" << std::endl;
         int numInliers = checkInliers(pts3d, pts2dl, pts2dr, randIndex, p0_, inliers, sumErr, true);
 
 
@@ -406,7 +510,6 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
             bestInliers     = inliers;
             p = p0_;
             bestNumInliers  = numInliers;
-
             minSumErr = sumErr;
         }
     }
@@ -571,8 +674,8 @@ void Tracking::computeJacobian(const int numPts, const std::vector<cv::Point3d> 
             }
 
             // set jacobian entries (project via K)
-            J.at<double>(4*i+0,j)   = weight*fu*(X1cd*Z1c-X1c*Z1cd)/(Z1c*Z1c);  // left u'
-            J.at<double>(4*i+1,j)   = weight*fu*(Y1cd*Z1c-Y1c*Z1cd)/(Z1c*Z1c);  // left v'
+            J.at<double>(4*i+0,j)   = weight*fu*(X1cd*Z1c-X1c*Z1cd)/(Z1c*Z1c);  // left u
+            J.at<double>(4*i+1,j)   = weight*fu*(Y1cd*Z1c-Y1c*Z1cd)/(Z1c*Z1c);  // left v
 
             J.at<double>(4*i+2,j)   = weight*fv*(X1cd*Z2c-X2c*Z1cd)/(Z2c*Z2c);  // right u'
             J.at<double>(4*i+3,j)   = weight*fv*(Y1cd*Z2c-Y2c*Z1cd)/(Z2c*Z2c);  // right v'
@@ -797,7 +900,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
             int deltax = (int) pt_l.x - (int) pt_r.x;
 
             //epipolar constraints, the correspondent keypoint must be in the same row and disparity should be positive
-            if (deltax >= 0 && deltay <= MAX_DELTAY && abs (deltax) <= MAX_DELTAX) {
+            if (deltax >= minDisp && deltay <= MAX_DELTAY && abs (deltax) <= MAX_DELTAX) {
 
                 //compute SAD
                 int sum = 0;
@@ -1081,6 +1184,79 @@ cv::Mat Tracking::getCurrentPose() {
     return Tcw;
 }
 
+void Tracking::saveTrajectoryEuroc(const string &filename) {
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << std::fixed;
+
+    cv::Mat Twc = cv::Mat::eye(4,4,CV_32F);
+
+    Mat R0 = Twc.rowRange(0,3).colRange(0,3);
+    Mat t0 = Twc.rowRange(0,3).col(3);
+
+//    std::vector<double> q0 =  getQuaternion(R0);
+
+    std::vector<float> q0 =  mRot2Quat(R0);
+
+    f << setprecision(6) << initTimestamp << " " <<  setprecision(9) << t0.at<float>(0) << " " << t0.at<float>(1) << " " << t0.at<float>(2) << " " << q0[3] << " " << q0[2] << " " << q0[1] << " " << q0[0] << endl;
+    /*
+        * The global pose is computed in reference to the first frame by concatanation
+        * The current global pose is computed by
+        * so Twc * inv(Tcw) where Tcw is current relative pose estimated and Twc is the last global pose
+        * Initial Pwc = [I | 0]
+    */
+    std::list<cv::Mat>::iterator lit;
+    std::list<double>::iterator lTime = frameTimeStamp.begin();
+    for(lit = relativeFramePoses.begin(); lit != relativeFramePoses.end(); ++lit, ++lTime){
+
+
+        //Compute the inverse of relative pose estimation inv(Tcw) = [R' | C]
+        //where C = -1 * R' * t
+
+        Mat rot_mat = cv::Mat::zeros(3,1, CV_64F);
+        Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
+
+        rot_mat = (*lit).rowRange(0,3).colRange(0,3);
+        tr_vec  = (*lit).col(3);
+
+//        std::cout << "det rot_mat: " << determinant(rot_mat) << std::endl;
+//        std::cout << "tr_vec: "  << tr_vec << std::endl;
+
+        cv::Mat Rt  = rot_mat.t();
+        cv::Mat C   = -1 * Rt * tr_vec;
+
+        cv::Mat Tcw_inv = cv::Mat::eye(4,4,CV_32F);
+        Rt.convertTo(Rt, CV_32F);
+        C.convertTo(C, CV_32F);
+
+        Rt.copyTo(Tcw_inv.rowRange(0,3).colRange(0,3));
+        C.copyTo(Tcw_inv.rowRange(0,3).col(3));
+
+//        std::cout << "Tcw_inv: " << Tcw_inv << std::endl;
+
+        Twc = Twc * Tcw_inv;
+
+        Mat Rw = Twc.rowRange(0,3).colRange(0,3);
+        Mat tw = Twc.rowRange(0,3).col(3);
+
+//        std::vector<double> q =  getQuaternion(Rw);
+
+        std::vector<float> q =  mRot2Quat(Rw);
+
+//        std::cout << "Twc: " << Twc << std::endl;
+
+        f << setprecision(6) << initTimestamp << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " " << tw.at<float>(2) << " " << q[3] << " " << q[2] << " " << q[1] << " " << q[0] << endl;
+
+
+    }
+
+    f.close();
+    std::cout << endl << "trajectory saved!" << std::endl;
+
+}
+
+
 void Tracking::saveTrajectoryKitti(const string &filename) {
 
     ofstream f;
@@ -1111,11 +1287,11 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
         rot_mat = (*lit).rowRange(0,3).colRange(0,3);
         tr_vec  = (*lit).col(3);
 
-//        std::cout << "rot_mat: " << rot_mat << std::endl;
+//        std::cout << "det rot_mat: " << determinant(rot_mat) << std::endl;
 //        std::cout << "tr_vec: "  << tr_vec << std::endl;
 
         cv::Mat Rt  = rot_mat.t();
-        cv::Mat C   = -1 * (Rt * tr_vec);
+        cv::Mat C   = -1 * Rt * tr_vec;
 
         cv::Mat Tcw_inv = cv::Mat::eye(4,4,CV_32F);
         Rt.convertTo(Rt, CV_32F);
@@ -1124,6 +1300,7 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
         Rt.copyTo(Tcw_inv.rowRange(0,3).colRange(0,3));
         C.copyTo(Tcw_inv.rowRange(0,3).col(3));
 
+//        std::cout << "Tcw_inv: " << Tcw_inv << std::endl;
 
         Twc = Twc * Tcw_inv;
 
@@ -1142,5 +1319,5 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
 
 void Tracking::writeOnLogFile(const string &name, const string &value) {
     std::cout << name << value << std::endl;
-    logFile << name << " " << value << "\n";
+//    logFile << name << " " << value << "\n";
 }
