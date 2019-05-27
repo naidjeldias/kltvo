@@ -72,7 +72,7 @@ private:
     //--------------Stereo matching
     double maxDisp, minDisp, initTimestamp;
 
-    //-------------threads
+    //-------------KLT threads
     std::mutex mtx1, mtx2, mtx3;
 
 
@@ -149,8 +149,8 @@ private:
 
     void extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts);
 
-    void opticalFlowFeatureTrack(cv::Mat &imT0, cv::Mat &imT1, Size win, int maxLevel, cv::Mat &status, cv::Mat &error,
-                                 std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, cv::Mat &imT0_pyr, cv::Mat &imT1_pyr);
+    void opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, cv::Mat &status, cv::Mat &error,
+                                 std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr, std::vector <Mat> imT1_pyr);
 
     void gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im);
 

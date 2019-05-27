@@ -161,8 +161,8 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         Size win (15,15);
         int maxLevel = 3;
         Mat status0, status1, error0, error1;
-
-
+//
+//
 //        std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imLeft0), std::ref(imLeft), win, maxLevel,
 //                        std::ref(status0), std::ref(error0), std::ref(new_pts_l0), std::ref(pts_l1), std::ref(left0_pyr), std::ref(left1_pyr));
 //
@@ -397,15 +397,16 @@ void Tracking::drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts
 }
 
 
-void Tracking::opticalFlowFeatureTrack(cv::Mat &imT0, cv::Mat &imT1, Size win, int maxLevel, cv::Mat &status, cv::Mat &error,
-                                       std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, cv::Mat &imT0_pyr, cv::Mat &imT1_pyr) {
+void Tracking::opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, cv::Mat &status, cv::Mat &error,
+                                       std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr, std::vector <Mat> imT1_pyr) {
 
-//    Mat imT0_pyr, imT1_pyr;
-    std::lock_guard<std::mutex> lock(mtx1);
+
+//    std::vector <Mat> imT0_pyr, imT1_pyr;
+    std::lock_guard<std::mutex> lock1(mtx1);
     buildOpticalFlowPyramid(imT0, imT0_pyr, win, maxLevel, true);
-    std::lock_guard<std::mutex> lock1(mtx2);
+    std::lock_guard<std::mutex> lock2(mtx2);
     buildOpticalFlowPyramid(imT1, imT1_pyr, win, maxLevel, true);
-    std::lock_guard<std::mutex> lock2(mtx3);
+    std::lock_guard<std::mutex> lock3(mtx3);
     calcOpticalFlowPyrLK(imT0_pyr, imT1_pyr, prevPts, nextPts, status, error, win, maxLevel,
                          TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
 
