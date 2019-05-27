@@ -488,12 +488,12 @@ void EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vecto
 //        imshow("Epipole lines left", rgb);
 //    else
 //        imshow("Epipole lines Right", rgb1);
-    imshow("Epipole lines left", rgb);
-    imshow("Epipole lines Right", rgb1);
+//    imshow("Epipole lines left", rgb);
+//    imshow("Epipole lines Right", rgb1);
 
     imwrite("lefteplines.png",rgb);
     imwrite("righteplines.png",rgb1);
-    waitKey(0);
+//    waitKey(0);
     // computeCorrespondEpilines(points,1,F, eplines);
 
 }
@@ -524,14 +524,17 @@ void EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right_im
     drawKeypoints( right_image, nextPoints, imageKptsRight, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
 
 
-    imshow("Matches", imageMatches);
-    imshow("Keypoints on left", imageKptsLeft);
-    imshow("Keypoints on RIght", imageKptsRight);
+//    imshow("Matches", imageMatches);
+//    imshow("Keypoints on left", imageKptsLeft);
+//    imshow("Keypoints on RIght", imageKptsRight);
 
+
+    imwrite("kptsLeft.png", imageKptsLeft);
+    imwrite("kptsRight.png", imageKptsRight);
     imwrite("matches.png", imageMatches);
 //
-    if(hold)
-        waitKey(0);
+//    if(hold)
+//        waitKey(0);
 
 }
 

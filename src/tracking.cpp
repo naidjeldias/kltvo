@@ -139,13 +139,6 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         std::vector<Point2f> pts_l1, pts_r1, new_pts_l0, new_pts_r0;
         std::vector<DMatch> mlr0, mlr1, mll;
 
-        //convert vector of keypoints to vector of Point2f
-//        for (auto& kpt:kpts_l)
-//            pts_l0.push_back(kpt.pt);
-//
-//        for (auto& kpt:kpts_r)
-//            pts_r0.push_back(kpt.pt);
-
         //finding matches in left and right previous frames
         stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0);
 //        eightPoint.drawMatches_(imLeft0, imRight0, new_pts_l0, new_pts_r0, mlr0, true);
@@ -328,6 +321,9 @@ void Tracking::gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const st
 
     int nBucketX = im.cols / FRAME_GRID_COLS;
     int nBucketY = im.rows / FRAME_GRID_ROWS;
+
+    //______________Image grid for non-maximum suppression
+    std::vector<size_t > imageGrids[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     int nReserve =  nFeatures/(nBucketX*nBucketY);
 

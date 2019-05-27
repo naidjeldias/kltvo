@@ -67,8 +67,7 @@ private:
     int fMinThFAST;
     std::mutex mtxORB;
 
-    //______________Image grid for non-maximum suppression
-    std::vector<size_t > imageGrids[FRAME_GRID_COLS][FRAME_GRID_ROWS];
+
 
     //--------------Stereo matching
     double maxDisp, minDisp, initTimestamp;
