@@ -116,10 +116,14 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         pts_l0.reserve(nFeatures);
         pts_r0.reserve(nFeatures);
         std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(imLeft0), std::ref (kpts_l), std::ref (pts_l0));
-        std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(imRight0), std::ref (kpts_r), std::ref(pts_r0));
-
+//        std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(imRight0), std::ref (kpts_r), std::ref(pts_r0));
+//
         orbThreadLeft.join();
-        orbThreadRight.join();
+//        orbThreadRight.join();
+
+        std::cout << "Num keypoints after NMS: " << pts_l0.size() << std::endl;
+
+        drawGridAndPoints(imLeft0, pts_l0, "GridNMS.png");
 
         if(debug_){
             cv::Mat imOut;
@@ -161,28 +165,28 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         Size win (15,15);
         int maxLevel = 3;
         Mat status0, status1, error0, error1;
-//
-//
-//        std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imLeft0), std::ref(imLeft), win, maxLevel,
-//                        std::ref(status0), std::ref(error0), std::ref(new_pts_l0), std::ref(pts_l1), std::ref(left0_pyr), std::ref(left1_pyr));
-//
-//        std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imRight0), std::ref(imRight), win, maxLevel,
-//                        std::ref(status1), std::ref(error1), std::ref(new_pts_r0), std::ref(pts_r1), std::ref(right0_pyr), std::ref(right1_pyr));
-//
-//        kltThreadLeft.join();
-//        kltThreadRight.join();
 
-        buildOpticalFlowPyramid(imLeft0, left0_pyr, win, maxLevel, true);
-        buildOpticalFlowPyramid(imLeft, left1_pyr, win, maxLevel, true);
 
-        buildOpticalFlowPyramid(imRight0, right0_pyr, win, maxLevel, true);
-        buildOpticalFlowPyramid(imRight,  right1_pyr, win, maxLevel, true);
+        std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imLeft0), std::ref(imLeft), win, maxLevel,
+                        std::ref(status0), std::ref(error0), std::ref(new_pts_l0), std::ref(pts_l1), std::ref(left0_pyr), std::ref(left1_pyr));
 
-        calcOpticalFlowPyrLK(left0_pyr, left1_pyr, new_pts_l0, pts_l1, status0, error0, win, maxLevel,
-                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
+        std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imRight0), std::ref(imRight), win, maxLevel,
+                        std::ref(status1), std::ref(error1), std::ref(new_pts_r0), std::ref(pts_r1), std::ref(right0_pyr), std::ref(right1_pyr));
 
-        calcOpticalFlowPyrLK(right0_pyr, right1_pyr, new_pts_r0, pts_r1, status1, error1, win, maxLevel,
-                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
+        kltThreadLeft.join();
+        kltThreadRight.join();
+
+//        buildOpticalFlowPyramid(imLeft0, left0_pyr, win, maxLevel, true);
+//        buildOpticalFlowPyramid(imLeft, left1_pyr, win, maxLevel, true);
+//
+//        buildOpticalFlowPyramid(imRight0, right0_pyr, win, maxLevel, true);
+//        buildOpticalFlowPyramid(imRight,  right1_pyr, win, maxLevel, true);
+//
+//        calcOpticalFlowPyrLK(left0_pyr, left1_pyr, new_pts_l0, pts_l1, status0, error0, win, maxLevel,
+//                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
+//
+//        calcOpticalFlowPyrLK(right0_pyr, right1_pyr, new_pts_r0, pts_r1, status1, error1, win, maxLevel,
+//                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
 
         if(debug_){
             writeOnLogFile("Number of left points tracked:", std::to_string(pts_l1.size()));
@@ -194,6 +198,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         Mat fmat;
         (*mEightPointLeft) (new_pts_l0, pts_l1, mll, inliers, true, 0, fmat);
 //        mEightPointLeft->drawEpLines(new_pts_l0, pts_l1, fmat, inliers, 0, imLeft0, imLeft, mll);
+
 
         if(debug_){
             writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
@@ -307,13 +312,17 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
 void Tracking::extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts) {
 
-    if(flag == 0)
+    if(flag == 0){
         (*mpORBextractorLeft) (im, cv::Mat(), kpt);
-    else
+        std::cout << "Num kpt extracted: " << kpt.size() << std::endl;
+        gridNonMaximumSuppression(pts,kpt,im);
+
+    } else
         (*mpORBextractorRight)(im, cv::Mat(), kpt);
-    mtxORB.lock();
-    gridNonMaximumSuppression(pts,kpt,im);
-    mtxORB.unlock();
+
+//    mtxORB.lock();
+//    gridNonMaximumSuppression(pts,kpt,im);
+//    mtxORB.unlock();
 
 }
 
@@ -323,27 +332,29 @@ void Tracking::gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const st
     int nBucketY = im.rows / FRAME_GRID_ROWS;
 
     //______________Image grid for non-maximum suppression
-    std::vector<size_t > imageGrids[FRAME_GRID_COLS][FRAME_GRID_ROWS];
+    std::vector<size_t > imageGrids[nBucketY][nBucketX];
 
-    int nReserve =  nFeatures/(nBucketX*nBucketY);
+    int numFeatures = kpts.size();
 
-    for(unsigned int i=0; i<FRAME_GRID_COLS;i++)
-        for (unsigned int j=0; j<FRAME_GRID_ROWS;j++)
+    int nReserve =  numFeatures/(nBucketX*nBucketY);
+
+    for(unsigned int i=0; i<nBucketY;i++)
+        for (unsigned int j=0; j<nBucketX;j++)
             imageGrids[i][j].reserve(nReserve);
 
     //assigning each feature to a bucket
-    for(int i=0; i<nFeatures; i++){
+    for(int i=0; i<numFeatures; i++){
 
         const cv::KeyPoint &kp = kpts.at(i);
 
         int gridPosX, gridPosY;
-        if(assignFeatureToGrid(kp,gridPosX,gridPosY,im))
-            imageGrids[gridPosX][gridPosY].push_back(i);
+        if(assignFeatureToGrid(kp,gridPosX,gridPosY,im, nBucketX, nBucketY))
+            imageGrids[gridPosY][gridPosX].push_back(i);
     }
 
 
-    for(unsigned int i=0; i<FRAME_GRID_COLS;i++) {
-        for (unsigned int j = 0; j < FRAME_GRID_ROWS; j++) {
+    for(unsigned int i=0; i<nBucketY;i++) {
+        for (unsigned int j = 0; j < nBucketX; j++) {
 
             const vector<size_t> bucket = imageGrids[i][j];
             if (bucket.empty())
@@ -366,16 +377,16 @@ void Tracking::gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const st
 
 }
 
-bool Tracking::assignFeatureToGrid(const cv::KeyPoint &kp, int &posX, int &posY, const cv::Mat &im) {
+bool Tracking::assignFeatureToGrid(const cv::KeyPoint &kp, int &posX, int &posY, const cv::Mat &im, const int &nBucketX, const int &nBucketY) {
 
 
-    double posX_ = std::round(kp.pt.x * ((double)FRAME_GRID_COLS/(double)im.cols));
+    double posX_ = std::round(kp.pt.x * ((double)nBucketX/(double)(im.cols-1)));
     posX = (int) posX_;
-    double posY_ = std::round(kp.pt.y * ((double) FRAME_GRID_ROWS/(double) im.rows));
+    double posY_ = std::round(kp.pt.y * ((double) nBucketY/(double)(im.rows-1)));
     posY = (int) posY_;
 
     //check if coordinates are inside the image dimension
-    if(posX < 0 || posX >= FRAME_GRID_COLS || posY < 0 || posY >= FRAME_GRID_ROWS)
+    if(posX < 0 || posX >= nBucketX || posY < 0 || posY >= nBucketY)
         return false;
 
     return true;
@@ -1391,4 +1402,21 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
 void Tracking::writeOnLogFile(const string &name, const string &value) {
     std::cout << name << value << std::endl;
 //    logFile << name << " " << value << "\n";
+}
+
+void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &pts, const string &fileName) {
+
+    Mat dIm = im.clone();
+
+    for (int y = 0; y < im.rows; y += FRAME_GRID_ROWS)
+    {
+        for (int x = 0; x < im.cols; x += FRAME_GRID_COLS)
+        {
+            cv::Rect rect =  cv::Rect(x,y, FRAME_GRID_COLS, FRAME_GRID_ROWS);
+            cv::rectangle(dIm, rect, cv::Scalar(0, 255, 0));
+        }
+    }
+
+    drawPointfImage(dIm, pts, fileName);
+
 }

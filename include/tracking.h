@@ -145,7 +145,6 @@ private:
     bool pointFrontCamera(cv::Mat &R, const cv::Mat &u3, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
             const cv::Mat &K, const cv::Mat &K_l);
 
-    void writeOnLogFile(const string &name, const string &value);
 
     void extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts);
 
@@ -154,9 +153,14 @@ private:
 
     void gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im);
 
-    bool assignFeatureToGrid(const cv::KeyPoint &kp, int &posX, int &posXY, const cv::Mat &im);
+    bool assignFeatureToGrid(const cv::KeyPoint &kp, int &posX, int &posXY, const cv::Mat &im, const int &nBucketX, const int &nBucketY);
 
+
+    //----------------------debug functions
     void drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts, const string &filename);
+    void writeOnLogFile(const string &name, const string &value);
+    void drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &pts, const string &fileName);
+
 
 };
 
