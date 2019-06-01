@@ -116,14 +116,14 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         pts_l0.reserve(nFeatures);
         pts_r0.reserve(nFeatures);
         std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(imLeft0), std::ref (kpts_l), std::ref (pts_l0));
-//        std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(imRight0), std::ref (kpts_r), std::ref(pts_r0));
-//
+        std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(imRight0), std::ref (kpts_r), std::ref(pts_r0));
+
         orbThreadLeft.join();
-//        orbThreadRight.join();
+        orbThreadRight.join();
 
-        std::cout << "Num keypoints after NMS: " << pts_l0.size() << std::endl;
-
-        drawGridAndPoints(imLeft0, pts_l0, "GridNMS.png");
+//        std::cout << "Num keypoints after NMS: " << pts_l0.size() << std::endl;
+//
+//        drawGridAndPoints(imLeft0, pts_l0, "GridNMS.png");
 
         if(debug_){
             cv::Mat imOut;
@@ -138,6 +138,11 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
             writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
             writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
         }
+
+
+        //convert vector of keypoints to vector of Point2f
+        for (auto& kpt:kpts_r)
+            pts_r0.push_back(kpt.pt);
 
 
         std::vector<Point2f> pts_l1, pts_r1, new_pts_l0, new_pts_r0;
@@ -314,7 +319,7 @@ void Tracking::extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt, std
 
     if(flag == 0){
         (*mpORBextractorLeft) (im, cv::Mat(), kpt);
-        std::cout << "Num kpt extracted: " << kpt.size() << std::endl;
+//        std::cout << "Num kpt extracted: " << kpt.size() << std::endl;
         gridNonMaximumSuppression(pts,kpt,im);
 
     } else
