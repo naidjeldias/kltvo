@@ -513,10 +513,6 @@ void EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right_im
         nextPoints.push_back(kpt_r);
     }
 
-//    std::cout << "Num pts left : " << prevPoints.size() << std::endl;
-//    std::cout << "Num pts right : " << nextPoints.size() << std::endl;
-//    std::cout << "Num matches: " << matches.size() << std::endl;
-
     drawMatches(left_image, prevPoints, right_image, nextPoints, matches, imageMatches, Scalar::all(-1), Scalar::all(-1),
             std::vector<char>(), DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
 
@@ -524,15 +520,10 @@ void EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right_im
     drawKeypoints( right_image, nextPoints, imageKptsRight, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
 
 
-//    imshow("Matches", imageMatches);
-//    imshow("Keypoints on left", imageKptsLeft);
-//    imshow("Keypoints on RIght", imageKptsRight);
-
-
     imwrite("kptsLeft.png", imageKptsLeft);
     imwrite("kptsRight.png", imageKptsRight);
     imwrite("matches.png", imageMatches);
-//
+
 //    if(hold)
 //        waitKey(0);
 

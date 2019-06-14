@@ -102,7 +102,6 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         numFrame        = 0;
         initTimestamp   = timestamp;
     }else{
-//        std::cout << "Entrou " << std::endl;
 
         if(debug_){
             numFrame ++;
@@ -121,23 +120,8 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         orbThreadLeft.join();
         orbThreadRight.join();
 
-//        std::cout << "Num keypoints after NMS: " << pts_l0.size() << std::endl;
-//
-//        drawGridAndPoints(imLeft0, pts_l0, "GridNMS.png");
-
-        if(debug_){
-            cv::Mat imOut;
-            drawKeypoints(imLeft,kpts_l,imOut);
-            imwrite("kptsORBoctree.png", imOut);
-
-            drawPointfImage(imLeft,pts_l0,"ptsNonMaxSup.png");
-        }
-
-
-        if(debug_){
-            writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
-            writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
-        }
+        if(debug_)
+            logFeatureExtraction(kpts_l, kpts_r, pts_l0, imLeft0);
 
 
         //convert vector of keypoints to vector of Point2f
@@ -145,32 +129,29 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
             pts_r0.push_back(kpt.pt);
 
 
+        //finding matches in left and right previous frames
         std::vector<Point2f> pts_l1, pts_r1, new_pts_l0, new_pts_r0;
         std::vector<DMatch> mlr0, mlr1, mll;
 
-        //finding matches in left and right previous frames
         stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0);
-//        eightPoint.drawMatches_(imLeft0, imRight0, new_pts_l0, new_pts_r0, mlr0, true);
+        if(debug_)
+            logStereoMatching(imRight0, imLeft0, mlr0, new_pts_r0, new_pts_l0);
 
-        if(debug_){
-            writeOnLogFile("Number of stereo matches:", std::to_string(new_pts_l0.size()));
-        }
 
-//        eightPoint.drawMatches_(imLeft0, imRight0, new_pts_l0, new_pts_r0, mlr0, true);
 
         //triangulate previous keypoints
         std::vector<Point3f> pts3D;
-        localMapping(new_pts_l0, new_pts_r0, pts3D, mlr0);
-        if(debug_){
-            writeOnLogFile("Number of 3D points:", std::to_string(pts3D.size()));
-        }
+        double meanError;
+        localMapping(new_pts_l0, new_pts_r0, pts3D, mlr0, meanError);
+        if(debug_)
+            logLocalMaping(pts3D, meanError);
+
 
         //tracking features from previous frames to current frames
         std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
         Size win (15,15);
         int maxLevel = 3;
         Mat status0, status1, error0, error1;
-
 
         std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imLeft0), std::ref(imLeft), win, maxLevel,
                         std::ref(status0), std::ref(error0), std::ref(new_pts_l0), std::ref(pts_l1), std::ref(left0_pyr), std::ref(left1_pyr));
@@ -193,39 +174,25 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 //        calcOpticalFlowPyrLK(right0_pyr, right1_pyr, new_pts_r0, pts_r1, status1, error1, win, maxLevel,
 //                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
 
-        if(debug_){
-            writeOnLogFile("Number of left points tracked:", std::to_string(pts_l1.size()));
-            writeOnLogFile("Number of right points tracked:", std::to_string(pts_r1.size()));
-        }
-
-
         std::vector<bool>       inliers;
         Mat fmat;
         (*mEightPointLeft) (new_pts_l0, pts_l1, mll, inliers, true, 0, fmat);
-//        mEightPointLeft->drawEpLines(new_pts_l0, pts_l1, fmat, inliers, 0, imLeft0, imLeft, mll);
-
-
-        if(debug_){
-            writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
-            writeOnLogFile("Number of infliers:", std::to_string(mll.size()));
-        }
 
         Mat R_est, t_est;
         essentialMatrixDecomposition(fmat, K, K, new_pts_l0, pts_l1, inliers, R_est, t_est);
-        if(debug_){
-            writeOnLogFile("det(R) of E:", std::to_string(determinant(R_est)));
-        }
 
         std::vector<double> rvec_est;
         Rodrigues(R_est, rvec_est, noArray());
+        if (debug_)
+            logFeatureTracking(new_pts_l0, pts_r1, fmat, pts_l1, inliers, imLeft0, imLeft, mll,R_est);
+
+
 
         std::vector<Point3f> new_pts3D;
         std::vector<Point2f> new_pts_l1, new_pts_r1;
         quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1);
-//        Mat imMatches = eightPoint.drawMatches_(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1);
-        if(debug_){
-            writeOnLogFile("left points before quadMatching:", std::to_string(pts3D.size()));
-        }
+        if(debug_)
+            logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
 
         //initialize vector of parameters with rotation and translation from essential matrix
         std::vector<double> p0 (6, 0.0);
@@ -244,8 +211,6 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         std::vector<double> p (6, 0.0);
         poseEstimationRansac(new_pts_l1, new_pts_r1, new_pts3D, p0, inliers2, p, reweigh);
 
-//        std::cout << p0.at(0) << " " << p0.at(1) << " " << p0.at(2) << std::endl;
-//        std::cout << p0.at(3) << " " << p0.at(4) << " " << p0.at(5) << std::endl;
 
         //pose refinment with all inliers
         for (int i=0; i<inliers2.size(); i++){
@@ -257,12 +222,6 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
                 Point3f aux3 = new_pts3D[i];
                 inPts_3D.push_back(aux3);
             }
-        }
-        if(debug_){
-            writeOnLogFile("Pts 3D Inlier pose estimation:", std::to_string(determinant(inPts_3D.size())));
-            writeOnLogFile("left pts Inlier pose estimation:", std::to_string(determinant(inPts_l1.size())));
-            writeOnLogFile("right pts Inlier pose estimation:", std::to_string(determinant(inPts_r1.size())));
-
         }
 
         // pose refinement with all inliers
@@ -430,10 +389,10 @@ void Tracking::opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size 
 
 
 void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
-                            std::vector<cv::Point3f> &pts3D, const std::vector<DMatch> &matches) {
+                            std::vector<cv::Point3f> &pts3D, const std::vector<DMatch> &matches, double &meanError) {
 
     Point2f kp_l, kp_r;
-    // std::vector<Landmark> points3d;
+
     double w0, w1;
     double dist;
 
@@ -442,9 +401,6 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
 
         kp_l = pts_l.at(i);
         kp_r = pts_r.at(i);
-
-//        std::cout << "kp_l: " << kp_l << std::endl;
-//        std::cout << "kp_r: " << kp_r << std::endl;
 
         w0 = w1 = 1.0;
 
@@ -455,39 +411,19 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
             Mat A   = Mat::zeros(4,4,CV_64F);
             Mat D, U, Vt;
 
-
-            // std::cout << "w0: " << w0 << std::endl;
-            // std::cout << "w1: " << w1 << std::endl;
-
             A.row(0) = w0*(kp_l.x*P1.row(2)-P1.row(0));
             A.row(1) = w0*(kp_l.y*P1.row(2)-P1.row(1));
             A.row(2) = w1*(kp_r.x*P2.row(2)-P2.row(0));
             A.row(3) = w1*(kp_r.y*P2.row(2)-P2.row(1));
 
-//             std::cout << "Mat A: " << A << std::endl;
-
             SVD::compute(A,D,U,Vt, SVD::MODIFY_A| SVD::FULL_UV);
-
-//             std::cout << "Vt: " << Vt << std::endl;
 
             point3d = Vt.row(3).t();
 
-//             std::cout << "point 3D: " << point3d << std::endl;
-
             point3d = point3d.rowRange(0,4)/point3d.at<double>(3);
-
-//             std::cout << "point 3D cc: " << point3d << std::endl;
 
             Mat p0 = P1*point3d;
             Mat p1 = P2*point3d;
-
-//             std::cout << "p0 : " << p0 << std::endl;
-//             std::cout << "p1 : " << p1 << std::endl;
-
-
-            // std::cout << "p_0: [ " << kp_l.pt.x << "," << kp_l.pt.y << "]" << std::endl;
-            // std::cout << "p_1: [ " << kp_r.pt.x << "," << kp_r.pt.y << "]" << std::endl;
-            // std::cout << "p0: " << p0.at<double>(2) << std::endl;
 
             w0 = 1.0/p0.at<double>(2);
             w1 = 1.0/p1.at<double>(2);
@@ -499,44 +435,23 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
 
             dist = sqrt(dx0*dx0+dy0*dy0) + sqrt(dx1*dx1+dy1*dy1);
 
-//            std::cout << "dist: " << dist << std::endl;
-//            std::cout << "it: " << j << std::endl;
 
             if(dist < 2*th_3d){
-
-//                 std::cout << "p_0: [ " << p0.at<double>(0)/p0.at<double>(2) << "," << p0.at<double>(1)/p0.at<double>(2) << "]" << std::endl;
-//                 std::cout << "p_1: [ " << p1.at<double>(0)/p1.at<double>(2) << "," << p1.at<double>(1)/p1.at<double>(2) << "]" << std::endl;
-//                std::cout << "dist: " << dist << std::endl;
                 break;
             }
         }
-
         sum += dist;
 
-        // p0 = p0.rowRange(0,3)/p0.at<double>(2);
-
-        // std::cout << "p0 : " << p0 << std::endl;
-
-        // std::cout << "p_0: [ " << kp_l.pt.x << "," << kp_l.pt.y << "]" << std::endl;
-
-
-        // std::cout << "dist2: " << dist << std::endl;
         Point3f pt3d;
         pt3d.x           = (float) point3d.at<double>(0);
         pt3d.y           = (float) point3d.at<double>(1);
         pt3d.z           = (float) point3d.at<double>(2);
-//        std::cout << "pt3d z: " << pt3d.z << std::endl;
-
-
-//        std::cout << "Last coordinate point 3D: " << point3d.at<double>(3) << std::endl;
 
         pts3D.push_back(pt3d);
-//        std::cout << "Num points 3D: " << pts3D.size() << std::endl;
+
     }
 
-
-
-//      std::cout << "Mean error: " << sum/pts_l.size() << std::endl;
+    meanError = sum/(pts3D.size() * 2);
 
 }
 
@@ -1405,8 +1320,8 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
 
 
 void Tracking::writeOnLogFile(const string &name, const string &value) {
-    std::cout << name << value << std::endl;
-//    logFile << name << " " << value << "\n";
+//    std::cout << name << value << std::endl;
+    logFile << name << " " << value << "\n";
 }
 
 void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &pts, const string &fileName) {
@@ -1425,3 +1340,57 @@ void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &
     drawPointfImage(dIm, pts, fileName);
 
 }
+
+void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, const std::vector<cv::KeyPoint> &kpts_r, const std::vector<Point2f> &pts,
+                                    const cv::Mat &im) {
+
+    writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
+    writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
+
+    cv::Mat imOut;
+    drawKeypoints(im,kpts_l,imOut);
+    imwrite("kptsORBoctree.png", imOut);
+
+    drawGridAndPoints(im, pts, "GridNMS.png");
+    writeOnLogFile("Num keypoints after NMS: ", std::to_string(pts.size()));
+
+
+}
+
+void Tracking::logStereoMatching(const cv::Mat &im_r, const cv::Mat &im_l, const std::vector<cv::DMatch> &mrl,
+                                 const std::vector<Point2f> &pts_r, const std::vector<Point2f> &pts_l) {
+
+    mEightPointLeft->drawMatches_(im_l, im_r, pts_l, pts_r, mrl, false);
+    writeOnLogFile("Number of stereo matches:", std::to_string(pts_l.size()));
+
+
+}
+
+void Tracking::logLocalMaping(const std::vector<Point3f> &pts3D, double &meanError) {
+    writeOnLogFile("Number of 3D points:", std::to_string(pts3D.size()));
+    writeOnLogFile("Mean reprojection error:", std::to_string(meanError));
+}
+
+void Tracking::logFeatureTracking(const std::vector<Point2f> &pts_l0, const std::vector<Point2f> &pts_r1,
+                                  const cv::Mat &fmat, const std::vector<Point2f> &pts_l1, const std::vector<bool> &inliers,
+                                  const cv::Mat &im_l0, const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll, const cv::Mat &R) {
+    mEightPointLeft->drawEpLines(pts_l0, pts_l1, fmat, inliers, 0, im_l0, im_l1, mll);
+
+    writeOnLogFile("Number of left points tracked:", std::to_string(pts_l1.size()));
+    writeOnLogFile("Number of right points tracked:", std::to_string(pts_r1.size()));
+
+    writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
+    writeOnLogFile("Number of inliers:", std::to_string(mll.size()));
+
+
+    writeOnLogFile("det(R) of E:", std::to_string(determinant(R)));
+}
+
+void Tracking::logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const std::vector<Point2f> &pts_l1,
+                               const std::vector<Point2f> &pts_r1, const std::vector<cv::DMatch> &mlr1, int numPts) {
+
+    mEightPointLeft->drawMatches_(im_l1, im_r1, pts_l1, pts_r1, mlr1, false);
+    writeOnLogFile("left points before quadMatching:", std::to_string(numPts));
+
+}
+

@@ -8,7 +8,7 @@
 #define MAX_DELTAY 0
 #define MAX_DELTAX 62
 
-#define FRAME_GRID_COLS 64
+#define FRAME_GRID_COLS 48
 #define FRAME_GRID_ROWS 48
 
 #include "utils.h"
@@ -109,7 +109,7 @@ private:
 
 
     void localMapping (const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
-                       std::vector<cv::Point3f> &pts3D, const std::vector<cv::DMatch> &macthes);
+                       std::vector<cv::Point3f> &pts3D, const std::vector<cv::DMatch> &macthes, double &meanError);
 
     void stereoMatching(const std::vector<cv::Point2f>& pts_l, const std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
                         const cv::Mat& imRight,  std::vector<cv::DMatch> &matches, std::vector<cv::Point2f> &new_pts_l,
@@ -160,6 +160,18 @@ private:
     void drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts, const string &filename);
     void writeOnLogFile(const string &name, const string &value);
     void drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &pts, const string &fileName);
+    void logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, const std::vector<cv::KeyPoint> &kpts_r,
+                              const std::vector<Point2f> &pts, const cv::Mat &im);
+    void logStereoMatching(const cv::Mat &im_r, const cv::Mat &im_l, const std::vector<cv::DMatch> &mrl,
+                           const std::vector<Point2f> &pts_r, const std::vector<Point2f> &pts_l);
+    void logLocalMaping(const std::vector<Point3f> &pts3D, double &meanError);
+    void logFeatureTracking(const std::vector<Point2f> &pts_l0, const std::vector<Point2f> &pts_r1, const cv::Mat &fmat,
+                            const std::vector<Point2f> &pts_l1, const std::vector<bool> &inliers, const cv::Mat &im_l0,
+                            const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll, const cv::Mat &R);
+    void logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const std::vector<Point2f> &pts_l1,
+                         const std::vector<Point2f> &pts_r1, const std::vector<cv::DMatch> &mlr1, int numPts);
+    void logPoseEstimation();
+
 
 
 };
