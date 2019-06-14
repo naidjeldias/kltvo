@@ -48,7 +48,7 @@ public:
 
     void saveTrajectoryKitti(const string &filename);
 
-    void saveTrajectoryEuroc(const string &filename);
+    void saveTrajectoryTUM(const string &filename);
 
     void start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
 

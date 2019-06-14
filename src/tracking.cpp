@@ -1186,7 +1186,7 @@ cv::Mat Tracking::getCurrentPose() {
     return Tcw;
 }
 
-void Tracking::saveTrajectoryEuroc(const string &filename) {
+void Tracking::saveTrajectoryTUM(const string &filename) {
 
     ofstream f;
     f.open(filename.c_str());

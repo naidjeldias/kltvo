@@ -180,7 +180,7 @@ int main(){
     cout << "-------" << endl << endl;
     cout << "mean tracking time: " << totaltime/current_ni << endl;
 
-    tracking.saveTrajectoryEuroc("KLTVO_EuRoc.txt");
+    tracking.saveTrajectoryTUM("KLTVO_EuRoc.txt");
 
     cv::destroyAllWindows();
 
