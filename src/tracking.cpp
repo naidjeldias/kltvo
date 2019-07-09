@@ -77,7 +77,7 @@ Tracking::Tracking(const string &strSettingPath) {
 
 //    std::cout << "Max disparity: " << maxDisp << std::endl;
 
-    debug_              = false;
+    debug_              = true;
     if(debug_){
         logFile.open("LOG_FILE.txt");
         logFile << std::fixed;
@@ -829,6 +829,25 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 
     std::vector<Point2f> aux_pts_r(pts_r);
 
+    //Assign keypoints on right image to a row table
+    std::vector<std::vector<std::size_t>> vecRowIndices (imRight.rows, std::vector<std::size_t>());
+
+    for (int i=0; i<imRight.rows; i++)
+        vecRowIndices[i].reserve(pts_l.size());
+
+    const int nRpts = pts_r.size();
+
+    for(int iR=0; iR < nRpts; iR++){
+
+        const Point2f &pt   = pts_r[iR];
+        const float pt_y    = pt.y;
+
+        const int yi = round(pt_y);
+        //push the point index on the vector of points in right image by it's y coordinate
+        vecRowIndices[yi].push_back(iR);
+
+    }
+
     int pos = 0;
     int index_l = 0;
     for (auto &pt_l:pts_l) {
@@ -836,7 +855,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
         Point2f ptr;
         int index;
         //find point correspondece in the right image using epipolar constraints
-        bool found = findMatchingSAD(pt_l, imLeft, imRight, aux_pts_r, ptr, index);
+        bool found = findMatchingSAD(pt_l, imLeft, imRight, aux_pts_r, ptr, index, vecRowIndices);
         if(found){
             new_pts_l.push_back(pt_l);
             new_pts_r.push_back(ptr);
@@ -860,7 +879,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 
 
 bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, const cv::Mat &imRight,
-                               std::vector<cv::Point2f> &pts_r, cv::Point2f &ptr_m, int &index) {
+                               std::vector<cv::Point2f> &pts_r, cv::Point2f &ptr_m, int &index, const std::vector<std::vector<std::size_t>> &vecRowIndices) {
 
     int halfBlockSize = 2;
     int blockSize = 2 * halfBlockSize + 1;
@@ -885,51 +904,64 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
         }
     }
 
-    int minSAD = 600;
+    const float &vL = pt_l.y;
+    const float &uL = pt_l.x;
+
+    const int yi = round(vL);
+
+    const std::vector<std::size_t> &vecCandidates = vecRowIndices[yi];
+    if(vecCandidates.empty())
+        return false;
+
+    int minSAD = 100000;
     Point2f bestPt;
 
     //flag to know when the point has no matching
     bool noMatching = true;
 
-    int index_r = 0, bestIndex_r = 0;
+    int bestIndex_r = 0;
     //find que point with the lowest SAD
-    for (auto &pt_r:pts_r) {
+    for (size_t index=0; index < vecCandidates.size(); index++) {
+
+        const size_t iR = vecCandidates[index];
+
+        const Point2f &pt_r = pts_r[iR];
 
         //check if the point was matched before
-        if(!(pt_r.x == -1 && pt_r.y == -1)){
+        if(pt_r.x == -1 && pt_r.y == -1)
+            continue;
 
-            int deltay = (int) abs(pt_l.y - pt_r.y);
-            int deltax = (int) pt_l.x - (int) pt_r.x;
+        int deltay = (int) abs(pt_l.y - pt_r.y);
+        int deltax = (int) pt_l.x - (int) pt_r.x;
 
-            //epipolar constraints, the correspondent keypoint must be in the same row and disparity should be positive
-            if (deltax >= minDisp && deltay <= MAX_DELTAY && abs (deltax) <= MAX_DELTAX) {
+        //epipolar constraints, the correspondent keypoint must be in the same row and disparity should be positive
+        if (deltax >= minDisp && deltax <= maxDisp) {
 
-                //compute SAD
-                int sum = 0;
-                for (int i = 0; i < blockSize; i++) {
-                    for (int j = 0; j < blockSize; j++) {
-                        int x = (int) pt_r.x - (halfBlockSize - i);
-                        int y = (int) pt_r.y - (halfBlockSize - j);
-                        //check frame limits
-                        if (x >= 0 && x < width && y >= 0 && y < height) {
-                            Scalar intensity = imRight.at<uchar>(y, x);
-                            sum += abs(template_.at<float>(j, i) - intensity[0]);
-                        } else {
-                            sum += abs(template_.at<float>(j, i) - 0);
-                        }
+            //compute SAD
+            int sum = 0;
+            for (int i = 0; i < blockSize; i++) {
+                for (int j = 0; j < blockSize; j++) {
+                    int x = (int) pt_r.x - (halfBlockSize - i);
+                    int y = (int) pt_r.y - (halfBlockSize - j);
+                    //check frame limits
+                    if (x >= 0 && x < width && y >= 0 && y < height) {
+                        Scalar intensity = imRight.at<uchar>(y, x);
+                        sum += abs(template_.at<float>(j, i) - intensity[0]);
+                    } else {
+                        sum += abs(template_.at<float>(j, i) - 0);
                     }
-                }
-
-                if (sum < minSAD) {
-                    noMatching = false;
-                    minSAD = sum;
-                    bestPt = pt_r;
-                    bestIndex_r = index_r;
                 }
             }
 
+            if (sum < minSAD) {
+                noMatching = false;
+                minSAD = sum;
+                bestPt = pt_r;
+                bestIndex_r = iR;
+            }
         }
-        index_r ++;
+
+
     }
 
     if (!noMatching) {
@@ -950,6 +982,27 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
                             std::vector<cv::Point2f> &new_pts2D_l, std::vector<cv::Point2f> &new_pts2D_r, std::vector<cv::DMatch> &matches) {
 
     std::vector<Point2f> aux_pts_r(pts2D_r);
+
+    //Assign keypoints on right image to a row table
+    std::vector<std::vector<std::size_t>> vecRowIndices (imRight.rows, std::vector<std::size_t>());
+
+    for (int i=0; i<imRight.rows; i++)
+        vecRowIndices[i].reserve(pts2D_l.size());
+
+    const int nRpts = pts2D_r.size();
+
+    for(int iR=0; iR < nRpts; iR++){
+
+        const Point2f &pt   = pts2D_r[iR];
+        const float pt_y    = pt.y;
+
+        const int yi = round(pt_y);
+        //push the point index on the vector of points in right image by it's y coordinate
+        vecRowIndices[yi].push_back(iR);
+
+    }
+
+
     int pos = 0;
     for (int i = 0; i < inliers.size(); i++){
 
@@ -959,7 +1012,7 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
 
             int index;
 
-            bool found = findMatchingSAD(pts2D_l.at(i), imLeft, imRight, aux_pts_r, pt2Dr, index);
+            bool found = findMatchingSAD(pts2D_l.at(i), imLeft, imRight, aux_pts_r, pt2Dr, index, vecRowIndices);
 
             if(found){
                 new_pts3D.push_back(pts3D.at(i));

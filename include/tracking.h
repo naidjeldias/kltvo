@@ -20,6 +20,7 @@
 #include <thread>
 #include <mutex>
 #include <functional>
+#include <math.h>
 
 #include "opencv2/features2d/features2d.hpp"
 
@@ -116,7 +117,7 @@ private:
                         std::vector<cv::Point2f> &new_pts_r);
 
     bool findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat& imLeft, const cv::Mat& imRight,
-                         std::vector<cv::Point2f>& pts_r, cv::Point2f &ptr_m, int &index);
+                         std::vector<cv::Point2f>& pts_r, cv::Point2f &ptr_m, int &index, const std::vector<std::vector<std::size_t>> &vecRowIndices);
 
     int poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr, const std::vector<cv::Point3f> &pts3d
             , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh);
