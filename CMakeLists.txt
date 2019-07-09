@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.8)
 project(kltVO)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 find_package(OpenCV 4.0.0 REQUIRED)
@@ -19,7 +19,7 @@ add_library(${PROJECT_NAME} SHARED
         src/ORBextractor.cc
 )
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread")
 
 target_link_libraries(
         ${PROJECT_NAME}
