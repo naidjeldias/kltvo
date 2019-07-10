@@ -60,7 +60,17 @@ public:
 
 private:
 
-    //--------------ORB extractor variables
+    std::list<cv::Mat> relativeFramePoses;
+    std::list<double>  frameTimeStamp;
+
+
+    bool initPhase;
+    int numFrame;
+
+    double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
+
+
+    //-------------- feature extraction
     int nFeatures;
     float fScaleFactor;
     int nLevels ;
@@ -68,36 +78,66 @@ private:
     int fMinThFAST;
     std::mutex mtxORB;
 
-
-
-    //--------------Stereo matching
-    double maxDisp, minDisp, initTimestamp;
-
-    //-------------KLT threads
-    std::mutex mtx1, mtx2, mtx3;
-
-
-    //--------------ORB extractor
     ORBextractor* mpORBextractorLeft;
     ORBextractor* mpORBextractorRight;
 
-    bool initPhase;
+    void extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts);
 
-    int numFrame;
+    void gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im);
+
+    bool assignFeatureToGrid(const cv::KeyPoint &kp, int &posX, int &posXY, const cv::Mat &im, const int &nBucketX, const int &nBucketY);
+
+
+
+    //-------------- stereo matching
+    double maxDisp, minDisp, initTimestamp;
+
+
+    void stereoMatching(const std::vector<cv::Point2f>& pts_l, const std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
+                        const cv::Mat& imRight,  std::vector<cv::DMatch> &matches, std::vector<cv::Point2f> &new_pts_l,
+                        std::vector<cv::Point2f> &new_pts_r, std::vector<cv::Point3f> &pointCloud);
+
+    bool findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat& imLeft, const cv::Mat& imRight,
+                         std::vector<cv::Point2f>& pts_r, cv::Point2f &ptr_m, int &index, const std::vector<std::vector<std::size_t>> &vecRowIndices);
+
+
+    //------------- feature tracking
+    std::mutex mtx1, mtx2, mtx3;
+
+    void opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, cv::Mat &status, cv::Mat &error,
+                                 std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr, std::vector <Mat> imT1_pyr);
+
+    //    void checkPointOutBounds(const  std::vector<Point2f> &);
 
     //--------------Eight Point Algorithm
     EightPoint* mEightPointLeft;
 
+    void essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, const cv::Mat &K_l, const std::vector<cv::Point2f> &pts_l,
+                                      const std::vector<cv::Point2f> &pts_r, const std::vector<bool> &inliers , cv::Mat &R_est, cv::Mat &t_est);
 
+    void checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat &u3, const cv::Mat &K, const cv::Mat &K_l, const cv::Point2f &pt_l
+            , const cv::Point2f &pt_r, cv::Mat &R_est, cv::Mat &t_est);
 
-    std::list<cv::Mat> relativeFramePoses;
-    std::list<double>  frameTimeStamp;
+    bool pointFrontCamera(cv::Mat &R, const cv::Mat &u3, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
+                          const cv::Mat &K, const cv::Mat &K_l);
 
 
     //----------local mapping
     int max_iter_3d;
     double th_3d;
     cv::Mat imLeft0, imRight0;
+
+    void localMapping (const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
+                       std::vector<cv::Point3f> &pts3D, const std::vector<cv::DMatch> &macthes, double &meanError);
+
+    bool triangulation (const cv::Point2f &pt_l, const cv::Point2f &pt_r, cv::Point3f &pt3D);
+
+
+    //----------- quad Matching
+    void quadMatching(const std::vector<cv::Point3f> &pts3D, const std::vector<cv::Point2f> &pts2D_l, const std::vector<cv::Point2f> &pts2D_r
+            , std::vector<bool> &inliers, const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::Point3f> &new_pts3D,
+                      std::vector<cv::Point2f> &new_pts2D_l, std::vector<cv::Point2f> &new_pts2D_r, std::vector<cv::DMatch> &matches);
+
 
     //----------Pose estimation
     double ransacProb, ransacTh;
@@ -107,17 +147,6 @@ private:
     int maxIteration;           // max number of iteration for pose update
     int finalMaxIteration;      // max iterations for minimization final refinement
     bool reweigh;               // reweight in optimization
-
-
-    void localMapping (const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
-                       std::vector<cv::Point3f> &pts3D, const std::vector<cv::DMatch> &macthes, double &meanError);
-
-    void stereoMatching(const std::vector<cv::Point2f>& pts_l, const std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
-                        const cv::Mat& imRight,  std::vector<cv::DMatch> &matches, std::vector<cv::Point2f> &new_pts_l,
-                        std::vector<cv::Point2f> &new_pts_r);
-
-    bool findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat& imLeft, const cv::Mat& imRight,
-                         std::vector<cv::Point2f>& pts_r, cv::Point2f &ptr_m, int &index, const std::vector<std::vector<std::size_t>> &vecRowIndices);
 
     int poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr, const std::vector<cv::Point3f> &pts3d
             , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh);
@@ -130,31 +159,6 @@ private:
 
     int checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
                      const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh);
-
-    double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
-
-    void quadMatching(const std::vector<cv::Point3f> &pts3D, const std::vector<cv::Point2f> &pts2D_l, const std::vector<cv::Point2f> &pts2D_r
-            , std::vector<bool> &inliers, const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::Point3f> &new_pts3D,
-                      std::vector<cv::Point2f> &new_pts2D_l, std::vector<cv::Point2f> &new_pts2D_r, std::vector<cv::DMatch> &matches);
-
-    void essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, const cv::Mat &K_l, const std::vector<cv::Point2f> &pts_l,
-                                      const std::vector<cv::Point2f> &pts_r, const std::vector<bool> &inliers , cv::Mat &R_est, cv::Mat &t_est);
-
-    void checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat &u3, const cv::Mat &K, const cv::Mat &K_l, const cv::Point2f &pt_l
-            , const cv::Point2f &pt_r, cv::Mat &R_est, cv::Mat &t_est);
-
-    bool pointFrontCamera(cv::Mat &R, const cv::Mat &u3, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
-            const cv::Mat &K, const cv::Mat &K_l);
-
-
-    void extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts);
-
-    void opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, cv::Mat &status, cv::Mat &error,
-                                 std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr, std::vector <Mat> imT1_pyr);
-
-    void gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im);
-
-    bool assignFeatureToGrid(const cv::KeyPoint &kp, int &posX, int &posXY, const cv::Mat &im, const int &nBucketX, const int &nBucketY);
 
 
     //----------------------debug functions

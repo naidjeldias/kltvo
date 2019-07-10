@@ -131,20 +131,19 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
         //finding matches in left and right previous frames
         std::vector<Point2f> pts_l1, pts_r1, new_pts_l0, new_pts_r0;
-        std::vector<DMatch> mlr0, mlr1, mll;
-
-        stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0);
+        std::vector<DMatch> mlr0, mlr1, mll, mrr;
+        std::vector<cv::Point3f> pointCloud;
+        stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0, pointCloud);
         if(debug_)
             logStereoMatching(imRight0, imLeft0, mlr0, new_pts_r0, new_pts_l0);
 
 
-
         //triangulate previous keypoints
-        std::vector<Point3f> pts3D;
-        double meanError;
-        localMapping(new_pts_l0, new_pts_r0, pts3D, mlr0, meanError);
-        if(debug_)
-            logLocalMaping(pts3D, meanError);
+//        std::vector<Point3f> pts3D;
+//        double meanError;
+//        localMapping(new_pts_l0, new_pts_r0, pts3D, mlr0, meanError);
+//        if(debug_)
+//            logLocalMaping(pts3D, meanError);
 
 
         //tracking features from previous frames to current frames
@@ -185,7 +184,6 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         Rodrigues(R_est, rvec_est, noArray());
         if (debug_)
             logFeatureTracking(new_pts_l0, pts_r1, fmat, pts_l1, inliers, imLeft0, imLeft, mll,R_est);
-
 
 
         std::vector<Point3f> new_pts3D;
@@ -825,7 +823,7 @@ double Tracking::euclideanDist(const cv::Point2d &p, const cv::Point2d &q) {
 
 void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
                               const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::DMatch> &matches,
-                              std::vector<cv::Point2f> &new_pts_l, std::vector<cv::Point2f> &new_pts_r) {
+                              std::vector<cv::Point2f> &new_pts_l, std::vector<cv::Point2f> &new_pts_r, std::vector<cv::Point3f> &pointCloud) {
 
     std::vector<Point2f> aux_pts_r(pts_r);
 
@@ -853,18 +851,24 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
     for (auto &pt_l:pts_l) {
 
         Point2f ptr;
+        Point3f pt3D;
         int index;
         //find point correspondece in the right image using epipolar constraints
         bool found = findMatchingSAD(pt_l, imLeft, imRight, aux_pts_r, ptr, index, vecRowIndices);
         if(found){
-            new_pts_l.push_back(pt_l);
-            new_pts_r.push_back(ptr);
+            //check if the point have a good triangulation
+            if(triangulation(pt_l, ptr, pt3D)){
+                new_pts_l.push_back(pt_l);
+                new_pts_r.push_back(ptr);
 
-            double dst = euclideanDist(pt_l, ptr);
-            DMatch match(pos, pos, dst);
-            matches.push_back(match);
-            pos++;
+                pointCloud.push_back(pt3D);
 
+                double dst = euclideanDist(pt_l, ptr);
+                DMatch match(pos, pos, dst);
+                matches.push_back(match);
+                pos++;
+
+            }
         }
 
         index_l ++;
@@ -1447,3 +1451,55 @@ void Tracking::logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const
 
 }
 
+
+bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, cv::Point3f &pt3d) {
+
+
+    double w0, w1;
+    double dist;
+
+    w0 = w1 = 1.0;
+
+    Mat point3d;
+
+    for(int j = 0; j < max_iter_3d; j++){
+
+        Mat A   = Mat::zeros(4,4,CV_64F);
+        Mat D, U, Vt;
+
+        A.row(0) = w0*(kp_l.x*P1.row(2)-P1.row(0));
+        A.row(1) = w0*(kp_l.y*P1.row(2)-P1.row(1));
+        A.row(2) = w1*(kp_r.x*P2.row(2)-P2.row(0));
+        A.row(3) = w1*(kp_r.y*P2.row(2)-P2.row(1));
+
+        SVD::compute(A,D,U,Vt, SVD::MODIFY_A| SVD::FULL_UV);
+
+        point3d = Vt.row(3).t();
+
+        point3d = point3d.rowRange(0,4)/point3d.at<double>(3);
+
+        Mat p0 = P1*point3d;
+        Mat p1 = P2*point3d;
+
+        w0 = 1.0/p0.at<double>(2);
+        w1 = 1.0/p1.at<double>(2);
+
+        double dx0 = kp_l.x - p0.at<double>(0)/p0.at<double>(2);
+        double dy0 = kp_l.y - p0.at<double>(1)/p0.at<double>(2);
+        double dx1 = kp_r.x - p1.at<double>(0)/p1.at<double>(2);
+        double dy1 = kp_r.y - p1.at<double>(1)/p1.at<double>(2);
+
+        dist = sqrt(dx0*dx0+dy0*dy0) + sqrt(dx1*dx1+dy1*dy1);
+
+    }
+
+    pt3d.x           = (float) point3d.at<double>(0);
+    pt3d.y           = (float) point3d.at<double>(1);
+    pt3d.z           = (float) point3d.at<double>(2);
+
+    if (dist < 2*th_3d)
+        return true;
+    else
+        return false;
+
+}
