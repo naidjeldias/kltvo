@@ -95,19 +95,21 @@ private:
 
     void stereoMatching(const std::vector<cv::Point2f>& pts_l, const std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
                         const cv::Mat& imRight,  std::vector<cv::DMatch> &matches, std::vector<cv::Point2f> &new_pts_l,
-                        std::vector<cv::Point2f> &new_pts_r, std::vector<cv::Point3f> &pointCloud);
+                        std::vector<cv::Point2f> &new_pts_r, std::vector<cv::Point3f> &pointCloud, double &meanError);
 
     bool findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat& imLeft, const cv::Mat& imRight,
                          std::vector<cv::Point2f>& pts_r, cv::Point2f &ptr_m, int &index, const std::vector<std::vector<std::size_t>> &vecRowIndices);
 
 
     //------------- feature tracking
-    std::mutex mtx1, mtx2, mtx3;
+    std::mutex mtx1, mtx2, mtx3, mtx4;
 
-    void opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, cv::Mat &status, cv::Mat &error,
-                                 std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr, std::vector <Mat> imT1_pyr);
+    void opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
+                                 std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr,
+                                 std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D);
 
-    //    void checkPointOutBounds(const  std::vector<Point2f> &);
+    void checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,
+                             const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3D);
 
     //--------------Eight Point Algorithm
     EightPoint* mEightPointLeft;
@@ -130,7 +132,7 @@ private:
     void localMapping (const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
                        std::vector<cv::Point3f> &pts3D, const std::vector<cv::DMatch> &macthes, double &meanError);
 
-    bool triangulation (const cv::Point2f &pt_l, const cv::Point2f &pt_r, cv::Point3f &pt3D);
+    bool triangulation (const cv::Point2f &pt_l, const cv::Point2f &pt_r, cv::Point3f &pt3D, double &error);
 
 
     //----------- quad Matching

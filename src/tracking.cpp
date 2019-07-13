@@ -77,7 +77,7 @@ Tracking::Tracking(const string &strSettingPath) {
 
 //    std::cout << "Max disparity: " << maxDisp << std::endl;
 
-    debug_              = true;
+    debug_              = false;
     if(debug_){
         logFile.open("LOG_FILE.txt");
         logFile << std::fixed;
@@ -110,10 +110,13 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
         //detect features
         std::vector<KeyPoint> kpts_l, kpts_r;
-        std::vector<Point2f> pts_l0, pts_r0;
+        kpts_l.reserve(nFeatures);
+        kpts_r.reserve(nFeatures);
 
+        std::vector<Point2f> pts_l0, pts_r0;
         pts_l0.reserve(nFeatures);
         pts_r0.reserve(nFeatures);
+
         std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(imLeft0), std::ref (kpts_l), std::ref (pts_l0));
         std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(imRight0), std::ref (kpts_r), std::ref(pts_r0));
 
@@ -123,40 +126,49 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         if(debug_)
             logFeatureExtraction(kpts_l, kpts_r, pts_l0, imLeft0);
 
+        //Free memory
+        std::vector<KeyPoint>().swap(kpts_l);
+
 
         //convert vector of keypoints to vector of Point2f
         for (auto& kpt:kpts_r)
             pts_r0.push_back(kpt.pt);
 
+        //Free memory
+        std::vector<KeyPoint>().swap(kpts_r);
 
         //finding matches in left and right previous frames
-        std::vector<Point2f> pts_l1, pts_r1, new_pts_l0, new_pts_r0;
+        std::vector<Point2f> new_pts_l0, new_pts_r0;
+        new_pts_l0.reserve(pts_l0.size());
+        new_pts_r0.reserve(pts_r0.size());
+
         std::vector<DMatch> mlr0, mlr1, mll, mrr;
-        std::vector<cv::Point3f> pointCloud;
-        stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0, pointCloud);
-        if(debug_)
+        //std::vector<cv::Point3f> pointCloud;
+        std::vector<Point3f> pts3D;
+        double meanError;
+        stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0, pts3D, meanError);
+        if(debug_){
             logStereoMatching(imRight0, imLeft0, mlr0, new_pts_r0, new_pts_l0);
-
-
-        //triangulate previous keypoints
-//        std::vector<Point3f> pts3D;
-//        double meanError;
-//        localMapping(new_pts_l0, new_pts_r0, pts3D, mlr0, meanError);
-//        if(debug_)
-//            logLocalMaping(pts3D, meanError);
+            logLocalMaping(pts3D, meanError);
+        }
 
 
         //tracking features from previous frames to current frames
+        std::vector<Point2f> pts_l1, pts_r1;
         std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
         Size win (15,15);
         int maxLevel = 3;
-        Mat status0, status1, error0, error1;
+        std::vector<uchar> status0, status1;
+        std::vector<float > error0, error1;
 
-        std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imLeft0), std::ref(imLeft), win, maxLevel,
-                        std::ref(status0), std::ref(error0), std::ref(new_pts_l0), std::ref(pts_l1), std::ref(left0_pyr), std::ref(left1_pyr));
+        std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imLeft0), std::ref(imLeft), win,
+                                   maxLevel, std::ref(status0), std::ref(error0), std::ref(new_pts_l0), std::ref(pts_l1),
+                                   std::ref(left0_pyr), std::ref(left1_pyr), 0, std::ref(pts3D));
 
-        std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imRight0), std::ref(imRight), win, maxLevel,
-                        std::ref(status1), std::ref(error1), std::ref(new_pts_r0), std::ref(pts_r1), std::ref(right0_pyr), std::ref(right1_pyr));
+        std::vector<Point3f> aux (0);
+        std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imRight0), std::ref(imRight), win,
+                                    maxLevel, std::ref(status1), std::ref(error1), std::ref(new_pts_r0), std::ref(pts_r1),
+                                    std::ref(right0_pyr), std::ref(right1_pyr), 1, std::ref(aux));
 
         kltThreadLeft.join();
         kltThreadRight.join();
@@ -188,6 +200,10 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
         std::vector<Point3f> new_pts3D;
         std::vector<Point2f> new_pts_l1, new_pts_r1;
+        new_pts_l1.reserve(pts_l1.size());
+        new_pts_r1.reserve(pts_r1.size());
+        new_pts3D.reserve(pts3D.size());
+
         quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1);
         if(debug_)
             logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
@@ -286,6 +302,8 @@ void Tracking::extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt, std
 //    gridNonMaximumSuppression(pts,kpt,im);
 //    mtxORB.unlock();
 
+
+
 }
 
 void Tracking::gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im) {
@@ -370,8 +388,9 @@ void Tracking::drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts
 }
 
 
-void Tracking::opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, cv::Mat &status, cv::Mat &error,
-                                       std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr, std::vector <Mat> imT1_pyr) {
+void Tracking::opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
+                                       std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr,
+                                       std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D) {
 
 
 //    std::vector <Mat> imT0_pyr, imT1_pyr;
@@ -382,6 +401,9 @@ void Tracking::opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size 
     std::lock_guard<std::mutex> lock3(mtx3);
     calcOpticalFlowPyrLK(imT0_pyr, imT1_pyr, prevPts, nextPts, status, error, win, maxLevel,
                          TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
+
+    std::lock_guard<std::mutex> lock4(mtx4);
+    checkPointOutBounds(prevPts, nextPts, imT1, status, flag, pts3D);
 
 }
 
@@ -823,7 +845,8 @@ double Tracking::euclideanDist(const cv::Point2d &p, const cv::Point2d &q) {
 
 void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
                               const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::DMatch> &matches,
-                              std::vector<cv::Point2f> &new_pts_l, std::vector<cv::Point2f> &new_pts_r, std::vector<cv::Point3f> &pointCloud) {
+                              std::vector<cv::Point2f> &new_pts_l, std::vector<cv::Point2f> &new_pts_r,
+                              std::vector<cv::Point3f> &pointCloud, double &meanError) {
 
     std::vector<Point2f> aux_pts_r(pts_r);
 
@@ -848,6 +871,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 
     int pos = 0;
     int index_l = 0;
+    double sum = 0;
     for (auto &pt_l:pts_l) {
 
         Point2f ptr;
@@ -857,7 +881,10 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
         bool found = findMatchingSAD(pt_l, imLeft, imRight, aux_pts_r, ptr, index, vecRowIndices);
         if(found){
             //check if the point have a good triangulation
-            if(triangulation(pt_l, ptr, pt3D)){
+            double error;
+            if(triangulation(pt_l, ptr, pt3D, error)){
+
+                sum += error;
                 new_pts_l.push_back(pt_l);
                 new_pts_r.push_back(ptr);
 
@@ -873,6 +900,11 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 
         index_l ++;
     }
+
+    //Free memory
+    std::vector<Point2f>().swap(aux_pts_r);
+
+    meanError = sum/(pointCloud.size() * 2);
 
 
 //    std::cout << "remaining left points: " << new_pts_l.size() << std::endl;
@@ -939,7 +971,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
         int deltax = (int) pt_l.x - (int) pt_r.x;
 
         //epipolar constraints, the correspondent keypoint must be in the same row and disparity should be positive
-        if (deltax >= minDisp && deltax <= maxDisp) {
+        if (deltax >= minDisp && deltax <= MAX_DELTAX) {
 
             //compute SAD
             int sum = 0;
@@ -1452,7 +1484,7 @@ void Tracking::logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const
 }
 
 
-bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, cv::Point3f &pt3d) {
+bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, cv::Point3f &pt3d, double &error) {
 
 
     double w0, w1;
@@ -1478,8 +1510,15 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
 
         point3d = point3d.rowRange(0,4)/point3d.at<double>(3);
 
+//        std::cout << point3d << "\n";
+
         Mat p0 = P1*point3d;
         Mat p1 = P2*point3d;
+
+//        std::cout << P1 <<"\n";
+
+//        std::cout << p0 << "\n";
+//        std::cout << p1 << "\n";
 
         w0 = 1.0/p0.at<double>(2);
         w1 = 1.0/p1.at<double>(2);
@@ -1497,9 +1536,56 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
     pt3d.y           = (float) point3d.at<double>(1);
     pt3d.z           = (float) point3d.at<double>(2);
 
+    error = dist;
+
     if (dist < 2*th_3d)
         return true;
     else
         return false;
+
+}
+
+void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,
+                                   const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3) {
+
+    std::vector<Point2f> tmpPrevPts (prevPts.size());
+    std::vector<Point2f> tmpNexPts (nextPts.size());
+    std::vector<Point3f> tmpPts3D (pts3.size());
+
+    if (flag == 0){
+//        std::vector<Point3f> tmpPts3D (pts3.size());
+        tmpPts3D.swap(pts3);
+        pts3.clear();
+    }
+
+    tmpPrevPts.swap(prevPts);
+    prevPts.clear();
+    tmpNexPts.swap(nextPts);
+    nextPts.clear();
+
+
+    for (int i=0; i< tmpPrevPts.size(); i++){
+
+        const Point2f &pt_r = tmpNexPts[i];
+        const Point2f &pt_l = tmpPrevPts[i];
+
+        const Point3f &pt3d = tmpPts3D[i];
+
+        if(status[i] == 1 && pt_r.x <= imT1.cols && pt_r.y <= imT1.rows){
+
+            prevPts.push_back(pt_l);
+            nextPts.push_back(pt_r);
+
+            if(flag == 0)
+                pts3.push_back(pt3d);
+
+        }
+    }
+
+    //Free memory
+    std::vector<Point2f>().swap(tmpPrevPts);
+    std::vector<Point2f>().swap(tmpNexPts);
+    std::vector<Point3f>().swap(tmpPts3D);
+
 
 }

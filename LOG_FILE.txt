@@ -1,0 +1,28 @@
+Frame: 1
+Kpts left detected: 2009
+Kpts rigth detected: 2007
+Num keypoints after NMS:  151
+Number of stereo matches: 84
+Number of 3D points: 84
+Mean reprojection error: 0.046498
+Number of left points tracked: 78
+Number of right points tracked: 79
+det(F): 0.000000
+Number of inliers: 72
+det(R) of E: 1.000000
+left points before quadMatching: 50
+----------------------------  
+Frame: 2
+Kpts left detected: 2006
+Kpts rigth detected: 2007
+Num keypoints after NMS:  150
+Number of stereo matches: 91
+Number of 3D points: 91
+Mean reprojection error: 0.053360
+Number of left points tracked: 84
+Number of right points tracked: 88
+det(F): 0.000000
+Number of inliers: 79
+det(R) of E: 1.000000
+left points before quadMatching: 47
+----------------------------  
