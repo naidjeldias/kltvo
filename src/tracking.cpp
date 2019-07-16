@@ -173,18 +173,6 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         kltThreadLeft.join();
         kltThreadRight.join();
 
-//        buildOpticalFlowPyramid(imLeft0, left0_pyr, win, maxLevel, true);
-//        buildOpticalFlowPyramid(imLeft, left1_pyr, win, maxLevel, true);
-//
-//        buildOpticalFlowPyramid(imRight0, right0_pyr, win, maxLevel, true);
-//        buildOpticalFlowPyramid(imRight,  right1_pyr, win, maxLevel, true);
-//
-//        calcOpticalFlowPyrLK(left0_pyr, left1_pyr, new_pts_l0, pts_l1, status0, error0, win, maxLevel,
-//                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
-//
-//        calcOpticalFlowPyrLK(right0_pyr, right1_pyr, new_pts_r0, pts_r1, status1, error1, win, maxLevel,
-//                             TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
-
         std::vector<bool>       inliers;
         Mat fmat;
         (*mEightPointLeft) (new_pts_l0, pts_l1, mll, inliers, true, 0, fmat);
@@ -196,6 +184,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         Rodrigues(R_est, rvec_est, noArray());
         if (debug_)
             logFeatureTracking(new_pts_l0, pts_r1, fmat, pts_l1, inliers, imLeft0, imLeft, mll,R_est);
+
 
 
         std::vector<Point3f> new_pts3D;
@@ -1019,6 +1008,7 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
 
     std::vector<Point2f> aux_pts_r(pts2D_r);
 
+
     //Assign keypoints on right image to a row table
     std::vector<std::vector<std::size_t>> vecRowIndices (imRight.rows, std::vector<std::size_t>());
 
@@ -1029,7 +1019,9 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
 
     for(int iR=0; iR < nRpts; iR++){
 
+
         const Point2f &pt   = pts2D_r[iR];
+
         const float pt_y    = pt.y;
 
         const int yi = round(pt_y);
@@ -1571,7 +1563,7 @@ void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Po
 
         const Point3f &pt3d = tmpPts3D[i];
 
-        if(status[i] == 1 && pt_r.x <= imT1.cols && pt_r.y <= imT1.rows){
+        if(status[i] == 1 && pt_r.x >= 0 && pt_r.x <= imT1.cols && pt_r.y >= 0 && pt_r.y <= imT1.rows){
 
             prevPts.push_back(pt_l);
             nextPts.push_back(pt_r);
