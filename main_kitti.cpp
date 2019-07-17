@@ -77,7 +77,7 @@ int main() {
     // Main loop
     cv::Mat imLeft, imRight;
     int current_ni;
-    for(int ni=0; ni<nImages; ni++)
+    for(int ni=0; ni</*nImages*/3; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],IMREAD_UNCHANGED);
@@ -119,10 +119,10 @@ int main() {
 
         current_ni = ni;
 
-        cv::imshow("Left Frame", imLeft);
-        char c=(char) cv::waitKey(1);
-        if(c==27)
-            break;
+//        cv::imshow("Left Frame", imLeft);
+//        char c=(char) cv::waitKey(1);
+//        if(c==27)
+//            break;
     }
 
     // Tracking time statistics

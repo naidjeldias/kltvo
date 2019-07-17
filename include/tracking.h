@@ -6,7 +6,8 @@
 #define KLTVO_TRACKING_H
 
 #define MAX_DELTAY 0
-#define MAX_DELTAX 62
+#define MAX_DELTAX 69
+//#define MAX_DELTAX 62
 
 #define FRAME_GRID_COLS 48
 #define FRAME_GRID_ROWS 48

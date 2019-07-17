@@ -102,11 +102,14 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         numFrame        = 0;
         initTimestamp   = timestamp;
     }else{
+        numFrame ++;
 
         if(debug_){
             numFrame ++;
             writeOnLogFile("Frame:", std::to_string(numFrame));
         }
+
+        std::cout << "Frame: "<<  numFrame << std::endl;
 
         //detect features
         std::vector<KeyPoint> kpts_l, kpts_r;
@@ -173,6 +176,8 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         kltThreadLeft.join();
         kltThreadRight.join();
 
+
+
         std::vector<bool>       inliers;
         Mat fmat;
         (*mEightPointLeft) (new_pts_l0, pts_l1, mll, inliers, true, 0, fmat);
@@ -186,9 +191,9 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
             logFeatureTracking(new_pts_l0, pts_r1, fmat, pts_l1, inliers, imLeft0, imLeft, mll,R_est);
 
 
-
         std::vector<Point3f> new_pts3D;
         std::vector<Point2f> new_pts_l1, new_pts_r1;
+
         new_pts_l1.reserve(pts_l1.size());
         new_pts_r1.reserve(pts_r1.size());
         new_pts3D.reserve(pts3D.size());
@@ -912,6 +917,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
     int width = imRight.size().width;
     int height = imRight.size().height;
 
+
     Mat template_(blockSize, blockSize, CV_64F);
     //get pixel neighbors
     //        Mat template_ = imLeft(Rect ((int)pt.x - halfBlockSize, (int)pt.y - halfBlockSize, halfBlockSize, halfBlockSize)).clone();
@@ -928,6 +934,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
             }
         }
     }
+
 
     const float &vL = pt_l.y;
     const float &uL = pt_l.x;
@@ -952,6 +959,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
 
         const Point2f &pt_r = pts_r[iR];
 
+
         //check if the point was matched before
         if(pt_r.x == -1 && pt_r.y == -1)
             continue;
@@ -959,7 +967,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
         int deltay = (int) abs(pt_l.y - pt_r.y);
         int deltax = (int) pt_l.x - (int) pt_r.x;
 
-        //epipolar constraints, the correspondent keypoint must be in the same row and disparity should be positive
+        //epipolar constraints, the correspondent keypoint must be at the same row and disparity should be positive
         if (deltax >= minDisp && deltax <= MAX_DELTAX) {
 
             //compute SAD
@@ -989,6 +997,8 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
 
     }
 
+
+
     if (!noMatching) {
         // a way to not compare with points already matched
         pts_r[bestIndex_r] = Point (-1,-1);
@@ -1008,12 +1018,12 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
 
     std::vector<Point2f> aux_pts_r(pts2D_r);
 
-
     //Assign keypoints on right image to a row table
-    std::vector<std::vector<std::size_t>> vecRowIndices (imRight.rows, std::vector<std::size_t>());
+    std::vector<std::vector<std::size_t>> vecRowIndices (imRight.rows+1, std::vector<std::size_t>());
 
     for (int i=0; i<imRight.rows; i++)
-        vecRowIndices[i].reserve(pts2D_l.size());
+        vecRowIndices[i].reserve(pts2D_r.size());
+
 
     const int nRpts = pts2D_r.size();
 
@@ -1025,6 +1035,8 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
         const float pt_y    = pt.y;
 
         const int yi = round(pt_y);
+
+
         //push the point index on the vector of points in right image by it's y coordinate
         vecRowIndices[yi].push_back(iR);
 
@@ -1052,16 +1064,12 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
                 matches.push_back(match);
                 pos++;
 
-
             }
 
         }
 
     }
 
-//    std::cout << "remaining left points: " << new_pts2D_l.size() << std::endl;
-//    std::cout << "remaining right points: "<< new_pts2D_r.size() << std::endl;
-//    std::cout << "remaining 3D points: "<< new_pts3D.size()   << std::endl;
 
 }
 

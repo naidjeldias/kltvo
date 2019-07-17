@@ -177,6 +177,8 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
         n ++;
     }
 
+    delete [] errorVect;
+
 //     std::cout << "Number of pts left 0 after ransac : " << bestNumInliers << std::endl;
 //       std::cout << "Error standard deviation: " << bestStdDev << std::endl;
 //     std::cout << "Number of iterations: " << n << std::endl;
@@ -444,14 +446,6 @@ void EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vecto
                 Point2d x0(linePts.at(0), linePts.at(1));
                 Point2d x1(linePts.at(2), linePts.at(3));
                 line(rgb, x0, x1, color, 1);
-//
-//                if(rightFlag == 0){
-//                    Point2d x(X_l.at<double>(0), X_l.at<double>(1));
-//                    circle(rgb,x, 5, color, -1);
-//                }else{
-//                    Point2d x(X_r.at<double>(0), X_r.at<double>(1));
-//                    circle(rgb,x, 5, color, -1);
-//                }
 
                 Point2d x(X_l.at<double>(0), X_l.at<double>(1));
                 circle(rgb,x, 5, color, -1);
@@ -464,13 +458,6 @@ void EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vecto
                 Point2d x1(linePts1.at(2), linePts1.at(3));
                 line(rgb1, x0, x1, color, 1);
 
-//                if(rightFlag == 0){
-//                    Point2d x(X_l.at<double>(0), X_l.at<double>(1));
-//                    circle(rgb,x, 5, color, -1);
-//                }else{
-//                    Point2d x(X_r.at<double>(0), X_r.at<double>(1));
-//                    circle(rgb,x, 5, color, -1);
-//                }
                 Point2d x(X_r.at<double>(0), X_r.at<double>(1));
                 circle(rgb1,x, 5, color, -1);
 
@@ -478,23 +465,11 @@ void EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vecto
         }
     }
 
-//    std::cout << "Num pts left inlier: " << ptsl_.size() << std::endl;
-//    std::cout << "Num pts right inlier: " << ptsr_.size() << std::endl;
-//    std::cout << "Num matches: " << matches.size() << std::endl;
-
     drawMatches_(image, image1, ptsl_, ptsr_, matches, false);
-//    std::cout << "Num of points and lines: " << count << std::endl;
-//    if(rightFlag == 0)
-//        imshow("Epipole lines left", rgb);
-//    else
-//        imshow("Epipole lines Right", rgb1);
-//    imshow("Epipole lines left", rgb);
-//    imshow("Epipole lines Right", rgb1);
 
     imwrite("lefteplines.png",rgb);
     imwrite("righteplines.png",rgb1);
-//    waitKey(0);
-    // computeCorrespondEpilines(points,1,F, eplines);
+
 
 }
 
