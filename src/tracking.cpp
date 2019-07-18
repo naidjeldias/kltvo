@@ -864,7 +864,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
     }
 
     int pos = 0;
-    int index_l = 0;
+//    int index_l = 0;
     double sum = 0;
     for (auto &pt_l:pts_l) {
 
@@ -877,6 +877,8 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
             //check if the point have a good triangulation
             double error;
             if(triangulation(pt_l, ptr, pt3D, error)){
+
+//                std::cout << "Triangulation error: " << error << std::endl;
 
                 sum += error;
                 new_pts_l.push_back(pt_l);
@@ -892,7 +894,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
             }
         }
 
-        index_l ++;
+//        index_l ++;
     }
 
     //Free memory
@@ -917,6 +919,8 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
     int width = imRight.size().width;
     int height = imRight.size().height;
 
+    double meanP    = 0; //mean of intensities on base template matching
+    double stdP     = 0;
 
     Mat template_(blockSize, blockSize, CV_64F);
     //get pixel neighbors
@@ -929,11 +933,24 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
             if (x >= 0 && x < width && y >= 0 && y < height) {
                 Scalar intensity = imLeft.at<uchar>(y, x);
                 template_.at<float>(j, i) = (int) intensity[0];
+                meanP += (int) intensity[0];
             } else {
                 template_.at<float>(j, i) = 0;
+                meanP += 0;
             }
         }
     }
+
+    meanP /= (blockSize*blockSize);
+
+    for (int i=0; i < blockSize; i++){
+        for (int j = 0; j < blockSize; j++) {
+
+            double delta = (template_.at<float>(j, i) - meanP);
+            stdP += (delta * delta);
+        }
+    }
+
 
 
     const float &vL = pt_l.y;
@@ -945,7 +962,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
     if(vecCandidates.empty())
         return false;
 
-    int minSAD = 100000;
+    int minSAD = 10000;
     Point2f bestPt;
 
     //flag to know when the point has no matching
@@ -967,11 +984,16 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
         int deltay = (int) abs(pt_l.y - pt_r.y);
         int deltax = (int) pt_l.x - (int) pt_r.x;
 
+
+
         //epipolar constraints, the correspondent keypoint must be at the same row and disparity should be positive
         if (deltax >= minDisp && deltax <= MAX_DELTAX) {
 
             //compute SAD
-            int sum = 0;
+            double meanC    = 0; //mean of intensities of current template
+            double stdC     = 0; // standard deviation
+
+            Mat templateC (blockSize, blockSize, CV_64F);
             for (int i = 0; i < blockSize; i++) {
                 for (int j = 0; j < blockSize; j++) {
                     int x = (int) pt_r.x - (halfBlockSize - i);
@@ -979,16 +1001,39 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
                     //check frame limits
                     if (x >= 0 && x < width && y >= 0 && y < height) {
                         Scalar intensity = imRight.at<uchar>(y, x);
-                        sum += abs(template_.at<float>(j, i) - intensity[0]);
+                        templateC.at<float>(j, i) = (int) intensity[0];
+                        meanC += (int) intensity[0];
                     } else {
-                        sum += abs(template_.at<float>(j, i) - 0);
+                        templateC.at<float>(j, i) = 0;
+                        meanC += 0;
                     }
                 }
             }
 
-            if (sum < minSAD) {
+            meanC /= (blockSize*blockSize);
+
+            // compute standard deviation
+            for (int i=0; i < blockSize; i++){
+                for (int j = 0; j < blockSize; j++) {
+                    double delta =  (templateC.at<float>(j, i) - meanC);
+                    stdC += (delta*delta);
+                }
+            }
+
+            double nSAD = 0;
+            //compute NSAD
+            for (int i=0; i < blockSize; i++){
+                for (int j = 0; j < blockSize; j++) {
+                    double nIp = (template_.at<float>(j,i) - meanP) / stdP;
+                    double nIc = (templateC.at<float>(j,i) - meanC) / stdC;
+
+                    nSAD += abs(nIp - nIc);
+                }
+            }
+
+            if (nSAD < minSAD) {
                 noMatching = false;
-                minSAD = sum;
+                minSAD = nSAD;
                 bestPt = pt_r;
                 bestIndex_r = iR;
             }
@@ -996,7 +1041,6 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
 
 
     }
-
 
 
     if (!noMatching) {
@@ -1515,10 +1559,11 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
         Mat p0 = P1*point3d;
         Mat p1 = P2*point3d;
 
-//        std::cout << P1 <<"\n";
-
-//        std::cout << p0 << "\n";
-//        std::cout << p1 << "\n";
+//        std::cout  << "Real left x: " << kp_l.x << std::endl;
+//        std::cout << "Real rigth x: " << kp_r.x << std::endl;
+//
+//        std::cout << "Estimated left x: "   <<  p0.at<double>(0)/p0.at<double>(2) << "\n";
+//        std::cout << "Estimated rigth x: "  <<  p1.at<double>(0)/p1.at<double>(2) << "\n";
 
         w0 = 1.0/p0.at<double>(2);
         w1 = 1.0/p1.at<double>(2);
@@ -1529,6 +1574,7 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
         double dy1 = kp_r.y - p1.at<double>(1)/p1.at<double>(2);
 
         dist = sqrt(dx0*dx0+dy0*dy0) + sqrt(dx1*dx1+dy1*dy1);
+
 
     }
 
