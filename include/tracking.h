@@ -7,7 +7,7 @@
 
 #define MAX_DELTAY 0
 #define MAX_DELTAX 69
-//#define MAX_DELTAX 62
+//#define MAX_DELTAX 85
 
 #define FRAME_GRID_COLS 48
 #define FRAME_GRID_ROWS 48
@@ -159,6 +159,13 @@ private:
     int maxIteration;           // max number of iteration for pose update
     int finalMaxIteration;      // max iterations for minimization final refinement
     bool reweigh;               // reweight in optimization
+
+
+    void relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
+            const std::vector<cv::Point3f> &pts3D, const std::vector<double> &rvec_est, const cv::Mat &t_est ,cv::Mat &Tcw);
+
+    void poseRefinment(const std::vector<Point2f> &pts2DL, const std::vector<Point2f> &pts2DR,
+            const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers, std::vector<double> &p ,cv::Mat &rot_vec, cv::Mat &tr_vec);
 
     int poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr, const std::vector<cv::Point3f> &pts3d
             , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh);

@@ -111,7 +111,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
         std::cout << "Frame: "<<  numFrame << std::endl;
 
-        //detect features
+        //---------------------------------detect features
         std::vector<KeyPoint> kpts_l, kpts_r;
         kpts_l.reserve(nFeatures);
         kpts_r.reserve(nFeatures);
@@ -130,13 +130,14 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         std::vector<KeyPoint>().swap(kpts_r);
         std::vector<KeyPoint>().swap(kpts_l);
 
-        //finding matches in left and right previous frames
+        //-----------------------------------stereo matching
         std::vector<Point2f> new_pts_l0, new_pts_r0;
         new_pts_l0.reserve(pts_l0.size());
         new_pts_r0.reserve(pts_r0.size());
 
-        std::vector<DMatch> mlr0, mlr1;
-        //std::vector<cv::Point3f> pointCloud;
+        std::vector<DMatch> mlr0;
+        mlr0.reserve(pts_l0.size());
+
         std::vector<Point3f> pts3D;
         double meanError;
         stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0, pts3D, meanError);
@@ -146,11 +147,14 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         }
 
 
-        //tracking features from previous frames to current frames
+        //-----------------------------------tracking features from previous frames to current frames
         std::vector<Point2f> pts_l1, pts_r1;
+        pts_l1.reserve(new_pts_l0.size());
+        pts_r1.reserve(new_pts_r0.size());
+
         featureTracking(imLeft0, imLeft, imRight0, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D);
 
-        //outliers removal and 2D motion estimation
+        //-----------------------------------outliers removal and 2D motion estimation
         std::vector<bool>       inliers;
         std::vector<double>     rvec_est;
         Mat t_est;
@@ -159,78 +163,28 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
                 new_pts_r0, imRight, pts_r1, inliers, rvec_est, t_est);
 
 
+        //------------------------------------quad matching
         std::vector<Point3f> new_pts3D;
         std::vector<Point2f> new_pts_l1, new_pts_r1;
-
         new_pts_l1.reserve(pts_l1.size());
         new_pts_r1.reserve(pts_r1.size());
         new_pts3D.reserve(pts3D.size());
+
+        std::vector<DMatch> mlr1;
+        mlr1.reserve(pts_l1.size());
 
         quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1);
         if(debug_)
             logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
 
-        //initialize vector of parameters with rotation and translation from essential matrix
-        std::vector<double> p0 (6, 0.0);
-        p0.at(0) = rvec_est.at(0);
-        p0.at(1) = rvec_est.at(1);
-        p0.at(2) = rvec_est.at(2);
-        p0.at(3) = t_est.at<double>(0);
-        p0.at(4) = t_est.at<double>(1);
-        p0.at(5) = t_est.at<double>(2);
+        //free memory
+        std::vector<Point2f>().swap(pts_l1);
+        std::vector<Point2f>().swap(pts_r1);
+        std::vector<Point3f>().swap(pts3D);
 
-
-        std::vector<bool> inliers2;
-        std::vector<Point2d> inPts_l1, inPts_r1;
-        std::vector<Point3d> inPts_3D;
-
-        std::vector<double> p (6, 0.0);
-        poseEstimationRansac(new_pts_l1, new_pts_r1, new_pts3D, p0, inliers2, p, reweigh);
-
-
-        //pose refinment with all inliers
-        for (int i=0; i<inliers2.size(); i++){
-            if(inliers2.at(i)){
-                Point2f aux1 = new_pts_l1[i];
-                inPts_l1.push_back(aux1);
-                Point2f aux2 = new_pts_r1[i];
-                inPts_r1.push_back(aux2);
-                Point3f aux3 = new_pts3D[i];
-                inPts_3D.push_back(aux3);
-            }
-        }
-
-        // pose refinement with all inliers
-        int status = 0;
-        for (int i = 0; i < finalMaxIteration; i++){
-            status = poseEstimation(inPts_l1, inPts_r1, inPts_3D, p, inPts_l1.size(), reweigh);
-            if(status != UPDATE)
-                break;
-        }
-
-        Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
-        Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
-
-        rot_vec.at<double>(0) = p.at(0);
-        rot_vec.at<double>(1) = p.at(1);
-        rot_vec.at<double>(2) = p.at(2);
-
-
-        Mat Rotmat;
-        Rodrigues(rot_vec, Rotmat, noArray());
-//        std::cout << "Rodrigues Rotation mat: \n" << Rotmat << std::endl;
-
-        tr_vec.at<double>(0)  = p.at(3);
-        tr_vec.at<double>(1)  = p.at(4);
-        tr_vec.at<double>(2)  = p.at(5);
-
-//        Rotmat.convertTo(Rotmat, CV_32F);
-//        tr_vec.convertTo(tr_vec, CV_32F);
-
+        //------------------------------------relative pose estimation
         Mat Tcw_ = cv::Mat::eye(3,4,CV_64F);
-
-        Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
-        tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
+        relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, Tcw_);
 
         //saving relative pose estimated
         relativeFramePoses.push_back(Tcw_.clone());
@@ -1660,3 +1614,76 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
     if (debug_)
         logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll,R_est);
 }
+
+void Tracking::relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
+                                      const std::vector<cv::Point3f> &pts3D, const std::vector<double> &rvec_est
+                                      , const cv::Mat &t_est , cv::Mat &Tcw_) {
+
+
+    //initialize vector of parameters with rotation and translation from essential matrix
+    std::vector<double> p0 (6, 0.0);
+    p0.at(0) = rvec_est.at(0);
+    p0.at(1) = rvec_est.at(1);
+    p0.at(2) = rvec_est.at(2);
+    p0.at(3) = t_est.at<double>(0);
+    p0.at(4) = t_est.at<double>(1);
+    p0.at(5) = t_est.at<double>(2);
+
+    std::vector<bool> inliers2;
+
+    std::vector<double> p (6, 0.0);
+    poseEstimationRansac(pts2DL, pts2DR, pts3D, p0, inliers2, p, reweigh);
+
+    //pose refinment with all inliers
+    Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
+    Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
+
+    poseRefinment(pts2DL, pts2DR, pts3D, inliers2, p, rot_vec, tr_vec);
+
+    Mat Rotmat;
+    Rodrigues(rot_vec, Rotmat, noArray());
+
+    Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
+    tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
+
+
+
+}
+
+void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vector<Point2f> &pts2DR,
+                             const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers,
+                             std::vector<double> &p, cv::Mat &rot_vec, cv::Mat &tr_vec) {
+
+    std::vector<Point2d> inPts_l1, inPts_r1;
+    std::vector<Point3d> inPts_3D;
+
+    for (int i=0; i<inliers.size(); i++){
+        if(inliers.at(i)){
+            Point2f aux1 = pts2DL[i];
+            inPts_l1.push_back(aux1);
+            Point2f aux2 = pts2DR[i];
+            inPts_r1.push_back(aux2);
+            Point3f aux3 = pts3D[i];
+            inPts_3D.push_back(aux3);
+        }
+    }
+
+    // pose refinement with all inliers
+    int status = 0;
+    for (int i = 0; i < finalMaxIteration; i++){
+        status = poseEstimation(inPts_l1, inPts_r1, inPts_3D, p, inPts_l1.size(), reweigh);
+        if(status != UPDATE)
+            break;
+    }
+
+    rot_vec.at<double>(0) = p.at(0);
+    rot_vec.at<double>(1) = p.at(1);
+    rot_vec.at<double>(2) = p.at(2);
+
+    tr_vec.at<double>(0)  = p.at(3);
+    tr_vec.at<double>(1)  = p.at(4);
+    tr_vec.at<double>(2)  = p.at(5);
+
+
+}
+
