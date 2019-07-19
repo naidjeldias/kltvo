@@ -82,7 +82,9 @@ private:
     ORBextractor* mpORBextractorLeft;
     ORBextractor* mpORBextractorRight;
 
-    void extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts);
+    void featureExtraction (const cv::Mat &im0, const cv::Mat &im1, std::vector<KeyPoint> &kpts0,
+            std::vector<KeyPoint> &kpts1, std::vector<Point2f> &pts0, std::vector<Point2f> &pts1);
+    void extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts);
 
     void gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im);
 
@@ -105,15 +107,22 @@ private:
     //------------- feature tracking
     std::mutex mtx1, mtx2, mtx3, mtx4;
 
-    void opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
+    void featureTracking (const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
+            std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1, std::vector<Point3f> &pts3D );
+
+    void opticalFlowFeatureTrack(const cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
                                  std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr,
                                  std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D);
 
     void checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,
                              const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3D);
 
-    //--------------Eight Point Algorithm
+    //-------------- Outliers removal and motion estimation
     EightPoint* mEightPointLeft;
+
+    void outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std::vector<Point2f> &ptsL0
+            , const cv::Mat &imL1 ,const std::vector<Point2f> &ptsL1, const cv::Mat &imR0, const std::vector<Point2f> &ptsR0,
+            const cv::Mat &imR1, const std::vector<Point2f> &ptsR1, std::vector<bool> &inliers, std::vector<double> &rvec_est, cv::Mat &t_est);
 
     void essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, const cv::Mat &K_l, const std::vector<cv::Point2f> &pts_l,
                                       const std::vector<cv::Point2f> &pts_r, const std::vector<bool> &inliers , cv::Mat &R_est, cv::Mat &t_est);

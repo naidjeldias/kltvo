@@ -120,18 +120,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         pts_l0.reserve(nFeatures);
         pts_r0.reserve(nFeatures);
 
-        std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(imLeft0), std::ref (kpts_l), std::ref (pts_l0));
-        std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(imRight0), std::ref (kpts_r), std::ref(pts_r0));
-
-        orbThreadLeft.join();
-        orbThreadRight.join();
-
-        if(debug_)
-            logFeatureExtraction(kpts_l, kpts_r, pts_l0, imLeft0);
-
-        //Free memory
-        std::vector<KeyPoint>().swap(kpts_l);
-
+        featureExtraction(imLeft0, imRight0, kpts_l, kpts_r, pts_l0, pts_r0);
 
         //convert vector of keypoints to vector of Point2f
         for (auto& kpt:kpts_r)
@@ -139,13 +128,14 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
         //Free memory
         std::vector<KeyPoint>().swap(kpts_r);
+        std::vector<KeyPoint>().swap(kpts_l);
 
         //finding matches in left and right previous frames
         std::vector<Point2f> new_pts_l0, new_pts_r0;
         new_pts_l0.reserve(pts_l0.size());
         new_pts_r0.reserve(pts_r0.size());
 
-        std::vector<DMatch> mlr0, mlr1, mll, mrr;
+        std::vector<DMatch> mlr0, mlr1;
         //std::vector<cv::Point3f> pointCloud;
         std::vector<Point3f> pts3D;
         double meanError;
@@ -158,37 +148,15 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
         //tracking features from previous frames to current frames
         std::vector<Point2f> pts_l1, pts_r1;
-        std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
-        Size win (15,15);
-        int maxLevel = 3;
-        std::vector<uchar> status0, status1;
-        std::vector<float > error0, error1;
+        featureTracking(imLeft0, imLeft, imRight0, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D);
 
-        std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imLeft0), std::ref(imLeft), win,
-                                   maxLevel, std::ref(status0), std::ref(error0), std::ref(new_pts_l0), std::ref(pts_l1),
-                                   std::ref(left0_pyr), std::ref(left1_pyr), 0, std::ref(pts3D));
-
-        std::vector<Point3f> aux (0);
-        std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imRight0), std::ref(imRight), win,
-                                    maxLevel, std::ref(status1), std::ref(error1), std::ref(new_pts_r0), std::ref(pts_r1),
-                                    std::ref(right0_pyr), std::ref(right1_pyr), 1, std::ref(aux));
-
-        kltThreadLeft.join();
-        kltThreadRight.join();
-
-
-
+        //outliers removal and 2D motion estimation
         std::vector<bool>       inliers;
-        Mat fmat;
-        (*mEightPointLeft) (new_pts_l0, pts_l1, mll, inliers, true, 0, fmat);
+        std::vector<double>     rvec_est;
+        Mat t_est;
 
-        Mat R_est, t_est;
-        essentialMatrixDecomposition(fmat, K, K, new_pts_l0, pts_l1, inliers, R_est, t_est);
-
-        std::vector<double> rvec_est;
-        Rodrigues(R_est, rvec_est, noArray());
-        if (debug_)
-            logFeatureTracking(new_pts_l0, pts_r1, fmat, pts_l1, inliers, imLeft0, imLeft, mll,R_est);
+        outlierRemovalAndMotionEstimation(imLeft0, new_pts_l0, imLeft, pts_l1, imRight0,
+                new_pts_r0, imRight, pts_r1, inliers, rvec_est, t_est);
 
 
         std::vector<Point3f> new_pts3D;
@@ -282,7 +250,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
 }
 
-void Tracking::extractORB(int flag, cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts) {
+void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts) {
 
     if(flag == 0){
         (*mpORBextractorLeft) (im, cv::Mat(), kpt);
@@ -382,7 +350,7 @@ void Tracking::drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts
 }
 
 
-void Tracking::opticalFlowFeatureTrack(cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
+void Tracking::opticalFlowFeatureTrack(const cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
                                        std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr,
                                        std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D) {
 
@@ -962,7 +930,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
     if(vecCandidates.empty())
         return false;
 
-    int minSAD = 10000;
+    double minSAD = 0.04;
     Point2f bestPt;
 
     //flag to know when the point has no matching
@@ -1634,4 +1602,61 @@ void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Po
     std::vector<Point3f>().swap(tmpPts3D);
 
 
+}
+
+void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::vector<KeyPoint> &kpts0,
+                                 std::vector<KeyPoint> &kpts1, std::vector<Point2f> &pts0,
+                                 std::vector<Point2f> &pts1) {
+
+    std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(im0), std::ref (kpts0), std::ref (pts0));
+    std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(im1), std::ref (kpts1), std::ref(pts1));
+
+    orbThreadLeft.join();
+    orbThreadRight.join();
+
+    if(debug_)
+        logFeatureExtraction(kpts0, kpts1, pts0, im0);
+}
+
+void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
+                               std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1, std::vector<Point3f> &pts3D ) {
+
+    std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
+    Size win (15,15);
+    int maxLevel = 3;
+    std::vector<uchar> status0, status1;
+    std::vector<float > error0, error1;
+
+    std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imL0), std::ref(imL1), win,
+                               maxLevel, std::ref(status0), std::ref(error0), std::ref(ptsL0), std::ref(ptsL1),
+                               std::ref(left0_pyr), std::ref(left1_pyr), 0, std::ref(pts3D));
+
+    std::vector<Point3f> aux (0);
+    std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imR0), std::ref(imR1), win,
+                                maxLevel, std::ref(status1), std::ref(error1), std::ref(ptsR0), std::ref(ptsR1),
+                                std::ref(right0_pyr), std::ref(right1_pyr), 1, std::ref(aux));
+
+    kltThreadLeft.join();
+    kltThreadRight.join();
+
+
+}
+
+void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std::vector<Point2f> &ptsL0,
+                                                 const cv::Mat &imL1, const std::vector<Point2f> &ptsL1,
+                                                 const cv::Mat &imR0, const std::vector<Point2f> &ptsR0,
+                                                 const cv::Mat &imR1, const std::vector<Point2f> &ptsR1,
+                                                 std::vector<bool> &inliers, std::vector<double> &rvec_est, cv::Mat &t_est) {
+
+    Mat fmat;
+    std::vector<DMatch> mll, mrr;
+    (*mEightPointLeft) (ptsL0, ptsL1, mll, inliers, true, 0, fmat);
+
+    Mat R_est;
+    essentialMatrixDecomposition(fmat, K, K, ptsL0, ptsL1, inliers, R_est, t_est);
+
+
+    Rodrigues(R_est, rvec_est, noArray());
+    if (debug_)
+        logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll,R_est);
 }
