@@ -77,7 +77,7 @@ int main() {
     // Main loop
     cv::Mat imLeft, imRight;
     int current_ni;
-    for(int ni=0; ni</*nImages*/3; ni++)
+    for(int ni=0; ni<nImages; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],IMREAD_UNCHANGED);

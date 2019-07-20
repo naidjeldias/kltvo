@@ -9,7 +9,8 @@
 #define MAX_DELTAX 69
 //#define MAX_DELTAX 85
 
-#define LOG false
+#define LOG         true
+#define LOG_DRAW    false
 
 #define FRAME_GRID_COLS 48
 #define FRAME_GRID_ROWS 48
@@ -152,7 +153,8 @@ private:
     //----------- quad Matching
     void quadMatching(const std::vector<cv::Point3f> &pts3D, const std::vector<cv::Point2f> &pts2D_l, const std::vector<cv::Point2f> &pts2D_r
             , std::vector<bool> &inliers, const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::Point3f> &new_pts3D,
-                      std::vector<cv::Point2f> &new_pts2D_l, std::vector<cv::Point2f> &new_pts2D_r, std::vector<cv::DMatch> &matches);
+                      std::vector<cv::Point2f> &new_pts2D_l, std::vector<cv::Point2f> &new_pts2D_r,
+                      std::vector<cv::DMatch> &matches, const std::vector<bool> &ptsClose);
 
 
     //----------Pose estimation
