@@ -74,6 +74,7 @@ Tracking::Tracking(const string &strSettingPath) {
     //----Stereo Matching
     minDisp = (0.0F);
     maxDisp = bf/baseline;
+    thDepth = 4.0;
 
 //    std::cout << "Max disparity: " << maxDisp << std::endl;
 
@@ -749,11 +750,6 @@ std::vector<int> Tracking::generateRandomIndices(const unsigned long &maxIndice,
             randValues.push_back(index);
     }while(randValues.size() < vecSize);
 
-//    std::cout << "----------------------------- \n";
-//     std::cout << "Rand vector: \n";
-//     for(int i = 0; i < randValues.size(); i++)
-//         std::cout << randValues.at(i) << std::endl;
-//    std::cout << "----------------------------- \n";
 
     return randValues;
 }
@@ -812,15 +808,13 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
             if(triangulation(pt_l, ptr, pt3D, error, depth)){
 
 
-//                std::cout << "Triangulation error: " << error << std::endl;
-
                 sum += error;
                 new_pts_l.push_back(pt_l);
                 new_pts_r.push_back(ptr);
 
                 pointCloud.push_back(pt3D);
 
-                if (depth > 40*baseline)
+                if (depth > thDepth*baseline)
                     ptsClose.push_back(false);
                 else
                     ptsClose.push_back(true);
@@ -830,7 +824,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
                 matches.push_back(match);
                 pos++;
 #if LOG
-                if(depth > 40*baseline)
+                if(depth > thDepth*baseline)
                     drawFarAndClosePts(pt_l, Scalar(0, 0, 255), im);
                 else
                     drawFarAndClosePts(pt_l, Scalar(0, 255, 0), im);
@@ -841,7 +835,6 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
             }
         }
 
-//        index_l ++;
     }
 
     //Free memory
@@ -849,10 +842,6 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 
     meanError = sum/(pointCloud.size() * 2);
 
-
-//    std::cout << "remaining left points: " << new_pts_l.size() << std::endl;
-//    std::cout << "remaining right points: "<< new_pts_r.size() << std::endl;
-//    std::cout << "Number of matches: "<< matches.size()   << std::endl;
 
 }
 
@@ -1066,7 +1055,7 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
 
 void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, const cv::Mat &K_l,
                                             const std::vector<cv::Point2f> &pts_l,
-                                            const std::vector<cv::Point2f> &pts_r, const std::vector<bool> &inliers, cv::Mat &R_est, cv::Mat &t_est) {
+                                            const std::vector<cv::Point2f> &pts_r, std::vector<bool> &inliers, cv::Mat &R_est, cv::Mat &t_est) {
 
 
     Mat E = K_l.t() * F * K;
@@ -1108,12 +1097,14 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
 
 void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat &u3, const cv::Mat &K, const cv::Mat &K_l,
         const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r, cv::Mat &R_est,
-        cv::Mat &t_est, const std::vector<bool> &inliers) {
+        cv::Mat &t_est, std::vector<bool> &inliers) {
 
 
     cv::Mat P    = cv::Mat::eye(3,4,CV_64F);
     cv::Mat P_l  = cv::Mat::eye(3,4,CV_64F);
 
+//    std::vector<bool> tmpInliers (inliers.size());
+//    tmpInliers.swap(inliers);
 
     cv::Mat R;
     cv::Mat u3_;
@@ -1155,9 +1146,11 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
                 break;
         }
 
-        for (int j = 0; j < inliers.size(); j++ ){
+//        std::vector<bool> bestSetInliers (tmpInliers.size(), false);
 
-            if(inliers[j]){
+        for (int j = 0; j < inliers.size() /*tmpInliers.size()*/; j++ ){
+
+            if(/*tmpInliers[j]*/inliers[i]){
 
                 Mat x_r = cv::Mat::zeros(3,1, CV_64F);
                 x_r.at<double>(0) = pts_r[j].x;
@@ -1170,19 +1163,25 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
                 x_l.at<double>(2) = 1.0;
 
                 if(pointFrontCamera(R,u3_,x_l, x_r, P, P_l, K, K_l)){
+//                    bestSetInliers[j] = true;
                     numPts ++;
                 }
             }
         }
 
         if (numPts > bestNumPts){
-            R_best = R.clone();
-            t_best = u3_.clone();
+            R_best      = R.clone();
+            t_best      = u3_.clone();
+//            inliers     = bestSetInliers;
+            bestNumPts  = numPts;
         }
     }
 
     R_est   = R_best.clone();
     t_est  = t_best.clone();
+
+    //Free memory
+//    std::vector<bool>().swap(tmpInliers);
 
 
 }
@@ -1253,16 +1252,9 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
 
         point3d = point3d.rowRange(0,4)/point3d.at<double>(3);
 
-//        std::cout << point3d << "\n";
-
         Mat p0 = P1*point3d;
         Mat p1 = P2*point3d;
 
-//        std::cout  << "Real left x: " << kp_l.x << std::endl;
-//        std::cout << "Real rigth x: " << kp_r.x << std::endl;
-//
-//        std::cout << "Estimated left x: "   <<  p0.at<double>(0)/p0.at<double>(2) << "\n";
-//        std::cout << "Estimated rigth x: "  <<  p1.at<double>(0)/p1.at<double>(2) << "\n";
 
         w0 = 1.0/p0.at<double>(2);
         w1 = 1.0/p1.at<double>(2);
@@ -1281,7 +1273,6 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
     Mat m3  = M.row(2);
 
     depth = (sign(determinant(M))*w)/cv::norm(m3);
-
 
     pt3d.x           = (float) point3d.at<double>(0);
     pt3d.y           = (float) point3d.at<double>(1);
