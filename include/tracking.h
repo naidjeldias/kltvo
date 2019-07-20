@@ -100,24 +100,26 @@ private:
 
     void stereoMatching(const std::vector<cv::Point2f>& pts_l, const std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
                         const cv::Mat& imRight,  std::vector<cv::DMatch> &matches, std::vector<cv::Point2f> &new_pts_l,
-                        std::vector<cv::Point2f> &new_pts_r, std::vector<cv::Point3f> &pointCloud, double &meanError);
+                        std::vector<cv::Point2f> &new_pts_r, std::vector<cv::Point3f> &pointCloud, double &meanError, std::vector<bool> &ptsClose);
 
     bool findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat& imLeft, const cv::Mat& imRight,
                          std::vector<cv::Point2f>& pts_r, cv::Point2f &ptr_m, int &index, const std::vector<std::vector<std::size_t>> &vecRowIndices);
+
+    int sign(double value);
 
 
     //------------- feature tracking
     std::mutex mtx1, mtx2, mtx3, mtx4;
 
     void featureTracking (const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
-            std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1, std::vector<Point3f> &pts3D );
+            std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose );
 
     void opticalFlowFeatureTrack(const cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
                                  std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr,
-                                 std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D);
+                                 std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose);
 
     void checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,
-                             const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3D);
+                             const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose);
 
     //-------------- Outliers removal and motion estimation
     EightPoint* mEightPointLeft;
@@ -144,7 +146,7 @@ private:
     void localMapping (const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
                        std::vector<cv::Point3f> &pts3D, const std::vector<cv::DMatch> &macthes, double &meanError);
 
-    bool triangulation (const cv::Point2f &pt_l, const cv::Point2f &pt_r, cv::Point3f &pt3D, double &error);
+    bool triangulation (const cv::Point2f &pt_l, const cv::Point2f &pt_r, cv::Point3f &pt3D, double &error, double &depth);
 
 
     //----------- quad Matching
@@ -197,6 +199,8 @@ private:
     void logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const std::vector<Point2f> &pts_l1,
                          const std::vector<Point2f> &pts_r1, const std::vector<cv::DMatch> &mlr1, int numPts);
     void logPoseEstimation();
+
+    void drawFarAndClosePts (const cv::Point2f &pt, const cv::Scalar &color, cv::Mat &im);
 
 
 

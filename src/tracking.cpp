@@ -137,8 +137,14 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         mlr0.reserve(pts_l0.size());
 
         std::vector<Point3f> pts3D;
+        pts3D.reserve(pts_l0.size());
+
         double meanError;
-        stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0, pts3D, meanError);
+
+        std::vector<bool> ptsClose;
+        ptsClose.reserve(pts_l0.size());
+
+        stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0, pts3D, meanError, ptsClose);
 #if LOG
         logStereoMatching(imRight0, imLeft0, mlr0, new_pts_r0, new_pts_l0);
         logLocalMaping(pts3D, meanError);
@@ -150,7 +156,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         pts_l1.reserve(new_pts_l0.size());
         pts_r1.reserve(new_pts_r0.size());
 
-        featureTracking(imLeft0, imLeft, imRight0, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D);
+        featureTracking(imLeft0, imLeft, imRight0, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D, ptsClose);
 
         //-----------------------------------outliers removal and 2D motion estimation
         std::vector<bool>       inliers;
@@ -305,7 +311,7 @@ void Tracking::drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts
 
 void Tracking::opticalFlowFeatureTrack(const cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
                                        std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr,
-                                       std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D) {
+                                       std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose) {
 
 
 //    std::vector <Mat> imT0_pyr, imT1_pyr;
@@ -318,7 +324,7 @@ void Tracking::opticalFlowFeatureTrack(const cv::Mat &imT0, const cv::Mat &imT1,
                          TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
 
     std::lock_guard<std::mutex> lock4(mtx4);
-    checkPointOutBounds(prevPts, nextPts, imT1, status, flag, pts3D);
+    checkPointOutBounds(prevPts, nextPts, imT1, status, flag, pts3D, ptsClose);
 
 }
 
@@ -761,9 +767,14 @@ double Tracking::euclideanDist(const cv::Point2d &p, const cv::Point2d &q) {
 void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
                               const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::DMatch> &matches,
                               std::vector<cv::Point2f> &new_pts_l, std::vector<cv::Point2f> &new_pts_r,
-                              std::vector<cv::Point3f> &pointCloud, double &meanError) {
+                              std::vector<cv::Point3f> &pointCloud, double &meanError, std::vector<bool> &ptsClose) {
 
     std::vector<Point2f> aux_pts_r(pts_r);
+    Mat im;
+#if LOG
+    im = imLeft0.clone();
+    cv::cvtColor(im, im, cv::COLOR_GRAY2RGB);
+#endif
 
     //Assign keypoints on right image to a row table
     std::vector<std::vector<std::size_t>> vecRowIndices (imRight.rows, std::vector<std::size_t>());
@@ -797,7 +808,9 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
         if(found){
             //check if the point have a good triangulation
             double error;
-            if(triangulation(pt_l, ptr, pt3D, error)){
+            double depth;
+            if(triangulation(pt_l, ptr, pt3D, error, depth)){
+
 
 //                std::cout << "Triangulation error: " << error << std::endl;
 
@@ -807,10 +820,23 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 
                 pointCloud.push_back(pt3D);
 
+                if (depth > 40*baseline)
+                    ptsClose.push_back(false);
+                else
+                    ptsClose.push_back(true);
+
                 double dst = euclideanDist(pt_l, ptr);
                 DMatch match(pos, pos, dst);
                 matches.push_back(match);
                 pos++;
+#if LOG
+                if(depth > 40*baseline)
+                    drawFarAndClosePts(pt_l, Scalar(0, 0, 255), im);
+                else
+                    drawFarAndClosePts(pt_l, Scalar(0, 255, 0), im);
+
+                imwrite("dstPts.png", im);
+#endif
 
             }
         }
@@ -1076,16 +1102,6 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
     if(determinant(R2) < 0)
         R2 = -R2;
 
-//    Point2f pt_l, pt_r;
-//    //get first inlier par to check solution
-//    for(int i = 0; i < inliers.size(); i++){
-//        if(inliers.at(i)){
-//            pt_l = pts_l.at(i);
-//            pt_r = pts_r.at(i);
-//            break;
-//        }
-//    }
-
     checkSolution(R1,R2, U.col(2), K, K, pts_l, pts_r, R_est, t_est, inliers);
 
 }
@@ -1118,28 +1134,24 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
             case 0:
                 R   = R1;
                 u3_ = u3.clone();
-//                std::cout << "u3: \n" << u3 << std::endl;
                 break;
             //------- solution 2
             // [UWVt | -u3]
             case 1:
                 R   = R1;
                 u3_  = -1 * u3.clone();
-//                std::cout << "u3: \n" << u3 << std::endl;
                 break;
             //------ solution 3
             // [UWtVt | +u3]
             case 2:
                 R = R2;
                 u3_ = 1 * u3.clone();
-//                std::cout << "u3: \n" << u3 << std::endl;
                 break;
             //------ solution 4
             // [UWtVt | -u3]
             case 3:
                 R = R2;
                 u3_  = -1 * u3.clone();
-//                std::cout << "u3: \n" << u3 << std::endl;
                 break;
         }
 
@@ -1214,7 +1226,7 @@ bool Tracking::pointFrontCamera(cv::Mat &R2, const cv::Mat &t2, const cv::Mat &p
 }
 
 
-bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, cv::Point3f &pt3d, double &error) {
+bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, cv::Point3f &pt3d, double &error, double &depth) {
 
 
     double w0, w1;
@@ -1223,6 +1235,7 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
     w0 = w1 = 1.0;
 
     Mat point3d;
+    double w;
 
     for(int j = 0; j < max_iter_3d; j++){
 
@@ -1261,8 +1274,14 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
 
         dist = sqrt(dx0*dx0+dy0*dy0) + sqrt(dx1*dx1+dy1*dy1);
 
-
+        w = p0.at<double>(2);
     }
+
+    Mat M   = P1.rowRange(0,3).colRange(0,3);
+    Mat m3  = M.row(2);
+
+    depth = (sign(determinant(M))*w)/cv::norm(m3);
+
 
     pt3d.x           = (float) point3d.at<double>(0);
     pt3d.y           = (float) point3d.at<double>(1);
@@ -1277,17 +1296,20 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
 
 }
 
-void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,
-                                   const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3) {
+void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,const cv::Mat &imT1,
+        const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3, std::vector<bool> &ptsClose) {
 
     std::vector<Point2f> tmpPrevPts (prevPts.size());
     std::vector<Point2f> tmpNexPts (nextPts.size());
     std::vector<Point3f> tmpPts3D (pts3.size());
+    std::vector<bool>    tmpPtsClose(ptsClose.size());
 
     if (flag == 0){
 //        std::vector<Point3f> tmpPts3D (pts3.size());
         tmpPts3D.swap(pts3);
         pts3.clear();
+        tmpPtsClose.swap(ptsClose);
+        ptsClose.clear();
     }
 
     tmpPrevPts.swap(prevPts);
@@ -1301,15 +1323,20 @@ void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Po
         const Point2f &pt_r = tmpNexPts[i];
         const Point2f &pt_l = tmpPrevPts[i];
 
-        const Point3f &pt3d = tmpPts3D[i];
+        const Point3f &pt3d     = tmpPts3D[i];
+        const bool &ptClose     = tmpPtsClose[i];;
 
         if(status[i] == 1 && pt_r.x >= 0 && pt_r.x <= imT1.cols && pt_r.y >= 0 && pt_r.y <= imT1.rows){
 
             prevPts.push_back(pt_l);
             nextPts.push_back(pt_r);
 
-            if(flag == 0)
+            if(flag == 0){
                 pts3.push_back(pt3d);
+                ptsClose.push_back(ptClose);
+
+            }
+
 
         }
     }
@@ -1338,7 +1365,8 @@ void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::ve
 }
 
 void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
-                               std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1, std::vector<Point3f> &pts3D ) {
+                               std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1,
+                               std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose ) {
 
     std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
     Size win (15,15);
@@ -1348,12 +1376,13 @@ void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const c
 
     std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imL0), std::ref(imL1), win,
                                maxLevel, std::ref(status0), std::ref(error0), std::ref(ptsL0), std::ref(ptsL1),
-                               std::ref(left0_pyr), std::ref(left1_pyr), 0, std::ref(pts3D));
+                               std::ref(left0_pyr), std::ref(left1_pyr), 0, std::ref(pts3D), std::ref(ptsClose));
 
     std::vector<Point3f> aux (0);
+    std::vector<bool> aux1(0);
     std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imR0), std::ref(imR1), win,
                                 maxLevel, std::ref(status1), std::ref(error1), std::ref(ptsR0), std::ref(ptsR1),
-                                std::ref(right0_pyr), std::ref(right1_pyr), 1, std::ref(aux));
+                                std::ref(right0_pyr), std::ref(right1_pyr), 1, std::ref(aux), std::ref(aux1));
 
     kltThreadLeft.join();
     kltThreadRight.join();
@@ -1661,5 +1690,17 @@ void Tracking::logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const
 
 }
 
+int Tracking::sign(double value) {
 
+    if (value > 0)
+        return 1;
+    else
+        return -1;
+}
+
+
+void Tracking::drawFarAndClosePts(const cv::Point2f &pt, const cv::Scalar &color, cv::Mat &im) {
+
+    cv::circle(im, pt, 3, color);
+}
 
