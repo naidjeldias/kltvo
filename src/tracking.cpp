@@ -1076,22 +1076,23 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
     if(determinant(R2) < 0)
         R2 = -R2;
 
-    Point2f pt_l, pt_r;
-    //get first inlier par to check solution
-    for(int i = 0; i < inliers.size(); i++){
-        if(inliers.at(i)){
-            pt_l = pts_l.at(i);
-            pt_r = pts_r.at(i);
-            break;
-        }
-    }
+//    Point2f pt_l, pt_r;
+//    //get first inlier par to check solution
+//    for(int i = 0; i < inliers.size(); i++){
+//        if(inliers.at(i)){
+//            pt_l = pts_l.at(i);
+//            pt_r = pts_r.at(i);
+//            break;
+//        }
+//    }
 
-    checkSolution(R1,R2, U.col(2), K, K, pt_l, pt_r, R_est, t_est);
+    checkSolution(R1,R2, U.col(2), K, K, pts_l, pts_r, R_est, t_est, inliers);
 
 }
 
-void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat &u3, const cv::Mat &K, const cv::Mat &K_l, const cv::Point2f &pt_l
-        , const cv::Point2f &pt_r, cv::Mat &R_est, cv::Mat &t_est) {
+void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat &u3, const cv::Mat &K, const cv::Mat &K_l,
+        const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r, cv::Mat &R_est,
+        cv::Mat &t_est, const std::vector<bool> &inliers) {
 
 
     cv::Mat P    = cv::Mat::eye(3,4,CV_64F);
@@ -1101,30 +1102,14 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
     cv::Mat R;
     cv::Mat u3_;
 
-    // pick a random point to check the solution
-//    vector<int> index = generateRandomIndices(pts_r.size() - 1, 1);
-//    std::cout << "index: \n" << index.at(0) << std::endl;
+    cv::Mat R_best, t_best;
 
-    Mat x_r = cv::Mat::zeros(3,1, CV_64F);
-    x_r.at<double>(0) = pt_r.x;
-    x_r.at<double>(1) = pt_r.y;
-    x_r.at<double>(2) = 1.0;
-
-    Mat x_l = cv::Mat::zeros(3,1, CV_64F);
-    x_l.at<double>(0) = pt_l.x;
-    x_l.at<double>(1) = pt_l.y;
-    x_l.at<double>(2) = 1.0;
-
-//    std::cout << "x_r: \n" << x_r << std::endl;
-
-    //point in normalized coordinates
-//    Mat xn_r = K_l.inv() * x_r;
-
-//    std::cout << "xn_r: \n" << xn_r << std::endl;
+    int bestNumPts = 0;
 
     //compute the 4 possible solutions
-
     for (int i = 0; i < 4; i++){
+
+        int numPts = 0; //number of points in front of the cameras
 
         switch (i){
 
@@ -1158,12 +1143,35 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
                 break;
         }
 
-        if(pointFrontCamera(R,u3_,x_l, x_r, P, P_l, K, K_l)){
-            R_est = R;
-            t_est = u3_;
-            break;
+        for (int j = 0; j < inliers.size(); j++ ){
+
+            if(inliers[j]){
+
+                Mat x_r = cv::Mat::zeros(3,1, CV_64F);
+                x_r.at<double>(0) = pts_r[j].x;
+                x_r.at<double>(1) = pts_r[j].y;
+                x_r.at<double>(2) = 1.0;
+
+                Mat x_l = cv::Mat::zeros(3,1, CV_64F);
+                x_l.at<double>(0) = pts_l[j].x;
+                x_l.at<double>(1) = pts_l[j].y;
+                x_l.at<double>(2) = 1.0;
+
+                if(pointFrontCamera(R,u3_,x_l, x_r, P, P_l, K, K_l)){
+                    numPts ++;
+                }
+            }
+        }
+
+        if (numPts > bestNumPts){
+            R_best = R.clone();
+            t_best = u3_.clone();
         }
     }
+
+    R_est   = R_best.clone();
+    t_est  = t_best.clone();
+
 
 }
 
@@ -1173,18 +1181,8 @@ bool Tracking::pointFrontCamera(cv::Mat &R2, const cv::Mat &t2, const cv::Mat &p
     R2.copyTo(P_l.rowRange(0,3).colRange(0,3));
     t2.copyTo(P_l.rowRange(0,3).col(3));
 
-//    std::cout << "Determinant: \n" << determinant(R2)  << "\n";
-//    if(determinant(R2) == -1)
-//        R2 = -1*R2;
-//    std::cout << "Determinant: \n" << determinant(R2)  << "\n";
-
     Mat R1 = cv::Mat::eye(3,3, CV_64F);
     Mat t1 = cv::Mat::zeros(3,1, CV_64F);
-
-//    std::cout << "t2: \n" << t2 << std::endl;
-
-//    std::cout << "P: \n" << P << std::endl;
-//    std::cout << "P_l: \n" << P_l << std::endl;
 
     // Linear Triangulation Method
     cv::Mat A = Mat::zeros(4,4,CV_64F);
@@ -1199,40 +1197,19 @@ bool Tracking::pointFrontCamera(cv::Mat &R2, const cv::Mat &t2, const cv::Mat &p
 
     Mat pt3D = Vt.row(3).t();
 
-//    std::cout << "pt3D \n" << pt3D << "\n";
-
     if(pt3D.at<double>(3) == 0)
         std::cerr << "pt3D.at<float>(3) == 0 \n";
 
     //Euclidean coordinates
     pt3D = pt3D.rowRange(0,3)/pt3D.at<double>(3);
 
-//    std::cout << "pt3D \n" << pt3D << "\n";
-
-
     Mat pt3D_t = pt3D.t();
 
-//    std::cout << "R.row(2) \n" << R.row(2) << "\n";
-//    std::cout << "pt3D_t \n" << pt3D_t << "\n";
-//    std::cout << "u3.at<double>(2) \n" << u3.at<double>(2) << "\n";
-
-//    std::cout << "R.row(2).dot(pt3D_t) \n" << R.row(2).dot(pt3D_t) << "\n";
-
     double Z1c = R2.row(2).dot(pt3D_t) + t2.at<double>(2);
-//    if(Z1c <= 0)
-//        std::cout << "Behind camera \n";
-//    else
-//        std::cout << "Front of camera \n";
 
     double Z2c = R1.row(2).dot(pt3D_t) + t1.at<double>(2);
-//    if(Z2c <= 0)
-//        std::cout << "Behind camera \n";
-//    else
-//        std::cout << "Front of camera \n";
 
     return Z1c > 0 && Z2c > 0;
-
-
 
 }
 

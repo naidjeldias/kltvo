@@ -9,7 +9,7 @@
 #define MAX_DELTAX 69
 //#define MAX_DELTAX 85
 
-#define LOG true
+#define LOG false
 
 #define FRAME_GRID_COLS 48
 #define FRAME_GRID_ROWS 48
@@ -129,8 +129,8 @@ private:
     void essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, const cv::Mat &K_l, const std::vector<cv::Point2f> &pts_l,
                                       const std::vector<cv::Point2f> &pts_r, const std::vector<bool> &inliers , cv::Mat &R_est, cv::Mat &t_est);
 
-    void checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat &u3, const cv::Mat &K, const cv::Mat &K_l, const cv::Point2f &pt_l
-            , const cv::Point2f &pt_r, cv::Mat &R_est, cv::Mat &t_est);
+    void checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat &u3, const cv::Mat &K, const cv::Mat &K_l, const std::vector<cv::Point2f> &pts_l
+            , const std::vector<cv::Point2f> &pts_r, cv::Mat &R_est, cv::Mat &t_est, const std::vector<bool> &inliers);
 
     bool pointFrontCamera(cv::Mat &R, const cv::Mat &u3, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
                           const cv::Mat &K, const cv::Mat &K_l);
