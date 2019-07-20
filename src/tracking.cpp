@@ -77,18 +77,18 @@ Tracking::Tracking(const string &strSettingPath) {
 
 //    std::cout << "Max disparity: " << maxDisp << std::endl;
 
-    debug_              = false;
-    if(debug_){
-        logFile.open("LOG_FILE.txt");
-        logFile << std::fixed;
-    }
+#if LOG
+    logFile.open("LOG_FILE.txt");
+    logFile << std::fixed;
+#endif
 
 }
 
 
 Tracking::~Tracking() {
-    if(debug_)
+#if LOG
         logFile.close();
+#endif
 }
 
 void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
@@ -104,12 +104,10 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
     }else{
         numFrame ++;
 
-        if(debug_){
-            numFrame ++;
-            writeOnLogFile("Frame:", std::to_string(numFrame));
-        }
-
-        std::cout << "Frame: "<<  numFrame << std::endl;
+#if LOG
+        numFrame ++;
+        writeOnLogFile("Frame:", std::to_string(numFrame));
+#endif
 
         //---------------------------------detect features
         std::vector<KeyPoint> kpts_l, kpts_r;
@@ -141,10 +139,10 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         std::vector<Point3f> pts3D;
         double meanError;
         stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0, pts3D, meanError);
-        if(debug_){
-            logStereoMatching(imRight0, imLeft0, mlr0, new_pts_r0, new_pts_l0);
-            logLocalMaping(pts3D, meanError);
-        }
+#if LOG
+        logStereoMatching(imRight0, imLeft0, mlr0, new_pts_r0, new_pts_l0);
+        logLocalMaping(pts3D, meanError);
+#endif
 
 
         //-----------------------------------tracking features from previous frames to current frames
@@ -174,8 +172,9 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         mlr1.reserve(pts_l1.size());
 
         quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1);
-        if(debug_)
-            logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
+#if LOG
+        logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
+#endif
 
         //free memory
         std::vector<Point2f>().swap(pts_l1);
@@ -195,9 +194,9 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         imLeft0     = imLeft.clone();
         imRight0    = imRight.clone();
 
-        if(debug_){
-            writeOnLogFile("----------------------------", " ");
-        }
+#if LOG
+        writeOnLogFile("----------------------------", " ");
+#endif
 
 
     }
@@ -1237,6 +1236,246 @@ bool Tracking::pointFrontCamera(cv::Mat &R2, const cv::Mat &t2, const cv::Mat &p
 
 }
 
+
+bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, cv::Point3f &pt3d, double &error) {
+
+
+    double w0, w1;
+    double dist;
+
+    w0 = w1 = 1.0;
+
+    Mat point3d;
+
+    for(int j = 0; j < max_iter_3d; j++){
+
+        Mat A   = Mat::zeros(4,4,CV_64F);
+        Mat D, U, Vt;
+
+        A.row(0) = w0*(kp_l.x*P1.row(2)-P1.row(0));
+        A.row(1) = w0*(kp_l.y*P1.row(2)-P1.row(1));
+        A.row(2) = w1*(kp_r.x*P2.row(2)-P2.row(0));
+        A.row(3) = w1*(kp_r.y*P2.row(2)-P2.row(1));
+
+        SVD::compute(A,D,U,Vt, SVD::MODIFY_A| SVD::FULL_UV);
+
+        point3d = Vt.row(3).t();
+
+        point3d = point3d.rowRange(0,4)/point3d.at<double>(3);
+
+//        std::cout << point3d << "\n";
+
+        Mat p0 = P1*point3d;
+        Mat p1 = P2*point3d;
+
+//        std::cout  << "Real left x: " << kp_l.x << std::endl;
+//        std::cout << "Real rigth x: " << kp_r.x << std::endl;
+//
+//        std::cout << "Estimated left x: "   <<  p0.at<double>(0)/p0.at<double>(2) << "\n";
+//        std::cout << "Estimated rigth x: "  <<  p1.at<double>(0)/p1.at<double>(2) << "\n";
+
+        w0 = 1.0/p0.at<double>(2);
+        w1 = 1.0/p1.at<double>(2);
+
+        double dx0 = kp_l.x - p0.at<double>(0)/p0.at<double>(2);
+        double dy0 = kp_l.y - p0.at<double>(1)/p0.at<double>(2);
+        double dx1 = kp_r.x - p1.at<double>(0)/p1.at<double>(2);
+        double dy1 = kp_r.y - p1.at<double>(1)/p1.at<double>(2);
+
+        dist = sqrt(dx0*dx0+dy0*dy0) + sqrt(dx1*dx1+dy1*dy1);
+
+
+    }
+
+    pt3d.x           = (float) point3d.at<double>(0);
+    pt3d.y           = (float) point3d.at<double>(1);
+    pt3d.z           = (float) point3d.at<double>(2);
+
+    error = dist;
+
+    if (dist < 2*th_3d)
+        return true;
+    else
+        return false;
+
+}
+
+void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,
+                                   const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3) {
+
+    std::vector<Point2f> tmpPrevPts (prevPts.size());
+    std::vector<Point2f> tmpNexPts (nextPts.size());
+    std::vector<Point3f> tmpPts3D (pts3.size());
+
+    if (flag == 0){
+//        std::vector<Point3f> tmpPts3D (pts3.size());
+        tmpPts3D.swap(pts3);
+        pts3.clear();
+    }
+
+    tmpPrevPts.swap(prevPts);
+    prevPts.clear();
+    tmpNexPts.swap(nextPts);
+    nextPts.clear();
+
+
+    for (int i=0; i< tmpPrevPts.size(); i++){
+
+        const Point2f &pt_r = tmpNexPts[i];
+        const Point2f &pt_l = tmpPrevPts[i];
+
+        const Point3f &pt3d = tmpPts3D[i];
+
+        if(status[i] == 1 && pt_r.x >= 0 && pt_r.x <= imT1.cols && pt_r.y >= 0 && pt_r.y <= imT1.rows){
+
+            prevPts.push_back(pt_l);
+            nextPts.push_back(pt_r);
+
+            if(flag == 0)
+                pts3.push_back(pt3d);
+
+        }
+    }
+
+    //Free memory
+    std::vector<Point2f>().swap(tmpPrevPts);
+    std::vector<Point2f>().swap(tmpNexPts);
+    std::vector<Point3f>().swap(tmpPts3D);
+
+
+}
+
+void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::vector<KeyPoint> &kpts0,
+                                 std::vector<KeyPoint> &kpts1, std::vector<Point2f> &pts0,
+                                 std::vector<Point2f> &pts1) {
+
+    std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(im0), std::ref (kpts0), std::ref (pts0));
+    std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(im1), std::ref (kpts1), std::ref(pts1));
+
+    orbThreadLeft.join();
+    orbThreadRight.join();
+
+#if LOG
+    logFeatureExtraction(kpts0, kpts1, pts0, im0);
+#endif
+}
+
+void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
+                               std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1, std::vector<Point3f> &pts3D ) {
+
+    std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
+    Size win (15,15);
+    int maxLevel = 3;
+    std::vector<uchar> status0, status1;
+    std::vector<float > error0, error1;
+
+    std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imL0), std::ref(imL1), win,
+                               maxLevel, std::ref(status0), std::ref(error0), std::ref(ptsL0), std::ref(ptsL1),
+                               std::ref(left0_pyr), std::ref(left1_pyr), 0, std::ref(pts3D));
+
+    std::vector<Point3f> aux (0);
+    std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imR0), std::ref(imR1), win,
+                                maxLevel, std::ref(status1), std::ref(error1), std::ref(ptsR0), std::ref(ptsR1),
+                                std::ref(right0_pyr), std::ref(right1_pyr), 1, std::ref(aux));
+
+    kltThreadLeft.join();
+    kltThreadRight.join();
+
+
+}
+
+void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std::vector<Point2f> &ptsL0,
+                                                 const cv::Mat &imL1, const std::vector<Point2f> &ptsL1,
+                                                 const cv::Mat &imR0, const std::vector<Point2f> &ptsR0,
+                                                 const cv::Mat &imR1, const std::vector<Point2f> &ptsR1,
+                                                 std::vector<bool> &inliers, std::vector<double> &rvec_est, cv::Mat &t_est) {
+
+    Mat fmat;
+    std::vector<DMatch> mll, mrr;
+    (*mEightPointLeft) (ptsL0, ptsL1, mll, inliers, true, 0, fmat);
+
+    Mat R_est;
+    essentialMatrixDecomposition(fmat, K, K, ptsL0, ptsL1, inliers, R_est, t_est);
+
+
+    Rodrigues(R_est, rvec_est, noArray());
+#if LOG
+    logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll,R_est);
+#endif
+}
+
+void Tracking::relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
+                                      const std::vector<cv::Point3f> &pts3D, const std::vector<double> &rvec_est
+        , const cv::Mat &t_est , cv::Mat &Tcw_) {
+
+
+    //initialize vector of parameters with rotation and translation from essential matrix
+    std::vector<double> p0 (6, 0.0);
+    p0.at(0) = rvec_est.at(0);
+    p0.at(1) = rvec_est.at(1);
+    p0.at(2) = rvec_est.at(2);
+    p0.at(3) = t_est.at<double>(0);
+    p0.at(4) = t_est.at<double>(1);
+    p0.at(5) = t_est.at<double>(2);
+
+    std::vector<bool> inliers2;
+
+    std::vector<double> p (6, 0.0);
+    poseEstimationRansac(pts2DL, pts2DR, pts3D, p0, inliers2, p, reweigh);
+
+    //pose refinment with all inliers
+    Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
+    Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
+
+    poseRefinment(pts2DL, pts2DR, pts3D, inliers2, p, rot_vec, tr_vec);
+
+    Mat Rotmat;
+    Rodrigues(rot_vec, Rotmat, noArray());
+
+    Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
+    tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
+
+
+
+}
+
+void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vector<Point2f> &pts2DR,
+                             const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers,
+                             std::vector<double> &p, cv::Mat &rot_vec, cv::Mat &tr_vec) {
+
+    std::vector<Point2d> inPts_l1, inPts_r1;
+    std::vector<Point3d> inPts_3D;
+
+    for (int i=0; i<inliers.size(); i++){
+        if(inliers.at(i)){
+            Point2f aux1 = pts2DL[i];
+            inPts_l1.push_back(aux1);
+            Point2f aux2 = pts2DR[i];
+            inPts_r1.push_back(aux2);
+            Point3f aux3 = pts3D[i];
+            inPts_3D.push_back(aux3);
+        }
+    }
+
+    // pose refinement with all inliers
+    int status = 0;
+    for (int i = 0; i < finalMaxIteration; i++){
+        status = poseEstimation(inPts_l1, inPts_r1, inPts_3D, p, inPts_l1.size(), reweigh);
+        if(status != UPDATE)
+            break;
+    }
+
+    rot_vec.at<double>(0) = p.at(0);
+    rot_vec.at<double>(1) = p.at(1);
+    rot_vec.at<double>(2) = p.at(2);
+
+    tr_vec.at<double>(0)  = p.at(3);
+    tr_vec.at<double>(1)  = p.at(4);
+    tr_vec.at<double>(2)  = p.at(5);
+
+
+}
+
 cv::Mat Tracking::getCurrentPose() {
     return Tcw;
 }
@@ -1375,8 +1614,8 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
 
 
 void Tracking::writeOnLogFile(const string &name, const string &value) {
-//    std::cout << name << value << std::endl;
-    logFile << name << " " << value << "\n";
+    std::cout << name << value << std::endl;
+//    logFile << name << " " << value << "\n";
 }
 
 void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &pts, const string &fileName) {
@@ -1398,7 +1637,6 @@ void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &
 
 void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, const std::vector<cv::KeyPoint> &kpts_r, const std::vector<Point2f> &pts,
                                     const cv::Mat &im) {
-
     writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
     writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
 
@@ -1409,7 +1647,6 @@ void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, con
     drawGridAndPoints(im, pts, "GridNMS.png");
     writeOnLogFile("Num keypoints after NMS: ", std::to_string(pts.size()));
 
-
 }
 
 void Tracking::logStereoMatching(const cv::Mat &im_r, const cv::Mat &im_l, const std::vector<cv::DMatch> &mrl,
@@ -1417,7 +1654,6 @@ void Tracking::logStereoMatching(const cv::Mat &im_r, const cv::Mat &im_l, const
 
     mEightPointLeft->drawMatches_(im_l, im_r, pts_l, pts_r, mrl, false);
     writeOnLogFile("Number of stereo matches:", std::to_string(pts_l.size()));
-
 
 }
 
@@ -1437,7 +1673,6 @@ void Tracking::logFeatureTracking(const std::vector<Point2f> &pts_l0, const std:
     writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
     writeOnLogFile("Number of inliers:", std::to_string(mll.size()));
 
-
     writeOnLogFile("det(R) of E:", std::to_string(determinant(R)));
 }
 
@@ -1450,240 +1685,4 @@ void Tracking::logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const
 }
 
 
-bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, cv::Point3f &pt3d, double &error) {
-
-
-    double w0, w1;
-    double dist;
-
-    w0 = w1 = 1.0;
-
-    Mat point3d;
-
-    for(int j = 0; j < max_iter_3d; j++){
-
-        Mat A   = Mat::zeros(4,4,CV_64F);
-        Mat D, U, Vt;
-
-        A.row(0) = w0*(kp_l.x*P1.row(2)-P1.row(0));
-        A.row(1) = w0*(kp_l.y*P1.row(2)-P1.row(1));
-        A.row(2) = w1*(kp_r.x*P2.row(2)-P2.row(0));
-        A.row(3) = w1*(kp_r.y*P2.row(2)-P2.row(1));
-
-        SVD::compute(A,D,U,Vt, SVD::MODIFY_A| SVD::FULL_UV);
-
-        point3d = Vt.row(3).t();
-
-        point3d = point3d.rowRange(0,4)/point3d.at<double>(3);
-
-//        std::cout << point3d << "\n";
-
-        Mat p0 = P1*point3d;
-        Mat p1 = P2*point3d;
-
-//        std::cout  << "Real left x: " << kp_l.x << std::endl;
-//        std::cout << "Real rigth x: " << kp_r.x << std::endl;
-//
-//        std::cout << "Estimated left x: "   <<  p0.at<double>(0)/p0.at<double>(2) << "\n";
-//        std::cout << "Estimated rigth x: "  <<  p1.at<double>(0)/p1.at<double>(2) << "\n";
-
-        w0 = 1.0/p0.at<double>(2);
-        w1 = 1.0/p1.at<double>(2);
-
-        double dx0 = kp_l.x - p0.at<double>(0)/p0.at<double>(2);
-        double dy0 = kp_l.y - p0.at<double>(1)/p0.at<double>(2);
-        double dx1 = kp_r.x - p1.at<double>(0)/p1.at<double>(2);
-        double dy1 = kp_r.y - p1.at<double>(1)/p1.at<double>(2);
-
-        dist = sqrt(dx0*dx0+dy0*dy0) + sqrt(dx1*dx1+dy1*dy1);
-
-
-    }
-
-    pt3d.x           = (float) point3d.at<double>(0);
-    pt3d.y           = (float) point3d.at<double>(1);
-    pt3d.z           = (float) point3d.at<double>(2);
-
-    error = dist;
-
-    if (dist < 2*th_3d)
-        return true;
-    else
-        return false;
-
-}
-
-void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,
-                                   const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3) {
-
-    std::vector<Point2f> tmpPrevPts (prevPts.size());
-    std::vector<Point2f> tmpNexPts (nextPts.size());
-    std::vector<Point3f> tmpPts3D (pts3.size());
-
-    if (flag == 0){
-//        std::vector<Point3f> tmpPts3D (pts3.size());
-        tmpPts3D.swap(pts3);
-        pts3.clear();
-    }
-
-    tmpPrevPts.swap(prevPts);
-    prevPts.clear();
-    tmpNexPts.swap(nextPts);
-    nextPts.clear();
-
-
-    for (int i=0; i< tmpPrevPts.size(); i++){
-
-        const Point2f &pt_r = tmpNexPts[i];
-        const Point2f &pt_l = tmpPrevPts[i];
-
-        const Point3f &pt3d = tmpPts3D[i];
-
-        if(status[i] == 1 && pt_r.x >= 0 && pt_r.x <= imT1.cols && pt_r.y >= 0 && pt_r.y <= imT1.rows){
-
-            prevPts.push_back(pt_l);
-            nextPts.push_back(pt_r);
-
-            if(flag == 0)
-                pts3.push_back(pt3d);
-
-        }
-    }
-
-    //Free memory
-    std::vector<Point2f>().swap(tmpPrevPts);
-    std::vector<Point2f>().swap(tmpNexPts);
-    std::vector<Point3f>().swap(tmpPts3D);
-
-
-}
-
-void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::vector<KeyPoint> &kpts0,
-                                 std::vector<KeyPoint> &kpts1, std::vector<Point2f> &pts0,
-                                 std::vector<Point2f> &pts1) {
-
-    std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(im0), std::ref (kpts0), std::ref (pts0));
-    std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(im1), std::ref (kpts1), std::ref(pts1));
-
-    orbThreadLeft.join();
-    orbThreadRight.join();
-
-    if(debug_)
-        logFeatureExtraction(kpts0, kpts1, pts0, im0);
-}
-
-void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
-                               std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1, std::vector<Point3f> &pts3D ) {
-
-    std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
-    Size win (15,15);
-    int maxLevel = 3;
-    std::vector<uchar> status0, status1;
-    std::vector<float > error0, error1;
-
-    std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imL0), std::ref(imL1), win,
-                               maxLevel, std::ref(status0), std::ref(error0), std::ref(ptsL0), std::ref(ptsL1),
-                               std::ref(left0_pyr), std::ref(left1_pyr), 0, std::ref(pts3D));
-
-    std::vector<Point3f> aux (0);
-    std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imR0), std::ref(imR1), win,
-                                maxLevel, std::ref(status1), std::ref(error1), std::ref(ptsR0), std::ref(ptsR1),
-                                std::ref(right0_pyr), std::ref(right1_pyr), 1, std::ref(aux));
-
-    kltThreadLeft.join();
-    kltThreadRight.join();
-
-
-}
-
-void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std::vector<Point2f> &ptsL0,
-                                                 const cv::Mat &imL1, const std::vector<Point2f> &ptsL1,
-                                                 const cv::Mat &imR0, const std::vector<Point2f> &ptsR0,
-                                                 const cv::Mat &imR1, const std::vector<Point2f> &ptsR1,
-                                                 std::vector<bool> &inliers, std::vector<double> &rvec_est, cv::Mat &t_est) {
-
-    Mat fmat;
-    std::vector<DMatch> mll, mrr;
-    (*mEightPointLeft) (ptsL0, ptsL1, mll, inliers, true, 0, fmat);
-
-    Mat R_est;
-    essentialMatrixDecomposition(fmat, K, K, ptsL0, ptsL1, inliers, R_est, t_est);
-
-
-    Rodrigues(R_est, rvec_est, noArray());
-    if (debug_)
-        logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll,R_est);
-}
-
-void Tracking::relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
-                                      const std::vector<cv::Point3f> &pts3D, const std::vector<double> &rvec_est
-                                      , const cv::Mat &t_est , cv::Mat &Tcw_) {
-
-
-    //initialize vector of parameters with rotation and translation from essential matrix
-    std::vector<double> p0 (6, 0.0);
-    p0.at(0) = rvec_est.at(0);
-    p0.at(1) = rvec_est.at(1);
-    p0.at(2) = rvec_est.at(2);
-    p0.at(3) = t_est.at<double>(0);
-    p0.at(4) = t_est.at<double>(1);
-    p0.at(5) = t_est.at<double>(2);
-
-    std::vector<bool> inliers2;
-
-    std::vector<double> p (6, 0.0);
-    poseEstimationRansac(pts2DL, pts2DR, pts3D, p0, inliers2, p, reweigh);
-
-    //pose refinment with all inliers
-    Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
-    Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
-
-    poseRefinment(pts2DL, pts2DR, pts3D, inliers2, p, rot_vec, tr_vec);
-
-    Mat Rotmat;
-    Rodrigues(rot_vec, Rotmat, noArray());
-
-    Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
-    tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
-
-
-
-}
-
-void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vector<Point2f> &pts2DR,
-                             const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers,
-                             std::vector<double> &p, cv::Mat &rot_vec, cv::Mat &tr_vec) {
-
-    std::vector<Point2d> inPts_l1, inPts_r1;
-    std::vector<Point3d> inPts_3D;
-
-    for (int i=0; i<inliers.size(); i++){
-        if(inliers.at(i)){
-            Point2f aux1 = pts2DL[i];
-            inPts_l1.push_back(aux1);
-            Point2f aux2 = pts2DR[i];
-            inPts_r1.push_back(aux2);
-            Point3f aux3 = pts3D[i];
-            inPts_3D.push_back(aux3);
-        }
-    }
-
-    // pose refinement with all inliers
-    int status = 0;
-    for (int i = 0; i < finalMaxIteration; i++){
-        status = poseEstimation(inPts_l1, inPts_r1, inPts_3D, p, inPts_l1.size(), reweigh);
-        if(status != UPDATE)
-            break;
-    }
-
-    rot_vec.at<double>(0) = p.at(0);
-    rot_vec.at<double>(1) = p.at(1);
-    rot_vec.at<double>(2) = p.at(2);
-
-    tr_vec.at<double>(0)  = p.at(3);
-    tr_vec.at<double>(1)  = p.at(4);
-    tr_vec.at<double>(2)  = p.at(5);
-
-
-}
 

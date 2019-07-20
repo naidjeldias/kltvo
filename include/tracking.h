@@ -9,6 +9,8 @@
 #define MAX_DELTAX 69
 //#define MAX_DELTAX 85
 
+#define LOG true
+
 #define FRAME_GRID_COLS 48
 #define FRAME_GRID_ROWS 48
 
