@@ -1081,8 +1081,8 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, 
 
     SVD::compute(E, D, U, Vt, SVD::MODIFY_A| SVD::FULL_UV);
 
-    Mat newE = U*Diag*Vt;
-    SVD::compute(newE, D, U, Vt, SVD::MODIFY_A| SVD::FULL_UV);
+//    Mat newE = U*Diag*Vt;
+//    SVD::compute(newE, D, U, Vt, SVD::MODIFY_A| SVD::FULL_UV);
 
     Mat R1 =  U * W * Vt;
     if(determinant(R1) < 0)

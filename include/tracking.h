@@ -6,8 +6,8 @@
 #define KLTVO_TRACKING_H
 
 #define MAX_DELTAY 0
-#define MAX_DELTAX 69
-//#define MAX_DELTAX 85
+//#define MAX_DELTAX 69
+#define MAX_DELTAX 62
 
 #define LOG         false
 #define LOG_DRAW    false

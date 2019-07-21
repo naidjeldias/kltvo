@@ -72,6 +72,7 @@ int main() {
     cout << "Images in the sequence: " << nImages << endl << endl;
 
     string path_calib   = string("kitti/KITTI03.yaml");
+//    string path_calib   = string("kitti/KITTI00-02.yaml");
     Tracking tracking(path_calib);
 
     // Main loop
@@ -119,10 +120,10 @@ int main() {
 
         current_ni = ni;
 
-//        cv::imshow("Left Frame", imLeft);
-//        char c=(char) cv::waitKey(1);
-//        if(c==27)
-//            break;
+        cv::imshow("Left Frame", imLeft);
+        char c=(char) cv::waitKey(1);
+        if(c==27)
+            break;
     }
 
     // Tracking time statistics
