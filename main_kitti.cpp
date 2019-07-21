@@ -136,8 +136,8 @@ int main() {
     cout << "-------" << endl << endl;
     cout << "mean tracking time: " << totaltime/current_ni << endl;
 
-    tracking.saveTrajectoryKitti("KLTVO_KITTI.txt");
-//    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
+//    tracking.saveTrajectoryKitti("KLTVO_KITTI.txt");
+    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
 
     cv::destroyAllWindows();
 

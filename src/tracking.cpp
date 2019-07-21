@@ -1506,8 +1506,6 @@ void Tracking::saveTrajectoryTUM(const string &filename) {
     Mat R0 = Twc.rowRange(0,3).colRange(0,3);
     Mat t0 = Twc.rowRange(0,3).col(3);
 
-//    std::vector<double> q0 =  getQuaternion(R0);
-
     std::vector<float> q0 =  mRot2Quat(R0);
 
     f << setprecision(6) << initTimestamp << " " <<  setprecision(9) << t0.at<float>(0) << " " << t0.at<float>(1) << " " << t0.at<float>(2) << " " << q0[3] << " " << q0[2] << " " << q0[1] << " " << q0[0] << endl;
@@ -1531,9 +1529,6 @@ void Tracking::saveTrajectoryTUM(const string &filename) {
         rot_mat = (*lit).rowRange(0,3).colRange(0,3);
         tr_vec  = (*lit).col(3);
 
-//        std::cout << "det rot_mat: " << determinant(rot_mat) << std::endl;
-//        std::cout << "tr_vec: "  << tr_vec << std::endl;
-
         cv::Mat Rt  = rot_mat.t();
         cv::Mat C   = -1 * Rt * tr_vec;
 
@@ -1544,21 +1539,14 @@ void Tracking::saveTrajectoryTUM(const string &filename) {
         Rt.copyTo(Tcw_inv.rowRange(0,3).colRange(0,3));
         C.copyTo(Tcw_inv.rowRange(0,3).col(3));
 
-//        std::cout << "Tcw_inv: " << Tcw_inv << std::endl;
-
         Twc = Twc * Tcw_inv;
 
         Mat Rw = Twc.rowRange(0,3).colRange(0,3);
         Mat tw = Twc.rowRange(0,3).col(3);
 
-//        std::vector<double> q =  getQuaternion(Rw);
-
         std::vector<float> q =  mRot2Quat(Rw);
 
-//        std::cout << "Twc: " << Twc << std::endl;
-
-        f << setprecision(6) << initTimestamp << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " " << tw.at<float>(2) << " " << q[3] << " " << q[2] << " " << q[1] << " " << q[0] << endl;
-
+        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " " << tw.at<float>(2) << " " << q[3] << " " << q[2] << " " << q[1] << " " << q[0] << endl;
 
     }
 
