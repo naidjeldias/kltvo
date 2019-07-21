@@ -57,7 +57,6 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
     if(normalize && method == 0) computeMatNormTransform(kpt_l, kpt_r, kpt_l.size(), leftScaling, rightScaling);
 
-    // std::vector<bool> bestInliers;
     int bestNumInliers = ransacMinSet;
 
     int n = 0;
@@ -79,9 +78,6 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
             fmat            = computeFundamentalMatrix(kpt_l, kpt_r, randValues, leftScaling, rightScaling, normalize);
         else
             fmat            = findFundamentalMat(kpt_l, kpt_r, FM_8POINT);
-
-//        std::cout << fmat << std::endl;
-
 
         if(fmat.empty()) continue;
 
@@ -106,7 +102,6 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
                 X_r.at<double>(2)   = 1.0;
 
                 double d   =  sampsonError(fmat, X_l, X_r);
-//                std::cout<< "Sampson error" << d << std::endl;
 
                 if( d < ransacTh*ransacTh){
                     inliers.push_back(true);
@@ -114,15 +109,11 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
                     meanError += sqrt(d);
                     numInliers++;
                     double dst = euclideanDist(kpt_l.at(i), kpt_r.at(i));
-//                    double dst = norm(Mat(kpt_l.at(i)), Mat(kpt_r.at(i)));
+
                     DMatch match (pos,pos, dst);
                     matches_.push_back(match);
                     pos++;
-                    // std::cout << "matches inliers: " << matches_.size() << std::endl;
-//                    std::cout << "Distance: " << d << std::endl;
 
-//                     std::cout << "Left point: " << X_l << std::endl;
-//                     std::cout << "Right point: " << X_r << std::endl;
                 }else{
                     inliers.push_back(false);
                 }
@@ -130,7 +121,7 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
             }else{
                 inliers.push_back(true);//the points from subset are considered as inliers
-//                numInliers++;
+
                 double dst = euclideanDist(kpt_l.at(i), kpt_r.at(i));
                 DMatch match (pos,pos, dst);
                 matches_.push_back(match);
@@ -152,7 +143,7 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
         stdDev /= (double)(numInliers);
 
         if((numInliers > bestNumInliers) || (numInliers == bestNumInliers && stdDev<bestStdDev)){
-//            std::cout << "Num inliers: " << numInliers << std::endl;
+
             bestInliers     = inliers;
             finalMatches    = matches_;
 
@@ -162,28 +153,23 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
             //fraction of inliers in the set of points
             double w    = (double) bestNumInliers / (double) kpt_l.size();
-//            std::cout << "fraction of inliers: " << w << std::endl;
+
             //probability of not all N points are inliers
             //in each iteration we pick N points that are all inliers with probability w^N
             double p1   = 1 - pow(w, ransacMinSet);
             p1 = MAX(LDBL_MIN, p1);     // Avoid division by -Inf
             p1 = MIN(1-LDBL_MIN, p1);   // Avoid division by 0.
-//            std::cout << "probability : " << p1 << std::endl;
+
             //probability of not all N points are inliers in r iterations is (1 - w^N)^r
             //the probability that in r iteration, at least once, all N points are inliers: p = 1-(1 - W^N)^r
             r = log(1 - ransacProb)/log(p1);
-//            std::cout << "r estimated: " << r << std::endl;
+
         }
         n ++;
     }
 
     delete [] errorVect;
 
-//     std::cout << "Number of pts left 0 after ransac : " << bestNumInliers << std::endl;
-//       std::cout << "Error standard deviation: " << bestStdDev << std::endl;
-//     std::cout << "Number of iterations: " << n << std::endl;
-//     std::cout << "Best num of inliers: " << bestNumInliers  <<std::endl;
-//     std::cout << "Size inliers vec: " << finalMatches.size() << std::endl;
 
 }
 
@@ -324,8 +310,6 @@ void EightPoint::computeMatNormTransform(const std::vector<Point2f> &kpt_l, cons
     rightScalingMat.at<double>(1,2)  = -scaleRight*meanRight.y;
     rightScalingMat.at<double>(2,2)  = 1.0;
 
-    // std::cout << "Scaling Mat Left: "   << leftScalingMat   << std::endl;
-    // std::cout << "Scaling Mat Right: "  << rightScalingMat  << std::endl;
 
 }
 

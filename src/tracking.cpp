@@ -1155,7 +1155,7 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
 
         for (int j = 0; j < inliers.size() /*tmpInliers.size()*/; j++ ){
 
-            if(/*tmpInliers[j]*/inliers[i]){
+            if(/*tmpInliers[j]*/inliers[j]){
 
                 Mat x_r = cv::Mat::zeros(3,1, CV_64F);
                 x_r.at<double>(0) = pts_r[j].x;
