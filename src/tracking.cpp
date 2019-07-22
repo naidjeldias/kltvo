@@ -311,26 +311,6 @@ void Tracking::drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts
 }
 
 
-void Tracking::opticalFlowFeatureTrack(const cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
-                                       std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr,
-                                       std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose) {
-
-
-//    std::vector <Mat> imT0_pyr, imT1_pyr;
-    std::lock_guard<std::mutex> lock1(mtx1);
-    buildOpticalFlowPyramid(imT0, imT0_pyr, win, maxLevel, true);
-    std::lock_guard<std::mutex> lock2(mtx2);
-    buildOpticalFlowPyramid(imT1, imT1_pyr, win, maxLevel, true);
-    std::lock_guard<std::mutex> lock3(mtx3);
-    calcOpticalFlowPyrLK(imT0_pyr, imT1_pyr, prevPts, nextPts, status, error, win, maxLevel,
-                         TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
-
-    std::lock_guard<std::mutex> lock4(mtx4);
-    checkPointOutBounds(prevPts, nextPts, imT1, status, flag, pts3D, ptsClose);
-
-}
-
-
 void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
                             std::vector<cv::Point3f> &pts3D, const std::vector<DMatch> &matches, double &meanError) {
 
@@ -406,9 +386,6 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
 //    std::vector<bool> bestInliers;
     int bestNumInliers = ransacMinSet;
 
-//    for (int i = 0; i < 6; i++)
-//        std::cout << p0.at(i) << "\n";
-
     long double minSumErr = FLT_MAX;
 
     p = p0;
@@ -416,7 +393,7 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
     for (int n = 0; n < ransacMaxIt; n++){
 
         //compute rand index
-        std::vector<int> randIndex;    //vector of rand index
+        std::vector<int> randIndex (0, ransacMinSet);    //vector of rand index
         randIndex      = generateRandomIndices(pts3d.size(), ransacMinSet);
 
         std::vector<Point3d> aux_pt3d;
@@ -434,16 +411,17 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
 
         int status = 0;
         for (int i = 0; i < maxIteration; i++){
+
             status = poseEstimation(aux_pt2dl, aux_pt2dr, aux_pt3d, p0_, randIndex.size(), reweigh);
+
             if(status != UPDATE)
                 break;
         }
 
-//        std::cout << "Status: " << status << std::endl;
         if(status == FAILED)
             continue;
 
-        std::vector<bool> inliers;
+        std::vector<bool> inliers (pts3d.size(), false);
 
         long double sumErr = 0;
         //validate model againts the init set
@@ -451,16 +429,15 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
 
 
         if(numInliers > bestNumInliers){
-//            std::cout << "Num inliers: " << numInliers << std::endl;
             bestInliers     = inliers;
             p = p0_;
             bestNumInliers  = numInliers;
             minSumErr = sumErr;
         }
     }
-
-//    std::cout << "Best Num inliers: " << bestNumInliers << std::endl;
-//    std::cout << "Num iterations: " << n << std::endl;
+#if LOG
+    writeOnLogFile("Num inliers pose estimation: ", std::to_string(bestNumInliers));
+#endif
 
 }
 
@@ -674,11 +651,6 @@ int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vec
     double r21=+cx*sy*sz+sx*cz;
     double r22=+cx*cy;
 
-//    std::cout << "Rotation mat: " << std::endl;
-//    cout << r00 << " " << r01 << " " << r02 << endl;
-//    cout << r10 << " " << r11 << " " << r12 << endl;
-//    cout << r20 << " " << r21 << " " << r22 << endl;
-
     //aux variables
     //3D point computed in previous camera coordinate
     double X1p,Y1p,Z1p;
@@ -687,10 +659,7 @@ int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vec
 
     int numInliers = 0;
 
-
-
     for (int i = 0; i < pts3d.size(); i++){
-
 
         // weighting
         double weight = 1.0;
@@ -730,7 +699,7 @@ int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vec
         double ry1 = weight*(pts2dr.at(i).y - pred_v2);
 
         if( rx0*rx0+ry0*ry0+rx1*rx1+ry1*ry1 < ransacTh*ransacTh){
-            inliers.push_back(true);
+            inliers[i] = true;
             numInliers++;
         }
 
@@ -747,10 +716,11 @@ std::vector<int> Tracking::generateRandomIndices(const unsigned long &maxIndice,
 
     do{
         index = rand() % maxIndice;
-        if(!(std::find(randValues.begin(), randValues.end(), index) != randValues.end()))
+        if(!(std::find(randValues.begin(), randValues.end(), index) != randValues.end())){
             randValues.push_back(index);
-    }while(randValues.size() < vecSize);
+        }
 
+    }while(randValues.size() < vecSize);
 
     return randValues;
 }
@@ -1296,8 +1266,71 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
 
 }
 
+
+
+void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::vector<KeyPoint> &kpts0,
+                                 std::vector<KeyPoint> &kpts1, std::vector<Point2f> &pts0,
+                                 std::vector<Point2f> &pts1) {
+
+    std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(im0), std::ref (kpts0), std::ref (pts0));
+    std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(im1), std::ref (kpts1), std::ref(pts1));
+
+    orbThreadLeft.join();
+    orbThreadRight.join();
+
+#if LOG
+    logFeatureExtraction(kpts0, kpts1, pts0, im0);
+#endif
+}
+
+void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
+                               std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1,
+                               std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose ) {
+
+    std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
+    Size win (15,15);
+    int maxLevel = 3;
+    std::vector<uchar> status0, status1;
+    std::vector<float > error0, error1;
+
+    std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imL0), std::ref(imL1), win,
+                               maxLevel, std::ref(status0), std::ref(error0), std::ref(ptsL0), std::ref(ptsL1),
+                               std::ref(left0_pyr), std::ref(left1_pyr), 0, std::ref(pts3D), std::ref(ptsClose));
+
+    std::vector<Point3f> aux (0);
+    std::vector<bool> aux1(0);
+    std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imR0), std::ref(imR1), win,
+                                maxLevel, std::ref(status1), std::ref(error1), std::ref(ptsR0), std::ref(ptsR1),
+                                std::ref(right0_pyr), std::ref(right1_pyr), 1, std::ref(aux), std::ref(aux1));
+
+    kltThreadLeft.join();
+    kltThreadRight.join();
+
+
+}
+
+
+void Tracking::opticalFlowFeatureTrack(const cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
+                                       std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr,
+                                       std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose) {
+
+
+//    std::vector <Mat> imT0_pyr, imT1_pyr;
+    std::lock_guard<std::mutex> lock1(mtx1);
+    buildOpticalFlowPyramid(imT0, imT0_pyr, win, maxLevel, true);
+    std::lock_guard<std::mutex> lock2(mtx2);
+    buildOpticalFlowPyramid(imT1, imT1_pyr, win, maxLevel, true);
+    std::lock_guard<std::mutex> lock3(mtx3);
+    calcOpticalFlowPyrLK(imT0_pyr, imT1_pyr, prevPts, nextPts, status, error, win, maxLevel,
+                         TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
+
+//    std::lock_guard<std::mutex> lock4(mtx4);
+    checkPointOutBounds(prevPts, nextPts, imT1, status, flag, pts3D, ptsClose);
+
+}
+
 void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,const cv::Mat &imT1,
-        const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3, std::vector<bool> &ptsClose) {
+                                   const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3, std::vector<bool> &ptsClose) {
 
     std::vector<Point2f> tmpPrevPts (prevPts.size());
     std::vector<Point2f> tmpNexPts (nextPts.size());
@@ -1348,48 +1381,6 @@ void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Po
 
 
 }
-
-void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::vector<KeyPoint> &kpts0,
-                                 std::vector<KeyPoint> &kpts1, std::vector<Point2f> &pts0,
-                                 std::vector<Point2f> &pts1) {
-
-    std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(im0), std::ref (kpts0), std::ref (pts0));
-    std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(im1), std::ref (kpts1), std::ref(pts1));
-
-    orbThreadLeft.join();
-    orbThreadRight.join();
-
-#if LOG
-    logFeatureExtraction(kpts0, kpts1, pts0, im0);
-#endif
-}
-
-void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
-                               std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1,
-                               std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose ) {
-
-    std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
-    Size win (15,15);
-    int maxLevel = 3;
-    std::vector<uchar> status0, status1;
-    std::vector<float > error0, error1;
-
-    std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imL0), std::ref(imL1), win,
-                               maxLevel, std::ref(status0), std::ref(error0), std::ref(ptsL0), std::ref(ptsL1),
-                               std::ref(left0_pyr), std::ref(left1_pyr), 0, std::ref(pts3D), std::ref(ptsClose));
-
-    std::vector<Point3f> aux (0);
-    std::vector<bool> aux1(0);
-    std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imR0), std::ref(imR1), win,
-                                maxLevel, std::ref(status1), std::ref(error1), std::ref(ptsR0), std::ref(ptsR1),
-                                std::ref(right0_pyr), std::ref(right1_pyr), 1, std::ref(aux), std::ref(aux1));
-
-    kltThreadLeft.join();
-    kltThreadRight.join();
-
-
-}
-
 void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std::vector<Point2f> &ptsL0,
                                                  const cv::Mat &imL1, const std::vector<Point2f> &ptsL1,
                                                  const cv::Mat &imR0, const std::vector<Point2f> &ptsR0,
@@ -1419,7 +1410,7 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
 #endif
 }
 
-void Tracking::relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
+void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
                                       const std::vector<cv::Point3f> &pts3D, const std::vector<double> &rvec_est
         , const cv::Mat &t_est , cv::Mat &Tcw_) {
 
@@ -1434,6 +1425,7 @@ void Tracking::relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, co
 //    p0.at(5) = t_est.at<double>(2);
 
     std::vector<bool> inliers2;
+    inliers2.reserve(pts3D.size());
 
     std::vector<double> p (6, 0.0);
     poseEstimationRansac(pts2DL, pts2DR, pts3D, p0, inliers2, p, reweigh);
@@ -1459,7 +1451,11 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
                              std::vector<double> &p, cv::Mat &rot_vec, cv::Mat &tr_vec) {
 
     std::vector<Point2d> inPts_l1, inPts_r1;
+    inPts_l1.reserve(pts2DL.size());
+    inPts_r1.reserve(pts2DR.size());
+
     std::vector<Point3d> inPts_3D;
+    inPts_3D.reserve(pts3D.size());
 
     for (int i=0; i<inliers.size(); i++){
         if(inliers.at(i)){

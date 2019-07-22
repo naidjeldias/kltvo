@@ -103,7 +103,7 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
                 double d   =  sampsonError(fmat, X_l, X_r);
 
-                if( d < ransacTh*ransacTh){
+                if( d < ransacTh){
                     inliers.push_back(true);
                     errorVect[numInliers] = sqrt(d);
                     meanError += sqrt(d);
