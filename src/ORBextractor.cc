@@ -810,7 +810,7 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
                 if(vKeysCell.empty())
                 {
                     FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
-                         vKeysCell,minThFAST,true);
+                         vKeysCell,minThFAST,true, FastFeatureDetector::TYPE_9_16);
                 }
 
                 if(!vKeysCell.empty())
@@ -930,13 +930,13 @@ void ORBextractor::ComputeKeyPointsOld(std::vector<std::vector<KeyPoint> > &allK
 
                 cellKeyPoints[i][j].reserve(nfeaturesCell*5);
 
-                FAST(cellImage,cellKeyPoints[i][j],iniThFAST,true);
+                FAST(cellImage,cellKeyPoints[i][j],iniThFAST,true,FastFeatureDetector::TYPE_9_16);
 
                 if(cellKeyPoints[i][j].size()<=3)
                 {
                     cellKeyPoints[i][j].clear();
 
-                    FAST(cellImage,cellKeyPoints[i][j],minThFAST,true);
+                    FAST(cellImage,cellKeyPoints[i][j],minThFAST,true, FastFeatureDetector::TYPE_9_16);
                 }
 
 
