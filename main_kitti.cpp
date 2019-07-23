@@ -55,7 +55,8 @@ int main() {
 
     // Retrieve paths to images
     //full kitti dataset
-    string path_data = string("../../KITTI_DATASET/dataset/sequences/03");
+    string seq = "03";
+    string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
     vector<double> vTimestamps;
@@ -71,7 +72,8 @@ int main() {
     cout << "Start processing sequence ..." << endl;
     cout << "Images in the sequence: " << nImages << endl << endl;
 
-    string path_calib   = string("kitti/KITTI03.yaml");
+    string yamlFile = "KITTI" + seq + ".yaml";
+    string path_calib   = string("kitti/"+yamlFile);
 //    string path_calib   = string("kitti/KITTI00-02.yaml");
     Tracking tracking(path_calib);
 
@@ -136,7 +138,8 @@ int main() {
     cout << "-------" << endl << endl;
     cout << "mean tracking time: " << totaltime/current_ni << endl;
 
-    tracking.saveTrajectoryKitti("KLTVO_KITTI.txt");
+    string resultFile = "KLTVO_KITTI" + seq + ".txt";
+    tracking.saveTrajectoryKitti("results/"+resultFile);
 //    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
 
     cv::destroyAllWindows();

@@ -7,13 +7,13 @@
 
 #define MAX_DELTAY 0
 //#define MAX_DELTAX 69
-#define MAX_DELTAX 62
+#define MAX_DELTAX 721
 
 #define LOG         false
 #define LOG_DRAW    false
 
-#define FRAME_GRID_COLS 48
-#define FRAME_GRID_ROWS 48
+#define FRAME_GRID_COLS 24
+#define FRAME_GRID_ROWS 24
 
 #include "utils.h"
 #include "epnp.h"

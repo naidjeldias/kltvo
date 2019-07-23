@@ -18,10 +18,17 @@ Tracking::Tracking(const string &strSettingPath) {
         std::cerr << "ERROR: Wrong path to settings" << std::endl;
     }
 
+    std::cout << "Camera parameters: \n";
+
     fu = fsSettings["Camera.fx"];
     fv = fsSettings["Camera.fy"];
     uc = fsSettings["Camera.cx"];
     vc = fsSettings["Camera.cy"];
+
+    std::cout << "- fu: " << fu << std::endl;
+    std::cout << "- fv: " << fv << std::endl;
+    std::cout << "- uc: " << uc << std::endl;
+    std::cout << "- vc: " << vc << std::endl;
 
     cv::Mat mK = cv::Mat::eye(3,3,CV_64F);
     mK.at<double>(0,0) = fu;
@@ -32,6 +39,8 @@ Tracking::Tracking(const string &strSettingPath) {
 
     double bf = fsSettings["Camera.bf"];
     baseline = bf / fu;
+
+    std::cout << "- b: " << baseline << std::endl;
 
     Mat mP1 = cv::Mat::eye(3,4, CV_64F);
     Mat mP2 = cv::Mat::eye(3,4, CV_64F);
@@ -67,11 +76,17 @@ Tracking::Tracking(const string &strSettingPath) {
     initPhase = true;
 
     //----local mapping
+    std::cout << "Triangulation parameters: \n";
 
     max_iter_3d         = fsSettings["Triangulation.maxIt"];    // max iteration for 3D estimation
     th_3d               = fsSettings["Triangulation.reproTh"];  // max reprojection error for 3D estimation
 
+    std::cout << "- Max it: "   << max_iter_3d  << std::endl;
+    std::cout << "- Th 3d: "    << th_3d        << std::endl;
+
+
     //----Pose estimation
+    std::cout << "Pose estimation parameters: \n";
 
     ransacProb          = fsSettings["GN.ransacProb"];
     ransacTh            = fsSettings["GN.ransacTh"];        // th for RANSAC inlier selection using reprojection error
@@ -81,6 +96,16 @@ Tracking::Tracking(const string &strSettingPath) {
     maxIteration        = fsSettings["GN.maxIt"];           // max iteration for minimization into RANSAC routine
     finalMaxIteration   = fsSettings["GN.finalMaxIt"];      // max iterations for minimization final refinement
     reweigh             = true;                             // reweight in optimization
+
+    std::cout << "- Ransac prob: "                  << ransacProb           << std::endl;
+    std::cout << "- Ransac Th: "                    << ransacTh             << std::endl;
+    std::cout << "- Ransac min set: "               << ransacMinSet         << std::endl;
+    std::cout << "- Ransac max it: "                << ransacMaxIt          << std::endl;
+    std::cout << "- Min increment th: "             << minIncTh             << std::endl;
+    std::cout << "- Max iteration: "                << maxIteration         << std::endl;
+    std::cout << "- Refinment max iteration: "      << finalMaxIteration    << std::endl;
+
+
 
     //----Stereo Matching
     minDisp = (0.0F);
@@ -904,7 +929,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
 
 
         //epipolar constraints, the correspondent keypoint must be at the same row and disparity should be positive
-        if (deltax >= minDisp && deltax <= MAX_DELTAX) {
+        if (deltax >= minDisp && deltax <= maxDisp) {
 
             //compute SAD
             double meanC    = 0; //mean of intensities of current template

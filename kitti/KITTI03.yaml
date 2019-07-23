@@ -15,8 +15,8 @@ Camera.k2: 0.0
 Camera.p1: 0.0
 Camera.p2: 0.0
 
-Camera.width: 1241
-Camera.height: 376
+Camera.width: 1242
+Camera.height: 375
 
 # Camera frames per second 
 Camera.fps: 10.0
@@ -44,7 +44,7 @@ EightPoint.ransacSet: 8
 EightPoint.ransacMaxInt: 200
 
 #Eight Point algorithm: threshold to define a point as a inlier
-EightPoint.ransacTh: 2.0
+EightPoint.ransacTh: 1.0
 
 #--------------------------------------------------------------------------------------------
 # Linear triangulation parameters
@@ -64,7 +64,7 @@ Triangulation.maxIt: 1
 GN.ransacProb: 0.99
 
 #Gauss Newton pose estimation: ransac threshold to define a point as inlier
-GN.ransacTh: 7.0
+GN.ransacTh: 5.0
 
 #Gauss Newton pose estimation: ransac minimum set for model estimation
 GN.ransacMinSet: 3
@@ -76,7 +76,7 @@ GN.ransacMaxIt: 50
 GN.maxIt: 20
 
 #Gauss Newton pose estimation: maximum iteration for pose refinment
-GN.finalMaxIt: 100
+GN.finalMaxIt: 50
 
 
 #--------------------------------------------------------------------------------------------
