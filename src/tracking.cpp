@@ -44,8 +44,10 @@ Tracking::Tracking(const string &strSettingPath) {
     mP1.copyTo(P1);
     mP2.copyTo(P2);
 
+    //-----ORB extractor
+
     nFeatures       = fsSettings["ORBextractor.nFeatures"];
-    fScaleFactor  = fsSettings["ORBextractor.scaleFactor"];
+    fScaleFactor    = fsSettings["ORBextractor.scaleFactor"];
     nLevels         = fsSettings["ORBextractor.nLevels"];
     fIniThFAST      = fsSettings["ORBextractor.iniThFAST"];
     fMinThFAST      = fsSettings["ORBextractor.minThFAST"];
@@ -53,30 +55,38 @@ Tracking::Tracking(const string &strSettingPath) {
     mpORBextractorLeft  = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
     mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
 
-    mEightPointLeft     = new EightPoint(0.99, 8, 200, 2.0);
+    //-----Eight Point algorithm
+
+    double ransacProb_      = fsSettings["EightPoint.ransacProb"];
+    double ransacMinSet_    = fsSettings["EightPoint.ransacSet"];
+    double ransacMaxIt_     = fsSettings["EightPoint.ransacMaxInt"];
+    double ransacTh_        = fsSettings["EightPoint.ransacTh"];
+
+    mEightPointLeft         = new EightPoint(ransacProb_, ransacMinSet_, ransacMaxIt_, ransacTh_);
 
     initPhase = true;
 
     //----local mapping
-    max_iter_3d         = 1;       // max iteration for 3D estimation
-    th_3d               = 0.5;      // max reprojection error for 3D estimation
+
+    max_iter_3d         = fsSettings["Triangulation.maxIt"];    // max iteration for 3D estimation
+    th_3d               = fsSettings["Triangulation.reproTh"];  // max reprojection error for 3D estimation
 
     //----Pose estimation
-    ransacProb          = 0.99;
-    ransacTh            = 7.0;      // th for RANSAC inlier selection using reprojection error
-    ransacMinSet        = 3;
-    ransacMaxIt         = 50;       // RANSAC iteration for pose estimation
-    minIncTh            = 10E-5;    // min increment for pose optimization
-    maxIteration        = 20;       // max iteration for minimization into RANSAC routine
-    finalMaxIteration   = 100;      // max iterations for minimization final refinement
-    reweigh             = true;     // reweight in optimization
+
+    ransacProb          = fsSettings["GN.ransacProb"];
+    ransacTh            = fsSettings["GN.ransacTh"];        // th for RANSAC inlier selection using reprojection error
+    ransacMinSet        = fsSettings["GN.ransacMinSet"];
+    ransacMaxIt         = fsSettings["GN.ransacMaxIt"];     // RANSAC iteration for pose estimation
+    minIncTh            = 10E-5;                            // min increment for pose optimization
+    maxIteration        = fsSettings["GN.maxIt"];           // max iteration for minimization into RANSAC routine
+    finalMaxIteration   = fsSettings["GN.finalMaxIt"];      // max iterations for minimization final refinement
+    reweigh             = true;                             // reweight in optimization
 
     //----Stereo Matching
     minDisp = (0.0F);
     maxDisp = bf/baseline;
-    thDepth = 40.0;
+    thDepth = fsSettings["ThDepth"];
 
-//    std::cout << "Max disparity: " << maxDisp << std::endl;
 
 #if LOG
     logFile.open("LOG_FILE.txt");
