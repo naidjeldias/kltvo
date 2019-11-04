@@ -38,7 +38,7 @@ public:
                      const std::vector<cv::DMatch> &matches);
 
     void drawMatches_(const cv::Mat &left_image, const cv::Mat &right_image, const std::vector<Point2f> &kpts_l,
-                      const std::vector<Point2f> &kpts_r, const std::vector<cv::DMatch> &matches, bool hold);
+                      const std::vector<Point2f> &kpts_r, const std::vector<cv::DMatch> &matches, bool hold, const std::string &prefix);
 
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
 

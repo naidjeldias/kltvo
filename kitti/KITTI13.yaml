@@ -1,0 +1,102 @@
+%YAML:1.0
+
+#--------------------------------------------------------------------------------------------
+# Camera Parameters. Adjust them!
+#--------------------------------------------------------------------------------------------
+
+# Camera calibration and distortion parameters (OpenCV) 
+Camera.fx: 718.856
+Camera.fy: 718.856
+Camera.cx: 607.1928
+Camera.cy: 185.2157
+
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+
+Camera.width: 1241
+Camera.height: 376
+
+# Camera frames per second 
+Camera.fps: 10.0
+
+# stereo baseline times fx
+Camera.bf: 386.1448
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 1
+
+# Close/Far threshold. Baseline times.
+ThDepth: 35
+
+#--------------------------------------------------------------------------------------------
+# 8-point algorithm parameters
+#--------------------------------------------------------------------------------------------
+
+#Eight Point algorithm: probability of not all N points are inliers
+EightPoint.ransacProb: 0.99
+
+#Eight Point algorithm: number of points in ransac iteration
+EightPoint.ransacSet: 8
+
+#Eight Point algorithm: maximum number of iteration in ransac
+EightPoint.ransacMaxInt: 200
+
+#Eight Point algorithm: threshold to define a point as a inlier
+EightPoint.ransacTh: 1.0
+
+#--------------------------------------------------------------------------------------------
+# Linear triangulation parameters
+#--------------------------------------------------------------------------------------------
+
+#Linear triangulation: threshold for reprojection error, points with high reprojection error are discarded
+Triangulation.reproTh: 0.5
+
+#Linear triangulation: number iteration in the 3D point estimation.
+Triangulation.maxIt: 1
+
+#--------------------------------------------------------------------------------------------
+# Gauss Newton pose estimation parameters
+#--------------------------------------------------------------------------------------------
+
+#Gauss Newton pose estimation: ransac probability of not all N points are inliers
+GN.ransacProb: 0.99
+
+#Gauss Newton pose estimation: ransac threshold to define a point as inlier
+GN.ransacTh: 5.0
+
+#Gauss Newton pose estimation: ransac minimum set for model estimation
+GN.ransacMinSet: 3
+
+#Gauss Newton pose estimation: ransac number of iteration
+GN.ransacMaxIt: 50
+
+#Gauss Newton pose estimation: maximum iteration of GN optimization
+GN.maxIt: 20
+
+#Gauss Newton pose estimation: maximum iteration for pose refinment
+GN.finalMaxIt: 50
+
+
+#--------------------------------------------------------------------------------------------
+# ORB Parameters
+#--------------------------------------------------------------------------------------------
+
+# ORB Extractor: Number of features per image
+ORBextractor.nFeatures: 2000
+
+# ORB Extractor: Scale factor between levels in the scale pyramid 	
+ORBextractor.scaleFactor: 1.2
+
+# ORB Extractor: Number of levels in the scale pyramid	
+ORBextractor.nLevels: 8
+
+# ORB Extractor: Fast threshold
+# Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
+# Firstly we impose iniThFAST. If no corners are detected we impose a lower value minThFAST
+# You can lower these values if your images have low contrast			
+ORBextractor.iniThFAST: 20
+ORBextractor.minThFAST: 7
+
+

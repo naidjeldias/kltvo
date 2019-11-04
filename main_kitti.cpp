@@ -81,6 +81,7 @@ int main() {
     cv::Mat imLeft, imRight;
     int current_ni;
     for(int ni=0; ni<nImages; ni++)
+//    for(int ni=55; ni<57; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],IMREAD_UNCHANGED);
@@ -122,10 +123,10 @@ int main() {
 
         current_ni = ni;
 
-        cv::imshow("Left Frame", imLeft);
-        char c=(char) cv::waitKey(1);
-        if(c==27)
-            break;
+//        cv::imshow("Left Frame", imLeft);
+//        char c=(char) cv::waitKey(1);
+//        if(c==27)
+//            break;
     }
 
     // Tracking time statistics
@@ -138,7 +139,7 @@ int main() {
     cout << "-------" << endl << endl;
     cout << "mean tracking time: " << totaltime/current_ni << endl;
 
-    string resultFile = "KLTVO_KITTI" + seq + ".txt";
+    string resultFile = "KITTI_" + seq + "_KLTVO.txt";
     tracking.saveTrajectoryKitti("results/"+resultFile);
 //    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
 

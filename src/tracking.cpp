@@ -139,10 +139,9 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         initTimestamp   = timestamp;
     }else{
 
-#if LOG
         numFrame ++;
         writeOnLogFile("Frame:", std::to_string(numFrame));
-#endif
+
 
         //---------------------------------detect features
         std::vector<KeyPoint> kpts_l, kpts_r;
@@ -774,7 +773,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
     std::vector<Point2f> aux_pts_r(pts_r);
     Mat im;
 #if LOG_DRAW
-    im = imLeft0.clone();
+    im = imLeft.clone();
     cv::cvtColor(im, im, cv::COLOR_GRAY2RGB);
 #endif
 
@@ -800,6 +799,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
     int pos = 0;
 //    int index_l = 0;
     double sum = 0;
+    int numPtsClose= 0;
     for (auto &pt_l:pts_l) {
 
         Point2f ptr;
@@ -809,10 +809,9 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
         bool found = findMatchingSAD(pt_l, imLeft, imRight, aux_pts_r, ptr, index, vecRowIndices);
         if(found){
             //check if the point have a good triangulation
-            double error;
-            double depth;
-            if(triangulation(pt_l, ptr, pt3D, error, depth)){
-
+            double error = 0.0;
+            double depth = 0.0;
+            if(triangulation(pt_l, ptr, pt3D, error, depth) && depth > 0){
 
                 sum += error;
                 new_pts_l.push_back(pt_l);
@@ -820,28 +819,40 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 
                 pointCloud.push_back(pt3D);
 
-                if (depth > thDepth*baseline)
+                if (depth > thDepth*baseline ){
                     ptsClose.push_back(false);
-                else
+                }
+                else{
+                    numPtsClose ++;
                     ptsClose.push_back(true);
+                }
 
                 double dst = euclideanDist(pt_l, ptr);
                 DMatch match(pos, pos, dst);
                 matches.push_back(match);
                 pos++;
-#if LOG_DRAW
-//                if(depth > thDepth*baseline)
-//                    drawFarAndClosePts(pt_l, Scalar(0, 0, 255), im);
-//                else
-//                    drawFarAndClosePts(pt_l, Scalar(0, 255, 0), im);
-//
-//                imwrite("dstPts.png", im);
-#endif
+
 
             }
         }
 
     }
+
+#if LOG_DRAW
+
+    for (int i = 0 ; i < ptsClose.size() ; i++){
+        if(ptsClose[i])
+            drawFarAndClosePts(new_pts_l[i], Scalar(0, 255, 0), im);
+        else
+            drawFarAndClosePts(new_pts_l[i], Scalar(0, 0, 255), im);
+    }
+
+    imwrite("dstPts.png", im);
+#endif
+
+#if LOG
+    std::cout << "Num points close: " << numPtsClose << std::endl;
+#endif
 
     //Free memory
     std::vector<Point2f>().swap(aux_pts_r);
@@ -1432,7 +1443,7 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
 
 #if LOG
     writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
-    writeOnLogFile("Number of inliers:", std::to_string(mll.size()));
+    writeOnLogFile("Num of inliers tracking:", std::to_string(mll.size()));
 #endif
 
     Mat R_est;
@@ -1689,14 +1700,15 @@ void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, con
 void Tracking::logStereoMatching(const cv::Mat &im_r, const cv::Mat &im_l, const std::vector<cv::DMatch> &mrl,
                                  const std::vector<Point2f> &pts_r, const std::vector<Point2f> &pts_l) {
 #if LOG_DRAW
-    mEightPointLeft->drawMatches_(im_l, im_r, pts_l, pts_r, mrl, false);
+    std::string prefix = "stereo";
+    mEightPointLeft->drawMatches_(im_l, im_r, pts_l, pts_r, mrl, false, prefix);
 #endif
-    writeOnLogFile("Number of stereo matches:", std::to_string(pts_l.size()));
+    writeOnLogFile("Num of stereo matches:", std::to_string(pts_l.size()));
 
 }
 
 void Tracking::logLocalMaping(const std::vector<Point3f> &pts3D, double &meanError) {
-    writeOnLogFile("Number of 3D points:", std::to_string(pts3D.size()));
+    writeOnLogFile("Num of 3D points:", std::to_string(pts3D.size()));
     writeOnLogFile("Mean reprojection error:", std::to_string(meanError));
 }
 
@@ -1705,15 +1717,16 @@ void Tracking::logFeatureTracking(const std::vector<Point2f> &pts_l0, const std:
                                   const cv::Mat &im_l0, const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll, const cv::Mat &R) {
 
 
-    writeOnLogFile("Number of left points tracked:", std::to_string(pts_l1.size()));
-    writeOnLogFile("Number of right points tracked:", std::to_string(pts_r1.size()));
+    writeOnLogFile("Num of left points tracked:", std::to_string(pts_l1.size()));
+    writeOnLogFile("Num of right points tracked:", std::to_string(pts_r1.size()));
 
 }
 
 void Tracking::logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const std::vector<Point2f> &pts_l1,
                                const std::vector<Point2f> &pts_r1, const std::vector<cv::DMatch> &mlr1, int numPts) {
 #if LOG_DRAW
-    mEightPointLeft->drawMatches_(im_l1, im_r1, pts_l1, pts_r1, mlr1, false);
+    std::string prefix = "quad";
+    mEightPointLeft->drawMatches_(im_l1, im_r1, pts_l1, pts_r1, mlr1, false, prefix);
 #endif
     writeOnLogFile("left points before quadMatching:", std::to_string(numPts));
 
