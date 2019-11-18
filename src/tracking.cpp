@@ -1518,7 +1518,7 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
                              const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers,
                              std::vector<double> &p, cv::Mat &rot_vec, cv::Mat &tr_vec, const int &numInliers) {
 
-    std::cout << "Num inliers for refinment: " << numInliers << std::endl;
+//    std::cout << "Num inliers for refinment: " << numInliers << std::endl;
     std::vector<Point2d> inPts_l1, inPts_r1;
     inPts_l1.reserve(numInliers);
     inPts_r1.reserve(numInliers);
