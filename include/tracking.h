@@ -171,10 +171,11 @@ private:
             const std::vector<cv::Point3f> &pts3D, const std::vector<double> &rvec_est, const cv::Mat &t_est ,cv::Mat &Tcw);
 
     void poseRefinment(const std::vector<Point2f> &pts2DL, const std::vector<Point2f> &pts2DR,
-            const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers, std::vector<double> &p ,cv::Mat &rot_vec, cv::Mat &tr_vec);
+            const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers, std::vector<double> &p ,cv::Mat &rot_vec,
+            cv::Mat &tr_vec, const int &bestNumInliers);
 
     int poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr, const std::vector<cv::Point3f> &pts3d
-            , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh);
+            , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh, int &bestNumInliers);
 
     int poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr, const std::vector<cv::Point3d> &pts3d
             , std::vector<double> &p0, const int numPts, bool reweigh);

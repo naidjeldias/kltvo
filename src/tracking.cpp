@@ -419,11 +419,12 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
 
 
 int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
-                              const std::vector<cv::Point3f> &pts3d, std::vector<double> &p0, std::vector<bool> &bestInliers, std::vector<double> &p, bool reweigh) {
+                              const std::vector<cv::Point3f> &pts3d, std::vector<double> &p0, std::vector<bool> &bestInliers,
+                              std::vector<double> &p, bool reweigh, int &bestNumInliers) {
 
 
 //    std::vector<bool> bestInliers;
-    int bestNumInliers = ransacMinSet;
+//    int bestNumInliers = ransacMinSet;
 
     long double minSumErr = FLT_MAX;
 
@@ -482,7 +483,7 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
     }
 #if LOG
     writeOnLogFile("Num inliers pose estimation: ", std::to_string(bestNumInliers));
-    writeOnLogFile("Num itarations: ", std::to_string(n_));
+    writeOnLogFile("Num iterations: ", std::to_string(n_));
 #endif
 
 }
@@ -1492,13 +1493,14 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
     inliers2.reserve(pts3D.size());
 
     std::vector<double> p (6, 0.0);
-    poseEstimationRansac(pts2DL, pts2DR, pts3D, p0, inliers2, p, reweigh);
+    int bestNumInliers = ransacMinSet;
+    poseEstimationRansac(pts2DL, pts2DR, pts3D, p0, inliers2, p, reweigh, bestNumInliers);
 
     //pose refinment with all inliers
     Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
     Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
 
-    poseRefinment(pts2DL, pts2DR, pts3D, inliers2, p, rot_vec, tr_vec);
+    poseRefinment(pts2DL, pts2DR, pts3D, inliers2, p, rot_vec, tr_vec, bestNumInliers);
 
     Mat Rotmat;
     Rodrigues(rot_vec, Rotmat, noArray());
@@ -1512,14 +1514,15 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
 
 void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vector<Point2f> &pts2DR,
                              const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers,
-                             std::vector<double> &p, cv::Mat &rot_vec, cv::Mat &tr_vec) {
+                             std::vector<double> &p, cv::Mat &rot_vec, cv::Mat &tr_vec, const int &numInliers) {
 
+    std::cout << "Num inliers for refinment: " << numInliers << std::endl;
     std::vector<Point2d> inPts_l1, inPts_r1;
-    inPts_l1.reserve(pts2DL.size());
-    inPts_r1.reserve(pts2DR.size());
+    inPts_l1.reserve(numInliers);
+    inPts_r1.reserve(numInliers);
 
     std::vector<Point3d> inPts_3D;
-    inPts_3D.reserve(pts3D.size());
+    inPts_3D.reserve(numInliers);
 
     for (int i=0; i<inliers.size(); i++){
         if(inliers.at(i)){

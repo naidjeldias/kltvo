@@ -55,7 +55,7 @@ int main() {
 
     // Retrieve paths to images
     //full kitti dataset
-    string seq = "03";
+    string seq = "01";
     string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
@@ -137,7 +137,8 @@ int main() {
         totaltime+=vTimesTrack[ni];
     }
     cout << "-------" << endl << endl;
-    cout << "mean tracking time: " << totaltime/current_ni << endl;
+    cout << "total time in seconds: "   << totaltime            << endl;
+    cout << "mean tracking time: "      << totaltime/current_ni << endl;
 
     string resultFile = "KITTI_" + seq + "_KLTVO.txt";
     tracking.saveTrajectoryKitti("results/"+resultFile);

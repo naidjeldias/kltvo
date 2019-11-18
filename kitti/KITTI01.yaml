@@ -64,19 +64,19 @@ Triangulation.maxIt: 1
 GN.ransacProb: 0.99
 
 #Gauss Newton pose estimation: ransac threshold to define a point as inlier
-GN.ransacTh: 6.0
+GN.ransacTh: 5.0
 
 #Gauss Newton pose estimation: ransac minimum set for model estimation
 GN.ransacMinSet: 3
 
 #Gauss Newton pose estimation: ransac number of iteration
-GN.ransacMaxIt: 50
+GN.ransacMaxIt: 30
 
 #Gauss Newton pose estimation: maximum iteration of GN optimization
-GN.maxIt: 50
+GN.maxIt: 30
 
 #Gauss Newton pose estimation: maximum iteration for pose refinment
-GN.finalMaxIt: 50
+GN.finalMaxIt: 30
 
 
 #--------------------------------------------------------------------------------------------
