@@ -499,6 +499,8 @@ int Tracking::poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::
 
     computeJacobian(numPts, pts3d, pts2dl, pts2dr, p0, J, res, reweigh);
 
+//    std::cout << "Passou !!!!!!!" << std::endl;
+
     cv::Mat A = cv::Mat(6,6,CV_64F);
     cv::Mat B = cv::Mat(6,1,CV_64F);
     cv::Mat S = cv::Mat(6,1,CV_64F);
@@ -1535,13 +1537,17 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
         }
     }
 
+
+
     // pose refinement with all inliers
     int status = 0;
     for (int i = 0; i < finalMaxIteration; i++){
-        status = poseEstimation(inPts_l1, inPts_r1, inPts_3D, p, inPts_l1.size(), reweigh);
+        status = poseEstimation(inPts_l1, inPts_r1, inPts_3D, p, numInliers, reweigh);
         if(status != UPDATE)
             break;
     }
+
+
 
     rot_vec.at<double>(0) = p.at(0);
     rot_vec.at<double>(1) = p.at(1);
