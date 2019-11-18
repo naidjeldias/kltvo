@@ -65,11 +65,16 @@ Tracking::Tracking(const string &strSettingPath) {
     mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
 
     //-----Eight Point algorithm
-
+    std::cout << "Eight Point algorithm parameters: \n";
     double ransacProb_      = fsSettings["EightPoint.ransacProb"];
     double ransacMinSet_    = fsSettings["EightPoint.ransacSet"];
     double ransacMaxIt_     = fsSettings["EightPoint.ransacMaxInt"];
     double ransacTh_        = fsSettings["EightPoint.ransacTh"];
+
+    std::cout << "- Ransac prob: "                  << ransacProb_           << std::endl;
+    std::cout << "- Ransac Th: "                    << ransacTh_             << std::endl;
+    std::cout << "- Ransac min set: "               << ransacMinSet_         << std::endl;
+    std::cout << "- Ransac max it: "                << ransacMaxIt_          << std::endl;
 
     mEightPointLeft         = new EightPoint(ransacProb_, ransacMinSet_, ransacMaxIt_, ransacTh_);
 
@@ -424,8 +429,14 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
 
     p = p0;
 
-    for (int n = 0; n < ransacMaxIt; n++){
+#if LOG
+    int n_ = 0; //check number of iterations
+#endif
 
+    for (int n = 0; n < ransacMaxIt; n++){
+#if LOG
+        n_ ++;
+#endif
         //compute rand index
         std::vector<int> randIndex (0, ransacMinSet);    //vector of rand index
         randIndex      = generateRandomIndices(pts3d.size(), ransacMinSet);
@@ -471,6 +482,7 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
     }
 #if LOG
     writeOnLogFile("Num inliers pose estimation: ", std::to_string(bestNumInliers));
+    writeOnLogFile("Num itarations: ", std::to_string(n_));
 #endif
 
 }
@@ -695,48 +707,54 @@ int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vec
 
     for (int i = 0; i < pts3d.size(); i++){
 
-        // weighting
-        double weight = 1.0;
+        //validadte against other elements
+        if(!(std::find(index.begin(), index.end(), i) != index.end())){
 
-        //give more significance to features located closer to the image center in horizontal direction
-        //the value 0.05 depends on the stereo camera and lens setup, was empirically set
-        if (reweigh)
-            weight = 1.0/(fabs(pts2dl.at(i).x - uc)/fabs(uc) + 0.05);
+            // weighting
+            double weight = 1.0;
 
-        // get 3d point in previous coordinate system
-        X1p=pts3d.at(i).x;
-        Y1p=pts3d.at(i).y;
-        Z1p=pts3d.at(i).z;
+            //give more significance to features located closer to the image center in horizontal direction
+            //the value 0.05 depends on the stereo camera and lens setup, was empirically set
+            if (reweigh)
+                weight = 1.0/(fabs(pts2dl.at(i).x - uc)/fabs(uc) + 0.05);
 
-        // compute 3d point in current left coordinate system
-        X1c = r00*X1p+r01*Y1p+r02*Z1p+tx;
-        Y1c = r10*X1p+r11*Y1p+r12*Z1p+ty;
-        Z1c = r20*X1p+r21*Y1p+r22*Z1p+tz;
+            // get 3d point in previous coordinate system
+            X1p=pts3d.at(i).x;
+            Y1p=pts3d.at(i).y;
+            Z1p=pts3d.at(i).z;
 
-        // compute 3d point in current right coordinate system
-        X2c = X1c-baseline;
-        Y2c = Y1c;
-        Z2c = Z1c;
+            // compute 3d point in current left coordinate system
+            X1c = r00*X1p+r01*Y1p+r02*Z1p+tx;
+            Y1c = r10*X1p+r11*Y1p+r12*Z1p+ty;
+            Z1c = r20*X1p+r21*Y1p+r22*Z1p+tz;
+
+            // compute 3d point in current right coordinate system
+            X2c = X1c-baseline;
+            Y2c = Y1c;
+            Z2c = Z1c;
 
 
-        double pred_u1 = fu*X1c/Z1c+uc; //  left u;
-        double pred_v1 = fv*Y1c/Z1c+vc; //  left v
+            double pred_u1 = fu*X1c/Z1c+uc; //  left u;
+            double pred_v1 = fv*Y1c/Z1c+vc; //  left v
 
-        double pred_u2 = fu*X2c/Z2c+uc; // right u
-        double pred_v2 = fv*Y2c/Z2c+vc; // right v
+            double pred_u2 = fu*X2c/Z2c+uc; // right u
+            double pred_v2 = fv*Y2c/Z2c+vc; // right v
 
-        // set residuals
-        double rx0 = weight*(pts2dl.at(i).x - pred_u1);
-        double ry0 = weight*(pts2dl.at(i).y - pred_v1);
+            // set residuals
+            double rx0 = weight*(pts2dl.at(i).x - pred_u1);
+            double ry0 = weight*(pts2dl.at(i).y - pred_v1);
 
-        double rx1 = weight*(pts2dr.at(i).x - pred_u2);
-        double ry1 = weight*(pts2dr.at(i).y - pred_v2);
+            double rx1 = weight*(pts2dr.at(i).x - pred_u2);
+            double ry1 = weight*(pts2dr.at(i).y - pred_v2);
 
-        if( rx0*rx0+ry0*ry0+rx1*rx1+ry1*ry1 < ransacTh*ransacTh){
+            if( rx0*rx0+ry0*ry0+rx1*rx1+ry1*ry1 < ransacTh*ransacTh){
+                inliers[i] = true;
+                numInliers++;
+            }
+        }else{
             inliers[i] = true;
             numInliers++;
         }
-
     }
 
     return numInliers;
