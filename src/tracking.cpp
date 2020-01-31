@@ -114,7 +114,8 @@ Tracking::Tracking(const string &strSettingPath) {
 
     //----Stereo Matching
     minDisp = (0.0F);
-    maxDisp = bf/baseline;
+//    maxDisp = bf/baseline;
+    maxDisp = 128;
     thDepth = fsSettings["ThDepth"];
 
 
@@ -145,7 +146,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
     }else{
 
         numFrame ++;
-        writeOnLogFile("Frame:", std::to_string(numFrame));
+        writeOnLogFile("Frame:", std::to_string(numFrame+1));
 
 
         //---------------------------------detect features
@@ -427,16 +428,17 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
 //    int bestNumInliers = ransacMinSet;
 
     long double minSumErr = FLT_MAX;
-
+    long double bestStdDev  = LDBL_MAX;
     p = p0;
 
 #if LOG
+    int nIt = 0;
     int n_ = 0; //check number of iterations
 #endif
 
     for (int n = 0; n < ransacMaxIt; n++){
 #if LOG
-        n_ ++;
+//        n_ ++;
 #endif
         //compute rand index
         std::vector<int> randIndex (0, ransacMinSet);    //vector of rand index
@@ -444,6 +446,12 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
 
         std::vector<Point3d> aux_pt3d;
         std::vector<Point2d> aux_pt2dl, aux_pt2dr;
+//        std::vector<double > aux_vDepth;
+        aux_pt3d.reserve(ransacMinSet);
+        aux_pt2dl.reserve(ransacMinSet);
+        aux_pt2dr.reserve(ransacMinSet);
+//        aux_vDepth.reserve(ransacMinSet);
+
 
         //selecting the random points
         for(auto &index:randIndex){
@@ -455,14 +463,25 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
         // initialize p0_ for pose otimization iteration
         std::vector<double> p0_ = p0;
 
-        int status = 0;
+        int status  = 0;
+#if LOG
+        int nIt_    = 0;
+#endif
         for (int i = 0; i < maxIteration; i++){
-
+#if LOG
+            nIt_ ++;
+#endif
             status = poseEstimation(aux_pt2dl, aux_pt2dr, aux_pt3d, p0_, randIndex.size(), reweigh);
 
             if(status != UPDATE)
                 break;
         }
+
+        //free memory
+        std::vector<Point2d>().swap(aux_pt2dl);
+        std::vector<Point2d>().swap(aux_pt2dr);
+        std::vector<Point3d>().swap(aux_pt3d);
+//        std::vector<double >().swap(aux_vDepth);
 
         if(status == FAILED)
             continue;
@@ -470,20 +489,26 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
         std::vector<bool> inliers (pts3d.size(), false);
 
         long double sumErr = 0;
+        long double stdDev = 0;
         //validate model againts the init set
-        int numInliers = checkInliers(pts3d, pts2dl, pts2dr, randIndex, p0_, inliers, sumErr, true);
+        int numInliers = checkInliers(pts3d, pts2dl, pts2dr, randIndex, p0_, inliers, sumErr, true, stdDev);
 
+//        int totalInliers = numInliers + ransacMinSet;
 
-        if(numInliers > bestNumInliers){
+        if((numInliers > bestNumInliers) || (numInliers == bestNumInliers && stdDev < bestStdDev)){
+#if LOG
+            nIt = nIt_;
+#endif
             bestInliers     = inliers;
             p = p0_;
             bestNumInliers  = numInliers;
-            minSumErr = sumErr;
+//            sumErr_         = sumErr;
+            bestStdDev      = stdDev;
         }
     }
 #if LOG
     writeOnLogFile("Num inliers pose estimation: ", std::to_string(bestNumInliers));
-    writeOnLogFile("Num iterations: ", std::to_string(n_));
+    writeOnLogFile("Num iterations best pose GN: ", std::to_string(nIt));
 #endif
 
 }
@@ -674,7 +699,7 @@ void Tracking::computeJacobian(const int numPts, const std::vector<cv::Point3d> 
 
 int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vector<cv::Point2f> &pts2dl,
                            const std::vector<cv::Point2f> &pts2dr, const std::vector<int> &index,
-                           const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh) {
+                           const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh, long double &stdDev) {
 
     //6 parameters to be estimated
     double rx, ry, rz, tx, ty, tz;
@@ -708,6 +733,9 @@ int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vec
 
     int numInliers = 0;
 
+    std::vector<double > errorVect;
+    errorVect.reserve(pts3d.size());
+    long double meanError = 0;
     for (int i = 0; i < pts3d.size(); i++){
 
         //validadte against other elements
@@ -750,7 +778,12 @@ int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vec
             double rx1 = weight*(pts2dr.at(i).x - pred_u2);
             double ry1 = weight*(pts2dr.at(i).y - pred_v2);
 
-            if( rx0*rx0+ry0*ry0+rx1*rx1+ry1*ry1 < ransacTh*ransacTh){
+            double d     = rx0*rx0+ry0*ry0+rx1*rx1+ry1*ry1;
+            sumErr      += d;
+
+            if( d < ransacTh*ransacTh){
+                errorVect.push_back(d) ;
+                meanError += d;
                 inliers[i] = true;
                 numInliers++;
             }
@@ -759,6 +792,26 @@ int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vec
             numInliers++;
         }
     }
+
+    if(numInliers != 0){
+        meanError /= (long double) numInliers;
+
+        for (unsigned int p=0; p<errorVect.size(); p++)
+        {
+            long double delta = errorVect[p]-meanError;
+            stdDev += delta*delta;
+        }
+
+        stdDev /= (double)(numInliers);
+    } else
+        stdDev = 0;
+
+
+//    std::cout << "Num inliers: "    << numInliers   << std::endl;
+//    std::cout << "Sum error: "      << sumErr       << std::endl;
+//    std::cout << "Error Vec size: " << errorVect.size() << std::endl;
+
+    std::vector<double >().swap(errorVect);
 
     return numInliers;
 
@@ -1315,14 +1368,20 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
         w = p0.at<double>(2);
     }
 
-    Mat M   = P1.rowRange(0,3).colRange(0,3);
-    Mat m3  = M.row(2);
+//    Mat M   = P1.rowRange(0,3).colRange(0,3);
+//    Mat m3  = M.row(2);
+//
+//    depth = (sign(determinant(M))*w)/cv::norm(m3);
 
-    depth = (sign(determinant(M))*w)/cv::norm(m3);
+    depth = (baseline * fu)/(kp_l.x - kp_r.x);
+
+//    std::cout << "Depth: " << depth << std::endl;
 
     pt3d.x           = (float) point3d.at<double>(0);
     pt3d.y           = (float) point3d.at<double>(1);
     pt3d.z           = (float) point3d.at<double>(2);
+
+//    std::cout << "Z coordinate: " << pt3d.z << std::endl;
 
     error = dist;
 
@@ -1355,8 +1414,8 @@ void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const c
                                std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose ) {
 
     std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
-    Size win (15,15);
-    int maxLevel = 3;
+    Size win (5,5);
+    int maxLevel = 4;
     std::vector<uchar> status0, status1;
     std::vector<float > error0, error1;
 
@@ -1424,7 +1483,7 @@ void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Po
         const Point2f &pt_l = tmpPrevPts[i];
 
         const Point3f &pt3d     = tmpPts3D[i];
-        const bool &ptClose     = tmpPtsClose[i];;
+        const bool &ptClose     = tmpPtsClose[i];
 
         if(status[i] == 1 && pt_r.x >= 0 && pt_r.x <= imT1.cols && pt_r.y >= 0 && pt_r.y <= imT1.rows){
 

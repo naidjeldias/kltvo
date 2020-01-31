@@ -70,13 +70,13 @@ GN.ransacTh: 5.0
 GN.ransacMinSet: 3
 
 #Gauss Newton pose estimation: ransac number of iteration
-GN.ransacMaxIt: 50
+GN.ransacMaxIt: 100
 
 #Gauss Newton pose estimation: maximum iteration of GN optimization
-GN.maxIt: 20
+GN.maxIt: 50
 
 #Gauss Newton pose estimation: maximum iteration for pose refinment
-GN.finalMaxIt: 50
+GN.finalMaxIt: 10
 
 
 #--------------------------------------------------------------------------------------------

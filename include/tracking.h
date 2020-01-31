@@ -9,7 +9,7 @@
 //#define MAX_DELTAX 69
 #define MAX_DELTAX 721
 
-#define LOG         true
+#define LOG         false
 #define LOG_DRAW    false
 
 #define FRAME_GRID_COLS 24
@@ -184,7 +184,7 @@ private:
                          const std::vector<cv::Point2d> &pts2d_r, std::vector<double> &p0, cv::Mat &J, cv::Mat &res, bool reweigh);
 
     int checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
-                     const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh);
+                     const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh, long double &stdDev);
 
 
     //----------------------debug functions

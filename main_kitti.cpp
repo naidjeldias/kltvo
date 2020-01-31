@@ -55,7 +55,7 @@ int main() {
 
     // Retrieve paths to images
     //full kitti dataset
-    string seq = "03";
+    string seq = "00";
     string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
@@ -123,10 +123,10 @@ int main() {
 
         current_ni = ni;
 
-//        cv::imshow("Left Frame", imLeft);
-//        char c=(char) cv::waitKey(1);
-//        if(c==27)
-//            break;
+        cv::imshow("Left Frame", imLeft);
+        char c=(char) cv::waitKey(1);
+        if(c==27)
+            break;
     }
 
     // Tracking time statistics
