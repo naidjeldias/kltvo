@@ -115,7 +115,7 @@ Tracking::Tracking(const string &strSettingPath) {
     //----Stereo Matching
     minDisp = (0.0F);
 //    maxDisp = bf/baseline;
-    maxDisp = 128;
+    maxDisp = 82;
     thDepth = fsSettings["ThDepth"];
 
 
@@ -885,7 +885,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
             //check if the point have a good triangulation
             double error = 0.0;
             double depth = 0.0;
-            if(triangulation(pt_l, ptr, pt3D, error, depth) && depth > 0){
+            if(triangulation(pt_l, ptr, pt3D, error, depth)){
 
                 sum += error;
                 new_pts_l.push_back(pt_l);
@@ -1414,7 +1414,7 @@ void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const c
                                std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose ) {
 
     std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
-    Size win (5,5);
+    Size win (15,15);
     int maxLevel = 4;
     std::vector<uchar> status0, status1;
     std::vector<float > error0, error1;

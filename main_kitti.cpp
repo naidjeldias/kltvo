@@ -55,7 +55,7 @@ int main() {
 
     // Retrieve paths to images
     //full kitti dataset
-    string seq = "00";
+    string seq = "02";
     string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;

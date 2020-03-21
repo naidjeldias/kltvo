@@ -28,7 +28,7 @@ Camera.bf: 386.1448
 Camera.RGB: 1
 
 # Close/Far threshold. Baseline times.
-ThDepth: 35
+ThDepth: 40.0
 
 #--------------------------------------------------------------------------------------------
 # 8-point algorithm parameters
@@ -44,7 +44,7 @@ EightPoint.ransacSet: 8
 EightPoint.ransacMaxInt: 200
 
 #Eight Point algorithm: threshold to define a point as a inlier
-EightPoint.ransacTh: 1.0
+EightPoint.ransacTh: 2.0
 
 #--------------------------------------------------------------------------------------------
 # Linear triangulation parameters
@@ -64,19 +64,19 @@ Triangulation.maxIt: 1
 GN.ransacProb: 0.99
 
 #Gauss Newton pose estimation: ransac threshold to define a point as inlier
-GN.ransacTh: 5.0
+GN.ransacTh: 7.0
 
 #Gauss Newton pose estimation: ransac minimum set for model estimation
 GN.ransacMinSet: 3
 
 #Gauss Newton pose estimation: ransac number of iteration
-GN.ransacMaxIt: 100
+GN.ransacMaxIt: 50
 
 #Gauss Newton pose estimation: maximum iteration of GN optimization
-GN.maxIt: 50
+GN.maxIt: 20
 
 #Gauss Newton pose estimation: maximum iteration for pose refinment
-GN.finalMaxIt: 10
+GN.finalMaxIt: 100
 
 
 #--------------------------------------------------------------------------------------------
