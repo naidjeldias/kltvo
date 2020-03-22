@@ -55,7 +55,7 @@ int main() {
 
     // Retrieve paths to images
     //full kitti dataset
-    string seq = "02";
+    string seq = "10";
     string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
@@ -73,9 +73,27 @@ int main() {
     cout << "Images in the sequence: " << nImages << endl << endl;
 
     string yamlFile = "KITTI" + seq + ".yaml";
-    string path_calib   = string("kitti/"+yamlFile);
+    string path_calib       = string("kitti/"+yamlFile);
+    string path_config      = string("config/kitti.yaml");
 //    string path_calib   = string("kitti/KITTI00-02.yaml");
-    Tracking tracking(path_calib);
+
+    cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
+    if(!fsSettings.isOpened())
+    {
+        cerr << "ERROR: Wrong path to settings" << endl;
+        return -1;
+    }
+
+    double fu, fv, uc, vc, bf;
+
+    fu = fsSettings["Camera.fx"];
+    fv = fsSettings["Camera.fy"];
+    uc = fsSettings["Camera.cx"];
+    vc = fsSettings["Camera.cy"];
+
+    bf = fsSettings["Camera.bf"];
+
+    Tracking tracking(path_config, fu, fv, uc, vc, bf);
 
     // Main loop
     cv::Mat imLeft, imRight;

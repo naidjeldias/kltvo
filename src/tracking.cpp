@@ -9,7 +9,8 @@
 
 using namespace cv;
 
-Tracking::Tracking(const string &strSettingPath) {
+Tracking::Tracking(const string &strSettingPath, const double &mFu, const double &mFv, const double &mUc, const double &mVc,
+                   const double &mbf) {
     srand(time(0));
 
     cv::FileStorage fsSettings(strSettingPath, cv::FileStorage::READ);
@@ -20,10 +21,10 @@ Tracking::Tracking(const string &strSettingPath) {
 
     std::cout << "Camera parameters: \n";
 
-    fu = fsSettings["Camera.fx"];
-    fv = fsSettings["Camera.fy"];
-    uc = fsSettings["Camera.cx"];
-    vc = fsSettings["Camera.cy"];
+    fu = mFu;
+    fv = mFv;
+    uc = mUc;
+    vc = mVc;
 
     std::cout << "- fu: " << fu << std::endl;
     std::cout << "- fv: " << fv << std::endl;
@@ -37,7 +38,7 @@ Tracking::Tracking(const string &strSettingPath) {
     mK.at<double>(1,2) = vc;
     mK.copyTo(K);
 
-    double bf = fsSettings["Camera.bf"];
+    double bf = mbf;
     baseline = bf / fu;
 
     std::cout << "- b: " << baseline << std::endl;
@@ -52,6 +53,41 @@ Tracking::Tracking(const string &strSettingPath) {
 
     mP1.copyTo(P1);
     mP2.copyTo(P2);
+
+    //-----Feature extraction
+    std::cout << "NMS parameters: \n";
+
+    frameGridRows = fsSettings["FeaturExtrac.frameGridRows"];
+    frameGridCols = fsSettings["FeaturExtrac.frameGridCols"];
+
+    std::cout << "- Num Grid rows : "                  << frameGridRows           << std::endl;
+    std::cout << "- Num Grid cols:  "                  << frameGridCols             << std::endl;
+
+    //----Stereo Matching
+    std::cout << "Estereo Matching parameters: \n";
+
+    minDisp         = fsSettings["Disparity.mindisp"];
+    maxDisp         = fsSettings["Disparity.maxdisp"];
+    thDepth         = fsSettings["ThDepth"];
+    sadMinValue     = fsSettings["SAD.minValue"];
+    halfBlockSize   = fsSettings["SAD.winHalfBlockSize"];
+
+    std::cout << "- Min disparity: "                  << minDisp           << std::endl;
+    std::cout << "- Max disparity: "                  << maxDisp             << std::endl;
+    std::cout << "- Threshold depth: "                << thDepth         << std::endl;
+    std::cout << "- Min disparity: "                  << minDisp           << std::endl;
+
+    std::cout << "- SAD min value: "                  << sadMinValue             << std::endl;
+    std::cout << "- SAD halfBlockSize: "              << halfBlockSize         << std::endl;
+
+    //-----KLT feature tracker
+    std::cout << "KLT parameters: \n";
+
+    winSize = fsSettings["KLT.winSize"];
+    pyrMaxLevel = fsSettings["KLT.pyrMaxLevel"];
+
+    std::cout << "- Search Windows Size : "                  << winSize           << std::endl;
+    std::cout << "- Pyramid max level:  "                    << pyrMaxLevel             << std::endl;
 
     //-----ORB extractor
 
@@ -101,22 +137,16 @@ Tracking::Tracking(const string &strSettingPath) {
     maxIteration        = fsSettings["GN.maxIt"];           // max iteration for minimization into RANSAC routine
     finalMaxIteration   = fsSettings["GN.finalMaxIt"];      // max iterations for minimization final refinement
     reweigh             = true;                             // reweight in optimization
+    adjustValue         = fsSettings["GN.weightAdjustVal"];
 
-    std::cout << "- Ransac prob: "                  << ransacProb           << std::endl;
-    std::cout << "- Ransac Th: "                    << ransacTh             << std::endl;
-    std::cout << "- Ransac min set: "               << ransacMinSet         << std::endl;
-    std::cout << "- Ransac max it: "                << ransacMaxIt          << std::endl;
-    std::cout << "- Min increment th: "             << minIncTh             << std::endl;
-    std::cout << "- Max iteration: "                << maxIteration         << std::endl;
-    std::cout << "- Refinment max iteration: "      << finalMaxIteration    << std::endl;
-
-
-
-    //----Stereo Matching
-    minDisp = (0.0F);
-//    maxDisp = bf/baseline;
-    maxDisp = 82;
-    thDepth = fsSettings["ThDepth"];
+    std::cout << "- Ransac prob: "                         << ransacProb           << std::endl;
+    std::cout << "- Ransac Th: "                           << ransacTh             << std::endl;
+    std::cout << "- Ransac min set: "                      << ransacMinSet         << std::endl;
+    std::cout << "- Ransac max it: "                       << ransacMaxIt          << std::endl;
+    std::cout << "- Min increment th: "                    << minIncTh             << std::endl;
+    std::cout << "- Max iteration: "                       << maxIteration         << std::endl;
+    std::cout << "- Refinment max iteration: "             << finalMaxIteration    << std::endl;
+    std::cout << "- reprojection weight adjust value: "    << adjustValue          << std::endl;
 
 
 #if LOG
@@ -271,8 +301,8 @@ void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kp
 
 void Tracking::gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im) {
 
-    int nBucketX = im.cols / FRAME_GRID_COLS;
-    int nBucketY = im.rows / FRAME_GRID_ROWS;
+    int nBucketX = im.cols / frameGridCols;
+    int nBucketY = im.rows / frameGridRows;
 
     //______________Image grid for non-maximum suppression
     std::vector<size_t > imageGrids[nBucketY][nBucketX];
@@ -747,7 +777,7 @@ int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vec
             //give more significance to features located closer to the image center in horizontal direction
             //the value 0.05 depends on the stereo camera and lens setup, was empirically set
             if (reweigh)
-                weight = 1.0/(fabs(pts2dl.at(i).x - uc)/fabs(uc) + 0.05);
+                weight = 1.0/(fabs(pts2dl.at(i).x - uc)/fabs(uc) + adjustValue);
 
             // get 3d point in previous coordinate system
             X1p=pts3d.at(i).x;
@@ -940,7 +970,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, const cv::Mat &imRight,
                                std::vector<cv::Point2f> &pts_r, cv::Point2f &ptr_m, int &index, const std::vector<std::vector<std::size_t>> &vecRowIndices) {
 
-    int halfBlockSize = 2;
+
     int blockSize = 2 * halfBlockSize + 1;
 
     int width = imRight.size().width;
@@ -989,7 +1019,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
     if(vecCandidates.empty())
         return false;
 
-    double minSAD = 0.04;
+    double minSAD = sadMinValue;
     Point2f bestPt;
 
     //flag to know when the point has no matching
@@ -1414,8 +1444,8 @@ void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const c
                                std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose ) {
 
     std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
-    Size win (15,15);
-    int maxLevel = 4;
+    Size win (winSize,winSize);
+    int maxLevel = pyrMaxLevel;
     std::vector<uchar> status0, status1;
     std::vector<float > error0, error1;
 
@@ -1753,11 +1783,11 @@ void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &
 
     Mat dIm = im.clone();
 
-    for (int y = 0; y < im.rows; y += FRAME_GRID_ROWS)
+    for (int y = 0; y < im.rows; y += frameGridRows)
     {
-        for (int x = 0; x < im.cols; x += FRAME_GRID_COLS)
+        for (int x = 0; x < im.cols; x += frameGridCols)
         {
-            cv::Rect rect =  cv::Rect(x,y, FRAME_GRID_COLS, FRAME_GRID_ROWS);
+            cv::Rect rect =  cv::Rect(x,y, frameGridCols, frameGridRows);
             cv::rectangle(dIm, rect, cv::Scalar(0, 255, 0));
         }
     }

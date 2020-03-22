@@ -43,7 +43,7 @@ int main(){
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
     vector<double> vTimeStamp;
-    string path_data  = string("../../EuRoC_DATASET/mav0");
+    string path_data  = string("../../EuRoc_Dataset/mav0");
     //change de sequence txt in order to use others sequences
     string path_times = string("euroc/times/MH01.txt");
 
@@ -63,7 +63,7 @@ int main(){
 
     // Read rectification parameters
     string path_calib   = string("euroc/EuRoC.yaml");
-    Tracking tracking(path_calib);
+
 
 
     cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
@@ -102,6 +102,17 @@ int main(){
     cv::initUndistortRectifyMap(K_l,D_l,R_l,P_l.rowRange(0,3).colRange(0,3),cv::Size(cols_l,rows_l),CV_32F,M1l,M2l);
     cv::initUndistortRectifyMap(K_r,D_r,R_r,P_r.rowRange(0,3).colRange(0,3),cv::Size(cols_r,rows_r),CV_32F,M1r,M2r);
 
+    double fu, fv, uc, vc, bf;
+
+    fu = fsSettings["Camera.fx"];
+    fv = fsSettings["Camera.fy"];
+    uc = fsSettings["Camera.cx"];
+    vc = fsSettings["Camera.cy"];
+
+    bf = fsSettings["Camera.bf"];
+
+    Tracking tracking(path_calib, fu, fv, uc, vc, bf);
+
     const int nImages = vstrImageLeft.size();
 
     // Vector for tracking time statistics
@@ -115,7 +126,8 @@ int main(){
     // Main loop
     cv::Mat imLeft, imRight, imLeftRect, imRightRect;
     int current_ni;
-    for(int ni=0; ni</*nImages*/300; ni++)
+    for(int ni=0; ni<nImages; ni++)
+//    for(int ni=0; ni<2; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],IMREAD_UNCHANGED);
@@ -180,7 +192,9 @@ int main(){
     cout << "-------" << endl << endl;
     cout << "mean tracking time: " << totaltime/current_ni << endl;
 
-    tracking.saveTrajectoryTUM("KLTVO_EuRoc.txt");
+//    tracking.saveTrajectoryTUM("KLTVO_EuRoc.txt");
+    string resultFile = "Euroc_MH01_KLTVO.txt";
+    tracking.saveTrajectoryKitti("results/"+resultFile);
 
     cv::destroyAllWindows();
 

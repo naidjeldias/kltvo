@@ -37,7 +37,8 @@ public:
 
     enum status {CONVERGED, UPDATE, FAILED};
 
-    Tracking(const string &strSettingPath);
+    Tracking(const string &strSettingPath, const double &mfx, const double &mfy, const double &mcx, const double &mcy,
+            const double &mbf);
 
     ~Tracking();
 
@@ -73,7 +74,6 @@ private:
 
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
 
-
     //-------------- feature extraction
     int nFeatures;
     float fScaleFactor;
@@ -81,6 +81,8 @@ private:
     int fIniThFAST;
     int fMinThFAST;
     std::mutex mtxORB;
+    int frameGridCols;
+    int frameGridRows;
 
     ORBextractor* mpORBextractorLeft;
     ORBextractor* mpORBextractorRight;
@@ -96,7 +98,7 @@ private:
 
 
     //-------------- stereo matching
-    double maxDisp, minDisp, initTimestamp, thDepth;
+    double maxDisp, minDisp, initTimestamp, thDepth, sadMinValue, halfBlockSize;
 
 
     void stereoMatching(const std::vector<cv::Point2f>& pts_l, const std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
@@ -111,6 +113,8 @@ private:
 
     //------------- feature tracking
     std::mutex mtx1, mtx2, mtx3, mtx4;
+    int winSize, pyrMaxLevel;
+
 
     void featureTracking (const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
             std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose );
@@ -165,6 +169,7 @@ private:
     int maxIteration;           // max number of iteration for pose update
     int finalMaxIteration;      // max iterations for minimization final refinement
     bool reweigh;               // reweight in optimization
+    double adjustValue;
 
 
     void relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
