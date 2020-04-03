@@ -55,7 +55,7 @@ int main() {
 
     // Retrieve paths to images
     //full kitti dataset
-    string seq = "10";
+    string seq = "21";
     string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
@@ -159,7 +159,7 @@ int main() {
     cout << "mean tracking time: "      << totaltime/current_ni << endl;
 
     string resultFile = "KITTI_" + seq + "_KLTVO.txt";
-    tracking.saveTrajectoryKitti("results/"+resultFile);
+    tracking.saveTrajectoryKitti("results/kitti/"+resultFile);
 //    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
 
     cv::destroyAllWindows();

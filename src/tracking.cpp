@@ -1653,7 +1653,7 @@ cv::Mat Tracking::getCurrentPose() {
     return Tcw;
 }
 
-void Tracking::saveTrajectoryTUM(const string &filename) {
+void Tracking::saveTrajectoryEuroc(const string &filename) {
 
     ofstream f;
     f.open(filename.c_str());
@@ -1664,9 +1664,14 @@ void Tracking::saveTrajectoryTUM(const string &filename) {
     Mat R0 = Twc.rowRange(0,3).colRange(0,3);
     Mat t0 = Twc.rowRange(0,3).col(3);
 
+//    std::vector<float> q0 =  toQuaternion(R0);
     std::vector<float> q0 =  mRot2Quat(R0);
 
-    f << setprecision(6) << initTimestamp << " " <<  setprecision(9) << t0.at<float>(0) << " " << t0.at<float>(1) << " " << t0.at<float>(2) << " " << q0[3] << " " << q0[2] << " " << q0[1] << " " << q0[0] << endl;
+    f << setprecision(6) << initTimestamp << " " <<  setprecision(9) << t0.at<float>(0) << " " << t0.at<float>(1) << " "
+            << t0.at<float>(2) << " " << q0[3] << " " << q0[2] << " " << q0[1] << " " << q0[0] << endl;
+//    f << setprecision(6) << initTimestamp << " " <<  setprecision(9) << t0.at<float>(0) << " " << t0.at<float>(1) << " "
+//            << t0.at<float>(2) << " " << q0[0] << " " << q0[1] << " " << q0[2] << " " << q0[3] << endl;
+
     /*
         * The global pose is computed in reference to the first frame by concatanation
         * The current global pose is computed by
@@ -1702,9 +1707,13 @@ void Tracking::saveTrajectoryTUM(const string &filename) {
         Mat Rw = Twc.rowRange(0,3).colRange(0,3);
         Mat tw = Twc.rowRange(0,3).col(3);
 
+//        std::vector<float> q =  toQuaternion(Rw);
         std::vector<float> q =  mRot2Quat(Rw);
 
-        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " " << tw.at<float>(2) << " " << q[3] << " " << q[2] << " " << q[1] << " " << q[0] << endl;
+        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
+                << tw.at<float>(2) << " " << q[3] << " " << q[2] << " " << q[1] << " " << q[0] << endl;
+//        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
+//                << tw.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
 
     }
 
@@ -1862,3 +1871,24 @@ void Tracking::drawFarAndClosePts(const cv::Point2f &pt, const cv::Scalar &color
     cv::circle(im, pt, 3, color);
 }
 
+
+std::vector<float > Tracking::toQuaternion(const cv::Mat &R) {
+
+    Eigen::Matrix<double,3,3> M;
+
+    M << R.at<float>(0,0), R.at<float>(0,1), R.at<float>(0,2),
+         R.at<float>(1,0), R.at<float>(1,1), R.at<float>(1,2),
+         R.at<float>(2,0), R.at<float>(2,1), R.at<float>(2,2);
+
+    Eigen::Matrix<double,3,3> eigMat = M;
+    Eigen::Quaterniond q(eigMat);
+
+    std::vector<float > v(4);
+    v[0] = q.x();
+    v[1] = q.y();
+    v[2] = q.z();
+    v[3] = q.w();
+
+    return v;
+
+}

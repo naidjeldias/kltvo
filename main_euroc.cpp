@@ -63,7 +63,7 @@ int main(){
 
     // Read rectification parameters
     string path_calib   = string("euroc/EuRoC.yaml");
-
+    string path_config  = string("config/euroc.yaml");
 
 
     cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
@@ -111,7 +111,7 @@ int main(){
 
     bf = fsSettings["Camera.bf"];
 
-    Tracking tracking(path_calib, fu, fv, uc, vc, bf);
+    Tracking tracking(path_config, fu, fv, uc, vc, bf);
 
     const int nImages = vstrImageLeft.size();
 
@@ -192,9 +192,10 @@ int main(){
     cout << "-------" << endl << endl;
     cout << "mean tracking time: " << totaltime/current_ni << endl;
 
-//    tracking.saveTrajectoryTUM("KLTVO_EuRoc.txt");
+
     string resultFile = "Euroc_MH01_KLTVO.txt";
-    tracking.saveTrajectoryKitti("results/"+resultFile);
+//    tracking.saveTrajectoryKitti("results/euroc/"+resultFile);
+    tracking.saveTrajectoryEuroc("results/euroc/"+resultFile);
 
     cv::destroyAllWindows();
 

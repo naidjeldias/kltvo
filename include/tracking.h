@@ -25,6 +25,7 @@
 #include <mutex>
 #include <functional>
 #include <math.h>
+#include<Eigen/Dense>
 
 #include "opencv2/features2d/features2d.hpp"
 
@@ -54,7 +55,7 @@ public:
 
     void saveTrajectoryKitti(const string &filename);
 
-    void saveTrajectoryTUM(const string &filename);
+    void saveTrajectoryEuroc(const string &filename);
 
     void start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
 
@@ -191,6 +192,8 @@ private:
     int checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
                      const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh, long double &stdDev);
 
+    //----------------------Tools functions
+    std::vector<float > toQuaternion(const cv::Mat &R);
 
     //----------------------debug functions
     void drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts, const string &filename);
