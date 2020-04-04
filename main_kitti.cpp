@@ -45,17 +45,20 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
     }
 }
 
-int main() {
-
-    //kitti dataset
-//   string path_data    = string("kitti");
-//   string path_left    = string ("/video_0.avi");
-//   string path_right   = string ("/video_1.avi");
-
+int main(int argc, char *argv[]) {
 
     // Retrieve paths to images
     //full kitti dataset
     string seq = "21";
+
+    cout << endl << "-------" << endl;
+    if(argc == 2)
+    {
+        seq = argv[1];
+        cout << "Sequence "<< seq << " selected!"<< endl;
+    }else
+        cout << "No sequence passed as argument default sequence "<< seq << " will be selected!"<< seq << endl;
+
     string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
@@ -69,7 +72,7 @@ int main() {
     vTimesTrack.resize(nImages);
 
     cout << endl << "-------" << endl;
-    cout << "Start processing sequence ..." << endl;
+    cout << "Start processing sequence "<< seq << "..." << endl;
     cout << "Images in the sequence: " << nImages << endl << endl;
 
     string yamlFile = "KITTI" + seq + ".yaml";
