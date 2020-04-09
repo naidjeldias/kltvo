@@ -49,15 +49,30 @@ int main(int argc, char *argv[]) {
 
     // Retrieve paths to images
     //full kitti dataset
-    string seq = "21";
+    string seq = "00";
 
     cout << endl << "-------" << endl;
-    if(argc == 2)
+    if(argc >= 2)
     {
         seq = argv[1];
         cout << "Sequence "<< seq << " selected!"<< endl;
     }else
         cout << "No sequence passed as argument default sequence "<< seq << " will be selected!"<< seq << endl;
+
+    string resultPath = "results/kitti/";
+    string resultFile = "KITTI_" + seq + "_KLTVO.txt";
+
+    string statsPath = "stats/kitti/";
+    string statsFile = "KITTI_" + seq + "_STATS.csv";
+
+    if(argc == 4)
+    {
+        resultPath = argv[2];
+        resultFile = argv[3];
+        cout << "Results will be saved in "<< resultPath << " with name "<< resultFile << endl;
+    }
+
+
 
     string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
     vector<string> vstrImageLeft;
@@ -102,7 +117,7 @@ int main(int argc, char *argv[]) {
     cv::Mat imLeft, imRight;
     int current_ni;
     for(int ni=0; ni<nImages; ni++)
-//    for(int ni=55; ni<57; ni++)
+//    for(int ni=0; ni<2; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],IMREAD_UNCHANGED);
@@ -144,10 +159,10 @@ int main(int argc, char *argv[]) {
 
         current_ni = ni;
 
-        cv::imshow("Left Frame", imLeft);
-        char c=(char) cv::waitKey(1);
-        if(c==27)
-            break;
+        //cv::imshow("Left Frame", imLeft);
+        //char c=(char) cv::waitKey(1);
+        //if(c==27)
+           // break;
     }
 
     // Tracking time statistics
@@ -161,10 +176,13 @@ int main(int argc, char *argv[]) {
     cout << "total time in seconds: "   << totaltime            << endl;
     cout << "mean tracking time: "      << totaltime/current_ni << endl;
 
-    string resultFile = "KITTI_" + seq + "_KLTVO.txt";
-    tracking.saveTrajectoryKitti("results/kitti/"+resultFile);
-//    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
 
+    tracking.saveTrajectoryKitti(resultPath+resultFile);
+#if LOG
+    tracking.saveStatistics(statsPath+statsFile);
+#endif
+//    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
+    cout << "-------" << endl << endl;
     cv::destroyAllWindows();
 
     return 0;

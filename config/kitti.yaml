@@ -6,7 +6,8 @@ ThDepth: 40.0
 #--------------------------------------------------------------------------------------------
 # Stereo Matching parameters
 #--------------------------------------------------------------------------------------------
-Disparity.maxdisp: 82 # a default parameter can be the camera matrix fx value
+Disparity.maxdisp: -1 # a default parameter can be the camera matrix fx value.
+                      # Set to -1 to use maxdisp = fx
 Disparity.mindisp: 0
 
 SAD.winHalfBlockSize: 2
@@ -66,10 +67,10 @@ GN.ransacTh: 7.0
 GN.ransacMinSet: 3
 
 #Gauss Newton pose estimation: ransac number of iteration
-GN.ransacMaxIt: 50
+GN.ransacMaxIt: 300
 
 #Gauss Newton pose estimation: maximum iteration of GN optimization
-GN.maxIt: 20
+GN.maxIt: 50
 
 #Gauss Newton pose estimation: maximum iteration for pose refinment
 GN.finalMaxIt: 100

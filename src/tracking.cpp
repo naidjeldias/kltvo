@@ -68,6 +68,8 @@ Tracking::Tracking(const string &strSettingPath, const double &mFu, const double
 
     minDisp         = fsSettings["Disparity.mindisp"];
     maxDisp         = fsSettings["Disparity.maxdisp"];
+    if(maxDisp == -1)
+        maxDisp = (int) fu;
     thDepth         = fsSettings["ThDepth"];
     sadMinValue     = fsSettings["SAD.minValue"];
     halfBlockSize   = fsSettings["SAD.winHalfBlockSize"];
@@ -176,8 +178,9 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
     }else{
 
         numFrame ++;
+#if LOG
         writeOnLogFile("Frame:", std::to_string(numFrame+1));
-
+#endif
 
         //---------------------------------detect features
         std::vector<KeyPoint> kpts_l, kpts_r;
@@ -462,8 +465,9 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
     p = p0;
 
 #if LOG
-    int nIt = 0;
-    int n_ = 0; //check number of iterations
+    int nIt     = 0;
+    int sumIt   = 0; //sum iterations GN inside RANSAC
+    int n_      = 0; //check number of iterations
 #endif
 
     for (int n = 0; n < ransacMaxIt; n++){
@@ -497,15 +501,20 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
 #if LOG
         int nIt_    = 0;
 #endif
+
         for (int i = 0; i < maxIteration; i++){
 #if LOG
             nIt_ ++;
+
 #endif
             status = poseEstimation(aux_pt2dl, aux_pt2dr, aux_pt3d, p0_, randIndex.size(), reweigh);
-
             if(status != UPDATE)
                 break;
         }
+
+#if LOG
+        sumIt += nIt_;
+#endif
 
         //free memory
         std::vector<Point2d>().swap(aux_pt2dl);
@@ -536,9 +545,17 @@ int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const
             bestStdDev      = stdDev;
         }
     }
+
+
 #if LOG
     writeOnLogFile("Num inliers pose estimation: ", std::to_string(bestNumInliers));
+    gnIterations.push_back(nIt);
     writeOnLogFile("Num iterations best pose GN: ", std::to_string(nIt));
+    numInliersGN.push_back(bestNumInliers);
+    float meanIt = sumIt/ransacMaxIt;
+    gnMeanIterations.push_back(meanIt);
+    writeOnLogFile("Mean GN iterations inside RANSAC: ", std::to_string(meanIt));
+
 #endif
 
 }
@@ -1554,6 +1571,7 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
 #if LOG
     writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
     writeOnLogFile("Num of inliers tracking:", std::to_string(mll.size()));
+    ptsTracking.push_back(mll.size());
 #endif
 
     Mat R_est;
@@ -1725,7 +1743,7 @@ void Tracking::saveTrajectoryEuroc(const string &filename) {
 
 void Tracking::saveTrajectoryKitti(const string &filename) {
 
-    ofstream f;
+    std::ofstream f;
     f.open(filename.c_str());
     f << std::fixed;
 
@@ -1779,7 +1797,38 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
     }
 
     f.close();
-    std::cout << endl << "trajectory saved!" << std::endl;
+    std::cout << endl << "trajectory saved on "<< filename << std::endl;
+}
+
+void Tracking::saveStatistics(const string &filename)
+{
+
+#if LOG
+    std::ofstream f;
+    f.open(filename.c_str());
+    f << "frame, Pts detected, Pts after NMS, Pts Stereo Match, Pts Tracking, Pts Quad Match, "
+         "GN it, GN mean it,  Num inliers GN\n";
+
+    std::list<int >::iterator lGNit;
+    auto lMeanGNit      = gnMeanIterations.begin(); auto lPtsNMS            = ptsNMS.begin();
+    auto lPtsDetec      = leftPtsDetec.begin();     auto lPtsStereoMatch    = ptsStereoMatch.begin();
+    auto lPtsTracking   = ptsTracking.begin();      auto lPtsQuadMatch      = ptsQuadMatch.begin();
+    auto lNumInliersGN  = numInliersGN.begin();
+
+    int nFrames = 0;
+
+    for (lGNit = gnIterations.begin(); lGNit != gnIterations.end(); ++lGNit, ++lMeanGNit, ++lPtsNMS,
+            ++lPtsDetec, ++lPtsStereoMatch, ++lPtsTracking, ++lPtsQuadMatch, ++lNumInliersGN)
+    {
+        f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << ","
+                << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                << (*lMeanGNit) << "," << (*lNumInliersGN) << "\n";
+        nFrames ++;
+    }
+
+    f.close();
+    std::cout << endl << "Statistics saved on "<< filename << std::endl;
+#endif
 }
 
 
@@ -1807,6 +1856,8 @@ void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &
 
 void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, const std::vector<cv::KeyPoint> &kpts_r, const std::vector<Point2f> &pts,
                                     const cv::Mat &im) {
+
+    leftPtsDetec.push_back(kpts_l.size());
     writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
     writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
 
@@ -1819,6 +1870,7 @@ void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, con
 #endif
 
     writeOnLogFile("Num keypoints after NMS: ", std::to_string(pts.size()));
+    ptsNMS.push_back(pts.size());
 
 }
 
@@ -1829,6 +1881,7 @@ void Tracking::logStereoMatching(const cv::Mat &im_r, const cv::Mat &im_l, const
     mEightPointLeft->drawMatches_(im_l, im_r, pts_l, pts_r, mrl, false, prefix);
 #endif
     writeOnLogFile("Num of stereo matches:", std::to_string(pts_l.size()));
+    ptsStereoMatch.push_back(pts_l.size());
 
 }
 
@@ -1854,6 +1907,7 @@ void Tracking::logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const
     mEightPointLeft->drawMatches_(im_l1, im_r1, pts_l1, pts_r1, mlr1, false, prefix);
 #endif
     writeOnLogFile("left points before quadMatching:", std::to_string(numPts));
+    ptsQuadMatch.push_back(numPts);
 
 }
 
@@ -1892,3 +1946,4 @@ std::vector<float > Tracking::toQuaternion(const cv::Mat &R) {
     return v;
 
 }
+

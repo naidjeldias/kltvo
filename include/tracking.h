@@ -57,6 +57,8 @@ public:
 
     void saveTrajectoryEuroc(const string &filename);
 
+    void saveStatistics (const string &filename);
+
     void start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
 
     //create log file for debug
@@ -68,6 +70,12 @@ private:
 
     std::list<cv::Mat> relativeFramePoses;
     std::list<double>  frameTimeStamp;
+
+#if LOG
+    std::list<int > gnIterations, leftPtsDetec, ptsNMS, ptsStereoMatch, ptsTracking,
+                    ptsQuadMatch, numInliersGN, maxItGN;
+    std::list<double > gnMeanIterations;
+#endif
 
 
     bool initPhase;
@@ -194,6 +202,7 @@ private:
 
     //----------------------Tools functions
     std::vector<float > toQuaternion(const cv::Mat &R);
+
 
     //----------------------debug functions
     void drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts, const string &filename);
