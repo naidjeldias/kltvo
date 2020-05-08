@@ -193,6 +193,12 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
         featureExtraction(imLeft0, imRight0, kpts_l, kpts_r, pts_l0, pts_r0);
 
+//        std::vector<cv::KeyPoint> kp_;
+//        cv::Mat imOut;
+//        cv::FAST(imLeft0, kp_, 100, true, cv::FastFeatureDetector::TYPE_9_16);
+//        cv::drawKeypoints(imLeft0,kp_,imOut, cv::Scalar(0,255,0));
+//        cv::imwrite("kptsFAST.png", imOut);
+
         //convert vector of keypoints to vector of Point2f
         for (auto& kpt:kpts_r)
             pts_r0.push_back(kpt.pt);
@@ -379,7 +385,7 @@ void Tracking::drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts
         kpts.push_back(kpt);
     }
 
-    drawKeypoints( im, kpts, imOut, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
+    drawKeypoints( im, kpts, imOut, cv::Scalar(0,225,0), DrawMatchesFlags::DEFAULT );
     imwrite(filename, imOut);
 }
 
@@ -1665,6 +1671,15 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
     tr_vec.at<double>(2)  = p.at(5);
 
 
+//    rot_vec.at<double>(0) = 0.0;
+//    rot_vec.at<double>(1) = p.at(1);
+//    rot_vec.at<double>(2) = p.at(2);
+
+//    tr_vec.at<double>(0)  = p.at(3);
+//    tr_vec.at<double>(1)  = 0.0;
+//    tr_vec.at<double>(2)  = p.at(5);
+
+
 }
 
 cv::Mat Tracking::getCurrentPose() {
@@ -1850,8 +1865,8 @@ void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &
         }
     }
 
-    drawPointfImage(dIm, pts, fileName);
-
+//    drawPointfImage(dIm, pts, fileName);
+    drawPointfImage(im, pts, fileName);
 }
 
 void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, const std::vector<cv::KeyPoint> &kpts_r, const std::vector<Point2f> &pts,
@@ -1864,7 +1879,7 @@ void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, con
     cv::Mat imOut;
 
 #if LOG_DRAW
-    drawKeypoints(im,kpts_l,imOut);
+    drawKeypoints(im,kpts_l,imOut, cv::Scalar(0,255,0));
     imwrite("kptsORBoctree.png", imOut);
     drawGridAndPoints(im, pts, "GridNMS.png");
 #endif

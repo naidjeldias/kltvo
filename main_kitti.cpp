@@ -49,9 +49,10 @@ int main(int argc, char *argv[]) {
 
     // Retrieve paths to images
     //full kitti dataset
-    string seq = "00";
+    string seq = "03";
 
     cout << endl << "-------" << endl;
+
     if(argc >= 2)
     {
         seq = argv[1];
@@ -65,11 +66,18 @@ int main(int argc, char *argv[]) {
     string statsPath = "stats/kitti/";
     string statsFile = "KITTI_" + seq + "_STATS.csv";
 
-    if(argc == 4)
+    if(argc >= 4)
     {
         resultPath = argv[2];
-        resultFile = argv[3];
+        resultFile = std::string (argv[3]) + ".txt";
         cout << "Results will be saved in "<< resultPath << " with name "<< resultFile << endl;
+    }
+
+    if(argc >= 5)
+    {
+        statsPath = argv[4];
+        statsFile = std::string (argv[3]) + ".csv";
+        cout << "Stats will be saved in "<< statsPath << " with name "<< statsFile << endl;
     }
 
 
