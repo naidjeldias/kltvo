@@ -168,6 +168,10 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
         n ++;
     }
 
+    ransacNumit = n;
+
+    std::cout << "8 point algorithm RANSAC it: " << ransacNumit << std::endl;
+
     delete [] errorVect;
 
 
@@ -498,4 +502,9 @@ void EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right_im
 double EightPoint::euclideanDist(const cv::Point2d &p, const cv::Point2d &q) {
     Point2d diff = p - q;
     return cv::sqrt(diff.x*diff.x + diff.y*diff.y);
+}
+
+int EightPoint::getRansacNumit()
+{
+    return ransacNumit;
 }

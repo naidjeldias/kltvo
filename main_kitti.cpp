@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
     // Retrieve paths to images
     //full kitti dataset
-    string seq = "03";
+    string seq = "01";
 
     cout << endl << "-------" << endl;
 
@@ -188,6 +188,8 @@ int main(int argc, char *argv[]) {
     tracking.saveTrajectoryKitti(resultPath+resultFile);
 #if LOG
     tracking.saveStatistics(statsPath+statsFile);
+
+    tracking.saveTrajectoryKitti8point(resultPath+"8point_"+resultFile);
 #endif
 //    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
     cout << "-------" << endl << endl;

@@ -227,6 +227,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 #if LOG
         logStereoMatching(imRight0, imLeft0, mlr0, new_pts_r0, new_pts_l0);
         logLocalMaping(pts3D, meanError);
+        rep_err_3d.push_back(meanError);
 #endif
 
 
@@ -277,6 +278,17 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         frameTimeStamp.push_back(timestamp);
 
         Tcw = Tcw_.clone();
+#if LOG
+        Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
+        rot_vec.at<double>(0) = rvec_est.at(0);
+        rot_vec.at<double>(1) = rvec_est.at(1);
+        rot_vec.at<double>(2) = rvec_est.at(2);
+        Mat Rotmat;
+        Rodrigues(rot_vec, Rotmat, noArray());
+
+        Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
+        relativeFramePoses_.push_back(Tcw_.clone());
+#endif
 
         imLeft0     = imLeft.clone();
         imRight0    = imRight.clone();
@@ -927,6 +939,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 //    int index_l = 0;
     double sum = 0;
     int numPtsClose= 0;
+    int numMatches = 0;
     for (auto &pt_l:pts_l) {
 
         Point2f ptr;
@@ -935,12 +948,13 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
         //find point correspondece in the right image using epipolar constraints
         bool found = findMatchingSAD(pt_l, imLeft, imRight, aux_pts_r, ptr, index, vecRowIndices);
         if(found){
+            numMatches ++;
             //check if the point have a good triangulation
             double error = 0.0;
             double depth = 0.0;
             if(triangulation(pt_l, ptr, pt3D, error, depth)){
 
-                sum += error;
+
                 new_pts_l.push_back(pt_l);
                 new_pts_r.push_back(ptr);
 
@@ -961,6 +975,8 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 
 
             }
+
+            sum += error;
         }
 
     }
@@ -984,7 +1000,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
     //Free memory
     std::vector<Point2f>().swap(aux_pts_r);
 
-    meanError = sum/(pointCloud.size() * 2);
+    meanError = sum/(numMatches);
 
 
 }
@@ -1578,6 +1594,7 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
     writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
     writeOnLogFile("Num of inliers tracking:", std::to_string(mll.size()));
     ptsTracking.push_back(mll.size());
+    ransacIt_8point.push_back(mEightPointLeft->getRansacNumit());
 #endif
 
     Mat R_est;
@@ -1597,9 +1614,9 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
 
     //initialize vector of parameters with rotation and translation from essential matrix
     std::vector<double> p0 (6, 0.0);
-    p0.at(0) = rvec_est.at(0);
-    p0.at(1) = rvec_est.at(1);
-    p0.at(2) = rvec_est.at(2);
+//    p0.at(0) = rvec_est.at(0);
+//    p0.at(1) = rvec_est.at(1);
+//    p0.at(2) = rvec_est.at(2);
 //    p0.at(3) = t_est.at<double>(0);
 //    p0.at(4) = t_est.at<double>(1);
 //    p0.at(5) = t_est.at<double>(2);
@@ -1622,7 +1639,9 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
 
     Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
     tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
-
+#if LOG
+    writeOnLogFile("Rotation matrix det(): ", std::to_string(cv::determinant(Rotmat)));
+#endif
 
 
 }
@@ -1815,28 +1834,88 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
     std::cout << endl << "trajectory saved on "<< filename << std::endl;
 }
 
+void Tracking::saveTrajectoryKitti8point(const string &filename)
+{
+    std::ofstream f;
+    f.open(filename.c_str());
+    f << std::fixed;
+
+    cv::Mat Twc = cv::Mat::eye(4,4,CV_32F);
+
+    f << setprecision(9) << Twc.at<float>(0,0) << " " << Twc.at<float>(0,1)  << " " << Twc.at<float>(0,2) << " "  << Twc.at<float>(0,3) << " " <<
+      Twc.at<float>(1,0) << " " << Twc.at<float>(1,1)  << " " << Twc.at<float>(1,2) << " "  << Twc.at<float>(1,3) << " " <<
+      Twc.at<float>(2,0) << " " << Twc.at<float>(2,1)  << " " << Twc.at<float>(2,2) << " "  << Twc.at<float>(2,3) << endl;
+    /*
+        * The global pose is computed in reference to the first frame by concatanation
+        * The current global pose is computed by
+        * so Twc * inv(Tcw) where Tcw is current relative pose estimated and Twc is the last global pose
+        * Initial Pwc = [I | 0]
+    */
+    std::list<cv::Mat>::iterator lit;
+    for(lit = relativeFramePoses_.begin(); lit != relativeFramePoses_.end(); ++lit){
+
+
+        //Compute the inverse of relative pose estimation inv(Tcw) = [R' | C]
+        //where C = -1 * R' * t
+
+        Mat rot_mat = cv::Mat::zeros(3,1, CV_64F);
+        Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
+
+        rot_mat = (*lit).rowRange(0,3).colRange(0,3);
+        tr_vec  = (*lit).col(3);
+
+//        std::cout << "det rot_mat: " << determinant(rot_mat) << std::endl;
+//        std::cout << "tr_vec: "  << tr_vec << std::endl;
+
+        cv::Mat Rt  = rot_mat.t();
+        cv::Mat C   = -1 * Rt * tr_vec;
+
+        cv::Mat Tcw_inv = cv::Mat::eye(4,4,CV_32F);
+        Rt.convertTo(Rt, CV_32F);
+        C.convertTo(C, CV_32F);
+
+        Rt.copyTo(Tcw_inv.rowRange(0,3).colRange(0,3));
+        C.copyTo(Tcw_inv.rowRange(0,3).col(3));
+
+//        std::cout << "Tcw_inv: " << Tcw_inv << std::endl;
+
+        Twc = Twc * Tcw_inv;
+
+//        std::cout << "Twc: " << Twc << std::endl;
+
+        f << setprecision(9) << Twc.at<float>(0,0) << " " << Twc.at<float>(0,1)  << " " << Twc.at<float>(0,2) << " "  << Twc.at<float>(0,3) << " " <<
+          Twc.at<float>(1,0) << " " << Twc.at<float>(1,1)  << " " << Twc.at<float>(1,2) << " "  << Twc.at<float>(1,3) << " " <<
+          Twc.at<float>(2,0) << " " << Twc.at<float>(2,1)  << " " << Twc.at<float>(2,2) << " "  << Twc.at<float>(2,3) << endl;
+
+    }
+
+    f.close();
+    std::cout << endl << "trajectory saved on "<< filename << std::endl;
+}
+
 void Tracking::saveStatistics(const string &filename)
 {
 
 #if LOG
     std::ofstream f;
     f.open(filename.c_str());
-    f << "frame, Pts detected, Pts after NMS, Pts Stereo Match, Pts Tracking, Pts Quad Match, "
+    f << "frame, Pts detected, Pts after NMS, Pts Stereo Match, Mean 3D reproj error, 8-point ransac it, Pts Tracking, Pts Quad Match, "
          "GN it, GN mean it,  Num inliers GN\n";
 
     std::list<int >::iterator lGNit;
-    auto lMeanGNit      = gnMeanIterations.begin(); auto lPtsNMS            = ptsNMS.begin();
-    auto lPtsDetec      = leftPtsDetec.begin();     auto lPtsStereoMatch    = ptsStereoMatch.begin();
-    auto lPtsTracking   = ptsTracking.begin();      auto lPtsQuadMatch      = ptsQuadMatch.begin();
-    auto lNumInliersGN  = numInliersGN.begin();
+    auto lMeanGNit          = gnMeanIterations.begin();     auto lPtsNMS            = ptsNMS.begin();
+    auto lPtsDetec          = leftPtsDetec.begin();         auto lPtsStereoMatch    = ptsStereoMatch.begin();
+    auto lPtsTracking       = ptsTracking.begin();          auto lPtsQuadMatch      = ptsQuadMatch.begin();
+    auto lNumInliersGN      = numInliersGN.begin();         auto lMeanRepErr3d      = rep_err_3d.begin();
+    auto lRansacIt8point    = ransacIt_8point.begin();
 
     int nFrames = 0;
 
     for (lGNit = gnIterations.begin(); lGNit != gnIterations.end(); ++lGNit, ++lMeanGNit, ++lPtsNMS,
-            ++lPtsDetec, ++lPtsStereoMatch, ++lPtsTracking, ++lPtsQuadMatch, ++lNumInliersGN)
+            ++lPtsDetec, ++lPtsStereoMatch, ++lPtsTracking, ++lPtsQuadMatch, ++lNumInliersGN, ++lMeanRepErr3d, ++lRansacIt8point)
     {
-        f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << ","
-                << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+        f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
+                << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
                 << (*lMeanGNit) << "," << (*lNumInliersGN) << "\n";
         nFrames ++;
     }

@@ -20,7 +20,7 @@ public:
     std::vector<int> generateRandomIndices(const unsigned long &maxIndice, const int &vecSize);
     void setRansacParameters(double probability, int minSet, int maxIteration, double maxError);
     double ransacProb, ransacTh;
-    int ransacMinSet, ransacMaxIt;
+    int ransacMinSet, ransacMaxIt, ransacNumit;
 
     void operator() (const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
                                       std::vector<DMatch> &finalMatches, std::vector<bool> &inliers2D, bool normalize,
@@ -41,6 +41,8 @@ public:
                       const std::vector<Point2f> &kpts_r, const std::vector<cv::DMatch> &matches, bool hold, const std::string &prefix);
 
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
+
+    int getRansacNumit();
 
 
 };
