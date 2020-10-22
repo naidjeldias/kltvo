@@ -249,7 +249,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
 
 
-        //------------------------------------quad matching
+        //------------------------------------circular matching
         std::vector<Point3f> new_pts3D;
         std::vector<Point2f> new_pts_l1, new_pts_r1;
         new_pts_l1.reserve(pts_l1.size());
@@ -994,7 +994,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 #endif
 
 #if LOG
-    std::cout << "Num points close: " << numPtsClose << std::endl;
+    writeOnLogFile("Num points close:", std::to_string(numPtsClose));
 #endif
 
     //Free memory
@@ -1342,7 +1342,8 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
     }
 
 #if LOG
-    std::cout << "Num points in front of the camera: " << bestNumPts << std::endl;
+    writeOnLogFile("Num points in front of the camera: ", std::to_string(bestNumPts));
+//    std::cout << "Num points in front of the camera: " << bestNumPts << std::endl;
 #endif
 
     R_est   = R_best.clone();
@@ -1893,14 +1894,14 @@ void Tracking::saveTrajectoryKitti8point(const string &filename)
     std::cout << endl << "trajectory saved on "<< filename << std::endl;
 }
 
-void Tracking::saveStatistics(const string &filename)
+void Tracking::saveStatistics(const string &filename, float &meanTime)
 {
 
 #if LOG
     std::ofstream f;
     f.open(filename.c_str());
     f << "frame, Pts detected, Pts after NMS, Pts Stereo Match, Mean 3D reproj error, 8-point ransac it, Pts Tracking, Pts Quad Match, "
-         "GN it, GN mean it,  Num inliers GN\n";
+         "GN it, GN mean it,  Num inliers GN, mean time\n";
 
     std::list<int >::iterator lGNit;
     auto lMeanGNit          = gnMeanIterations.begin();     auto lPtsNMS            = ptsNMS.begin();
@@ -1910,13 +1911,20 @@ void Tracking::saveStatistics(const string &filename)
     auto lRansacIt8point    = ransacIt_8point.begin();
 
     int nFrames = 0;
-
+    bool first = true;
     for (lGNit = gnIterations.begin(); lGNit != gnIterations.end(); ++lGNit, ++lMeanGNit, ++lPtsNMS,
             ++lPtsDetec, ++lPtsStereoMatch, ++lPtsTracking, ++lPtsQuadMatch, ++lNumInliersGN, ++lMeanRepErr3d, ++lRansacIt8point)
     {
-        f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
-                << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
-                << (*lMeanGNit) << "," << (*lNumInliersGN) << "\n";
+        if(first){
+            f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
+              << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+              << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << meanTime << "\n";
+        } else{
+            f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
+              << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+              << (*lMeanGNit) << "," << (*lNumInliersGN) << "\n";
+        }
+        first = false;
         nFrames ++;
     }
 
@@ -1927,7 +1935,9 @@ void Tracking::saveStatistics(const string &filename)
 
 
 void Tracking::writeOnLogFile(const string &name, const string &value) {
+#if ENABLE_PRINT
     std::cout << name << value << std::endl;
+#endif
 //    logFile << name << " " << value << "\n";
 }
 
@@ -1944,8 +1954,8 @@ void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &
         }
     }
 
-//    drawPointfImage(dIm, pts, fileName);
-    drawPointfImage(im, pts, fileName);
+    drawPointfImage(dIm, pts, fileName);
+//    drawPointfImage(im, pts, fileName);
 }
 
 void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, const std::vector<cv::KeyPoint> &kpts_r, const std::vector<Point2f> &pts,

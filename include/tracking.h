@@ -9,8 +9,9 @@
 //#define MAX_DELTAX 69
 #define MAX_DELTAX 721
 
-#define LOG         true
-#define LOG_DRAW    false
+#define LOG             true
+#define ENABLE_PRINT    false
+#define LOG_DRAW        true
 
 #define FRAME_GRID_COLS 24
 #define FRAME_GRID_ROWS 24
@@ -60,7 +61,7 @@ public:
 
     void saveTrajectoryEuroc(const string &filename);
 
-    void saveStatistics (const string &filename);
+    void saveStatistics (const string &filename, float &meanTime);
 
     void start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
 

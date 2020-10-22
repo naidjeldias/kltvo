@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
     // Retrieve paths to images
     //full kitti dataset
-    string seq = "01";
+    string seq = "00";
 
     cout << endl << "-------" << endl;
 
@@ -180,14 +180,15 @@ int main(int argc, char *argv[]) {
     {
         totaltime+=vTimesTrack[ni];
     }
+    float meanTime = totaltime/current_ni;
     cout << "-------" << endl << endl;
     cout << "total time in seconds: "   << totaltime            << endl;
-    cout << "mean tracking time: "      << totaltime/current_ni << endl;
+    cout << "mean tracking time: "      << meanTime << endl;
 
 
     tracking.saveTrajectoryKitti(resultPath+resultFile);
 #if LOG
-    tracking.saveStatistics(statsPath+statsFile);
+    tracking.saveStatistics(statsPath+statsFile, meanTime);
 
     tracking.saveTrajectoryKitti8point(resultPath+"8point_"+resultFile);
 #endif

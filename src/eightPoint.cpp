@@ -170,7 +170,7 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
     ransacNumit = n;
 
-    std::cout << "8 point algorithm RANSAC it: " << ransacNumit << std::endl;
+//    std::cout << "8 point algorithm RANSAC it: " << ransacNumit << std::endl;
 
     delete [] errorVect;
 

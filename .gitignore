@@ -2,5 +2,7 @@
 .idea/
 build/
 *.png
-results/
-stats/
+results/*
+stats/*
+!results/.gitkeep
+!stats/.gitkeep
