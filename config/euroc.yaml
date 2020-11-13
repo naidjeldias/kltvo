@@ -66,13 +66,13 @@ GN.ransacTh: 3.0
 GN.ransacMinSet: 3
 
 #Gauss Newton pose estimation: ransac number of iteration
-GN.ransacMaxIt: 300
+GN.ransacMaxIt: 50
 
 #Gauss Newton pose estimation: maximum iteration of GN optimization
 GN.maxIt: 50
 
 #Gauss Newton pose estimation: maximum iteration for pose refinment
-GN.finalMaxIt: 100
+GN.finalMaxIt: 50
 
 #Gauss Newton reprojection weight adjust value, it depends on the stereo camera and lens setup, empirically set
 GN.weightAdjustVal: 0.011
