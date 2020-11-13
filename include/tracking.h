@@ -11,7 +11,7 @@
 
 #define LOG             true
 #define ENABLE_PRINT    false
-#define LOG_DRAW        true
+#define LOG_DRAW        false
 
 #define FRAME_GRID_COLS 24
 #define FRAME_GRID_ROWS 24
@@ -27,6 +27,7 @@
 #include <functional>
 #include <math.h>
 #include<Eigen/Dense>
+
 
 #include "opencv2/features2d/features2d.hpp"
 
@@ -61,13 +62,12 @@ public:
 
     void saveTrajectoryEuroc(const string &filename);
 
-    void saveStatistics (const string &filename, float &meanTime);
+    void saveStatistics (const string &filename, float &meanTime, bool withTime= false);
 
     void start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
 
     //create log file for debug
     bool debug_;
-    ofstream logFile;
 
 
 private:

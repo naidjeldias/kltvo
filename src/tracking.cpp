@@ -151,18 +151,10 @@ Tracking::Tracking(const string &strSettingPath, const double &mFu, const double
     std::cout << "- reprojection weight adjust value: "    << adjustValue          << std::endl;
 
 
-#if LOG
-    logFile.open("LOG_FILE.txt");
-    logFile << std::fixed;
-#endif
-
 }
 
 
 Tracking::~Tracking() {
-#if LOG
-        logFile.close();
-#endif
 }
 
 void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
@@ -1761,12 +1753,23 @@ void Tracking::saveTrajectoryEuroc(const string &filename) {
         Mat tw = Twc.rowRange(0,3).col(3);
 
 //        std::vector<float> q =  toQuaternion(Rw);
-        std::vector<float> q =  mRot2Quat(Rw);
+//        std::vector<float> q =  mRot2Quat(Rw);
 
-        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
-                << tw.at<float>(2) << " " << q[3] << " " << q[2] << " " << q[1] << " " << q[0] << endl;
+//        std::cout << "Rotation Matrix: " << Rw << std::endl;
+        Eigen::Matrix<double,3,3> M;
+
+        M <<    Rw.at<float>(0,0), Rw.at<float>(0,1), Rw.at<float>(0,2),
+                Rw.at<float>(1,0), Rw.at<float>(1,1), Rw.at<float>(1,2),
+                Rw.at<float>(2,0), Rw.at<float>(2,1), Rw.at<float>(2,2);
+
+        Eigen::Quaterniond q(M);
+
+//        std::cout << "quaternion: " <<  " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+
 //        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
-//                << tw.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
+//                << tw.at<float>(2) << " " << q[3] << " " << q[2] << " " << q[1] << " " << q[0] << endl;
+        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
+          << tw.at<float>(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
 
     }
 
@@ -1894,38 +1897,57 @@ void Tracking::saveTrajectoryKitti8point(const string &filename)
     std::cout << endl << "trajectory saved on "<< filename << std::endl;
 }
 
-void Tracking::saveStatistics(const string &filename, float &meanTime)
+void Tracking::saveStatistics(const string &filename, float &meanTime, bool withTime)
 {
 
 #if LOG
     std::ofstream f;
     f.open(filename.c_str());
-    f << "frame, Pts detected, Pts after NMS, Pts Stereo Match, Mean 3D reproj error, 8-point ransac it, Pts Tracking, Pts Quad Match, "
-         "GN it, GN mean it,  Num inliers GN, mean time\n";
+    if(withTime){
+        f<< "frame, time, Pts detected, Pts after NMS, Pts Stereo Match, Mean 3D reproj error, 8-point ransac it, Pts Tracking, Pts Quad Match, "
+            "GN it, GN mean it,  Num inliers GN, mean time\n";
+    }else {
+        f<< "frame, Pts detected, Pts after NMS, Pts Stereo Match, Mean 3D reproj error, 8-point ransac it, Pts Tracking, Pts Quad Match, "
+                   "GN it, GN mean it,  Num inliers GN, mean time\n";
+    }
 
     std::list<int >::iterator lGNit;
     auto lMeanGNit          = gnMeanIterations.begin();     auto lPtsNMS            = ptsNMS.begin();
     auto lPtsDetec          = leftPtsDetec.begin();         auto lPtsStereoMatch    = ptsStereoMatch.begin();
     auto lPtsTracking       = ptsTracking.begin();          auto lPtsQuadMatch      = ptsQuadMatch.begin();
     auto lNumInliersGN      = numInliersGN.begin();         auto lMeanRepErr3d      = rep_err_3d.begin();
-    auto lRansacIt8point    = ransacIt_8point.begin();
+    auto lRansacIt8point    = ransacIt_8point.begin();      auto lTime              = frameTimeStamp.begin();
 
     int nFrames = 0;
     bool first = true;
     for (lGNit = gnIterations.begin(); lGNit != gnIterations.end(); ++lGNit, ++lMeanGNit, ++lPtsNMS,
-            ++lPtsDetec, ++lPtsStereoMatch, ++lPtsTracking, ++lPtsQuadMatch, ++lNumInliersGN, ++lMeanRepErr3d, ++lRansacIt8point)
+            ++lPtsDetec, ++lPtsStereoMatch, ++lPtsTracking, ++lPtsQuadMatch, ++lNumInliersGN, ++lMeanRepErr3d, ++lRansacIt8point, ++lTime)
     {
-        if(first){
-            f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
-              << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
-              << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << meanTime << "\n";
-        } else{
-            f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
-              << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
-              << (*lMeanGNit) << "," << (*lNumInliersGN) << "\n";
+        if(withTime){
+            if(first){
+                f  << setprecision(18) << (*lTime) <<"," << setprecision(6) << 0.0 <<","  << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
+                  << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << meanTime << "\n";
+            } else{
+                f << setprecision(18) << (*lTime) <<","<< setprecision(6) << (*lTime)-initTimestamp <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
+                  << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "\n";
+            }
+            first = false;
+            nFrames ++;
+        }else{
+            if(first){
+                f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
+                  << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << meanTime << "\n";
+            } else{
+                f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
+                  << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "\n";
+            }
+            first = false;
+            nFrames ++;
         }
-        first = false;
-        nFrames ++;
     }
 
     f.close();
