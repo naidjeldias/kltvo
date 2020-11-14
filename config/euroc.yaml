@@ -40,7 +40,7 @@ EightPoint.ransacSet: 8
 EightPoint.ransacMaxInt: 200
 
 #Eight Point algorithm: threshold to define a point as a inlier
-EightPoint.ransacTh: 1.0
+EightPoint.ransacTh: 2.0
 
 #--------------------------------------------------------------------------------------------
 # Linear triangulation parameters
