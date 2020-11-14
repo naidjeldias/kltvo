@@ -6,7 +6,7 @@ ThDepth: 35.0
 #--------------------------------------------------------------------------------------------
 # Stereo Matching parameters
 #--------------------------------------------------------------------------------------------
-Disparity.maxdisp: 92 # a default parameter can be the camera matrix fx value
+Disparity.maxdisp: 128 # a default parameter can be the camera matrix fx value
 Disparity.mindisp: 0
 
 SAD.winHalfBlockSize: 2
@@ -60,7 +60,7 @@ Triangulation.maxIt: 1
 GN.ransacProb: 0.99
 
 #Gauss Newton pose estimation: ransac threshold to define a point as inlier
-GN.ransacTh: 3.0
+GN.ransacTh: 1.5
 
 #Gauss Newton pose estimation: ransac minimum set for model estimation
 GN.ransacMinSet: 3
