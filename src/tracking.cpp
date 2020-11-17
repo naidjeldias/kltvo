@@ -270,17 +270,17 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         frameTimeStamp.push_back(timestamp);
 
         Tcw = Tcw_.clone();
-#if LOG
-        Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
-        rot_vec.at<double>(0) = rvec_est.at(0);
-        rot_vec.at<double>(1) = rvec_est.at(1);
-        rot_vec.at<double>(2) = rvec_est.at(2);
-        Mat Rotmat;
-        Rodrigues(rot_vec, Rotmat, noArray());
-
-        Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
-        relativeFramePoses_.push_back(Tcw_.clone());
-#endif
+//#if LOG
+//        Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
+//        rot_vec.at<double>(0) = rvec_est.at(0);
+//        rot_vec.at<double>(1) = rvec_est.at(1);
+//        rot_vec.at<double>(2) = rvec_est.at(2);
+//        Mat Rotmat;
+//        Rodrigues(rot_vec, Rotmat, noArray());
+//
+//        Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
+//        relativeFramePoses_.push_back(Tcw_.clone());
+//#endif
 
         imLeft0     = imLeft.clone();
         imRight0    = imRight.clone();
@@ -1584,20 +1584,20 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
 #endif
 
 #if LOG
-    writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
+    writeOnLogFile("RANSAC num iterations:", std::to_string(mEightPointLeft->getRansacNumit()));
+    logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll);
     writeOnLogFile("Num of inliers tracking:", std::to_string(mll.size()));
+    writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
     ptsTracking.push_back(mll.size());
     ransacIt_8point.push_back(mEightPointLeft->getRansacNumit());
 #endif
 
-    Mat R_est;
-    essentialMatrixDecomposition(fmat, K, K, ptsL0, ptsL1, inliers, R_est, t_est);
+//    Mat R_est;
+//    essentialMatrixDecomposition(fmat, K, K, ptsL0, ptsL1, inliers, R_est, t_est);
+//
+//    Rodrigues(R_est, rvec_est, noArray());
 
-    Rodrigues(R_est, rvec_est, noArray());
 
-#if LOG
-    logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll,R_est);
-#endif
 }
 
 void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
@@ -2018,7 +2018,7 @@ void Tracking::logLocalMaping(const std::vector<Point3f> &pts3D, double &meanErr
 
 void Tracking::logFeatureTracking(const std::vector<Point2f> &pts_l0, const std::vector<Point2f> &pts_r1,
                                   const cv::Mat &fmat, const std::vector<Point2f> &pts_l1, const std::vector<bool> &inliers,
-                                  const cv::Mat &im_l0, const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll, const cv::Mat &R) {
+                                  const cv::Mat &im_l0, const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll) {
 
 
     writeOnLogFile("Num of left points tracked:", std::to_string(pts_l1.size()));

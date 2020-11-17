@@ -10,7 +10,7 @@
 #define MAX_DELTAX 721
 
 #define LOG             true
-#define ENABLE_PRINT    false
+#define ENABLE_PRINT    true
 #define LOG_DRAW        false
 
 #define FRAME_GRID_COLS 24
@@ -220,7 +220,7 @@ private:
     void logLocalMaping(const std::vector<Point3f> &pts3D, double &meanError);
     void logFeatureTracking(const std::vector<Point2f> &pts_l0, const std::vector<Point2f> &pts_r1, const cv::Mat &fmat,
                             const std::vector<Point2f> &pts_l1, const std::vector<bool> &inliers, const cv::Mat &im_l0,
-                            const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll, const cv::Mat &R);
+                            const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll);
     void logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const std::vector<Point2f> &pts_l1,
                          const std::vector<Point2f> &pts_r1, const std::vector<cv::DMatch> &mlr1, int numPts);
     void logPoseEstimation();

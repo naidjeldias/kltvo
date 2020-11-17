@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
 
     // Retrieve paths to images
     //full kitti dataset
-    string seq = "00";
+    string seq = "03";
 
     cout << endl << "-------" << endl;
 
@@ -167,10 +167,10 @@ int main(int argc, char *argv[]) {
 
         current_ni = ni;
 
-        //cv::imshow("Left Frame", imLeft);
-        //char c=(char) cv::waitKey(1);
-        //if(c==27)
-           // break;
+        cv::imshow("Left Frame", imLeft);
+        char c=(char) cv::waitKey(1);
+        if(c==27)
+            break;
     }
 
     // Tracking time statistics
@@ -190,7 +190,7 @@ int main(int argc, char *argv[]) {
 #if LOG
     tracking.saveStatistics(statsPath+statsFile, meanTime);
 
-    tracking.saveTrajectoryKitti8point(resultPath+"8point_"+resultFile);
+//    tracking.saveTrajectoryKitti8point(resultPath+"8point_"+resultFile);
 #endif
 //    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
     cout << "-------" << endl << endl;
