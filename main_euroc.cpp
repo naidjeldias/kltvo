@@ -40,15 +40,34 @@ void LoadImages(const string &strPathToSequence, const string &strPathTimes,
     }
 }
 
-int main(){
+int main(int argc, char *argv[]){
 
     // Retrieve paths to images
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
     vector<double> vTimeStamp;
-    string path_data  = string("../../EuRoc_Dataset/mav0");
+
+    string seq = "MH01";
+
+    if(argc >= 2)
+    {
+        seq = argv[1];
+        cout << "Sequence "<< seq << " selected!"<< endl;
+    }else
+        cout << "No sequence passed as argument default sequence "<< seq << " will be selected!" << endl;
+
+    string resultPath = "results/euroc/";
+//    string resultFile = "Euroc_MH01_KLTVO.txt";
+    string resultFile = "Euroc_" + seq + "_KLTVO.txt";
+
+//    string path_data  = string("../../EuRoc_Dataset/MH01/mav0");
+    string path_data  = "../../EuRoc_Dataset/"+seq+"/mav0";
     //change de sequence txt in order to use others sequences
-    string path_times = string("euroc/times/MH01.txt");
+//    string path_times = string("euroc/times/MH    01.txt");
+    string path_times = "euroc/times/"+seq+".txt";
+
+    string statsPath = "stats/euroc/";
+    string statsFile = "Euroc_" + seq + "_STATS.csv";
 
     LoadImages(path_data, path_times, vstrImageLeft, vstrImageRight, vTimeStamp);
 
@@ -107,10 +126,6 @@ int main(){
     cv::initUndistortRectifyMap(K_r,D_r,R_r,P_r,cv::Size(cols_r,rows_r),CV_32F,M1r,M2r);
 
     double fu, fv, uc, vc, bf;
-
-    std::cout << "Pl: " << P_l << std::endl;
-    std::cout << "Pr: " << P_r << std::endl;
-
 
     fu = P_l.at<double>(0,0);
     fv = P_l.at<double>(1,1);
@@ -202,11 +217,11 @@ int main(){
     cout << "mean tracking time: " << totaltime/current_ni << endl;
 
 
-    string resultFile = "Euroc_MH01_KLTVO.txt";
+
 //    tracking.saveTrajectoryKitti("results/euroc/"+resultFile);
-    tracking.saveTrajectoryEuroc("results/euroc/"+resultFile);
+    tracking.saveTrajectoryEuroc(resultPath+resultFile);
 #if LOG
-    tracking.saveStatistics("stats/euroc/Euroc_MH01_STATS.csv", meanTime, true);
+    tracking.saveStatistics(statsPath+statsFile, meanTime, true);
 
 #endif
     cv::destroyAllWindows();
