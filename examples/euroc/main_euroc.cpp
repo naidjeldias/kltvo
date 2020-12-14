@@ -49,19 +49,27 @@ int main(int argc, char *argv[]){
 
     string seq = "MH01";
 
-    if(argc >= 2)
-    {
-        seq = argv[1];
-        cout << "Sequence "<< seq << " selected!"<< endl;
+    //    string path_data  = string("../../EuRoc_Dataset/MH01/mav0");
+    string path_data  = "../../EuRoc_Dataset/"+seq+"/mav0";
+
+    if(argc <= 1){
+        cout << "No argument, the default path will be used. Dataset Path: "<< path_data << endl;
+    }
+    else if (argc == 3){
+        path_data = argv[1];
+        seq       = argv[2];
+        cout << "Using sequence" << seq << "on path: " << path_data << endl;
     }else
-        cout << "No sequence passed as argument default sequence "<< seq << " will be selected!" << endl;
+    {
+        cout << "Usage: <SEQUENCE_PATH> <SEQUENCE_ID>" << endl;
+        return 0;
+    }
 
     string resultPath = "examples/euroc/results/";
 //    string resultFile = "Euroc_MH01_KLTVO.txt";
     string resultFile = "Euroc_" + seq + "_KLTVO.txt";
 
-//    string path_data  = string("../../EuRoc_Dataset/MH01/mav0");
-    string path_data  = "../../EuRoc_Dataset/"+seq+"/mav0";
+
     //change de sequence txt in order to use others sequences
 //    string path_times = string("euroc/times/MH    01.txt");
     string path_times = "examples/euroc/times/"+seq+".txt";

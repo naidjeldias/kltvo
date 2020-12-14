@@ -53,12 +53,26 @@ int main(int argc, char *argv[]) {
 
     cout << endl << "-------" << endl;
 
-    if(argc >= 2)
-    {
-        seq = argv[1];
-        cout << "Sequence "<< seq << " selected!"<< endl;
+    string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
+
+    if(argc <= 1){
+        cout << "No argument, the default path will be used. Dataset Path: "<< path_data << endl;
+    }
+    else if (argc == 3){
+        path_data = argv[1];
+        seq       = argv[2];
+        cout << "Using sequence" << seq << "on path: " << path_data << endl;
     }else
-        cout << "No sequence passed as argument default sequence "<< seq << " will be selected!"<< seq << endl;
+    {
+        cout << "Usage: <SEQUENCE_PATH> <SEQUENCE_ID>" << endl;
+        return 0;
+    }
+    
+    // if(argc <= 2)
+    // {
+    //     cout << "Sequence "<< seq << " selected!"<< endl;
+    // }else
+    //     cout << "No sequence passed as argument default sequence "<< seq << " will be selected!"<< seq << endl;
 
     string resultPath = "examples/kitti/results/";
     string resultFile = "KITTI_" + seq + "_KLTVO.txt";
@@ -66,23 +80,8 @@ int main(int argc, char *argv[]) {
     string statsPath = "examples/kitti/stats/";
     string statsFile = "KITTI_" + seq + "_STATS.csv";
 
-    if(argc >= 4)
-    {
-        resultPath = argv[2];
-        resultFile = std::string (argv[3]) + ".txt";
-        cout << "Results will be saved in "<< resultPath << " with name "<< resultFile << endl;
-    }
 
-    if(argc >= 5)
-    {
-        statsPath = argv[4];
-        statsFile = std::string (argv[3]) + ".csv";
-        cout << "Stats will be saved in "<< statsPath << " with name "<< statsFile << endl;
-    }
-
-
-
-    string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
+    
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
     vector<double> vTimestamps;
