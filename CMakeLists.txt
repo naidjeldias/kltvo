@@ -30,9 +30,9 @@ target_link_libraries(
 )
 
 add_executable(stereo_kitti
-        main_kitti.cpp)
+        examples/kitti/main_kitti.cpp)
 target_link_libraries(stereo_kitti ${PROJECT_NAME})
 
 add_executable(stereo_euroc
-        main_euroc.cpp)
+        examples/euroc/main_euroc.cpp)
 target_link_libraries(stereo_euroc ${PROJECT_NAME})

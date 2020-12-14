@@ -2,7 +2,13 @@
 .idea/
 build/
 *.png
-results/*
-stats/*
-!results/.gitkeep
-!stats/.gitkeep
+examples/kitti/results/*
+examples/kitti/stats/*
+!examples/kitti/results/.gitkeep
+!examples/kitti/stats/.gitkeep
+examples/euroc/results/*
+examples/euroc/stats/*
+!examples/euroc/results/.gitkeep
+!examples/euroc/stats/.gitkeep
+stereo_euroc
+stereo_kitti
