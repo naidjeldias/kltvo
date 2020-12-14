@@ -5,10 +5,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 find_package(OpenCV 4.0.0 REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 include_directories(
         ${PROJECT_SOURCE_DIR}/include
         $(OpenCV_INCLUDE_DIRS)
+        ${EIGEN3_INCLUDE_DIR}
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -24,6 +26,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -pthread")
 target_link_libraries(
         ${PROJECT_NAME}
         ${OpenCV_LIBS}
+        ${EIGEN3_LIBS}
 )
 
 add_executable(stereo_kitti

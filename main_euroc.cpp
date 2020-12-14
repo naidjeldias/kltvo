@@ -30,6 +30,9 @@ void LoadImages(const string &strPathToSequence, const string &strPathTimes,
             vstrImageLeft.push_back(strPathLeft + "/" + ss.str() + ".png");
             vstrImageRight.push_back(strPathRight + "/" + ss.str() + ".png");
             double t;
+            string stamp;
+//            ss >> stamp;
+//            std::cout << stamp << std::endl;
             ss >> t;
             vTimeStamps.push_back(t/1e9);
 
@@ -37,15 +40,34 @@ void LoadImages(const string &strPathToSequence, const string &strPathTimes,
     }
 }
 
-int main(){
+int main(int argc, char *argv[]){
 
     // Retrieve paths to images
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
     vector<double> vTimeStamp;
-    string path_data  = string("../../EuRoC_DATASET/mav0");
+
+    string seq = "MH01";
+
+    if(argc >= 2)
+    {
+        seq = argv[1];
+        cout << "Sequence "<< seq << " selected!"<< endl;
+    }else
+        cout << "No sequence passed as argument default sequence "<< seq << " will be selected!" << endl;
+
+    string resultPath = "results/euroc/";
+//    string resultFile = "Euroc_MH01_KLTVO.txt";
+    string resultFile = "Euroc_" + seq + "_KLTVO.txt";
+
+//    string path_data  = string("../../EuRoc_Dataset/MH01/mav0");
+    string path_data  = "../../EuRoc_Dataset/"+seq+"/mav0";
     //change de sequence txt in order to use others sequences
-    string path_times = string("euroc/times/MH01.txt");
+//    string path_times = string("euroc/times/MH    01.txt");
+    string path_times = "euroc/times/"+seq+".txt";
+
+    string statsPath = "stats/euroc/";
+    string statsFile = "Euroc_" + seq + "_STATS.csv";
 
     LoadImages(path_data, path_times, vstrImageLeft, vstrImageRight, vTimeStamp);
 
@@ -63,7 +85,7 @@ int main(){
 
     // Read rectification parameters
     string path_calib   = string("euroc/EuRoC.yaml");
-    Tracking tracking(path_calib);
+    string path_config  = string("config/euroc.yaml");
 
 
     cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
@@ -98,9 +120,21 @@ int main(){
         return -1;
     }
 
+
     cv::Mat M1l,M2l,M1r,M2r;
-    cv::initUndistortRectifyMap(K_l,D_l,R_l,P_l.rowRange(0,3).colRange(0,3),cv::Size(cols_l,rows_l),CV_32F,M1l,M2l);
-    cv::initUndistortRectifyMap(K_r,D_r,R_r,P_r.rowRange(0,3).colRange(0,3),cv::Size(cols_r,rows_r),CV_32F,M1r,M2r);
+    cv::initUndistortRectifyMap(K_l,D_l,R_l,P_l,cv::Size(cols_l,rows_l),CV_32F,M1l,M2l);
+    cv::initUndistortRectifyMap(K_r,D_r,R_r,P_r,cv::Size(cols_r,rows_r),CV_32F,M1r,M2r);
+
+    double fu, fv, uc, vc, bf;
+
+    fu = P_l.at<double>(0,0);
+    fv = P_l.at<double>(1,1);
+    uc = P_l.at<double>(0,2);
+    vc = P_l.at<double>(1,2);
+
+    bf = -P_r.at<double>(0,3);
+
+    Tracking tracking(path_config, fu, fv, uc, vc, bf);
 
     const int nImages = vstrImageLeft.size();
 
@@ -115,7 +149,8 @@ int main(){
     // Main loop
     cv::Mat imLeft, imRight, imLeftRect, imRightRect;
     int current_ni;
-    for(int ni=0; ni</*nImages*/300; ni++)
+    for(int ni=0; ni<nImages; ni++)
+//    for(int ni=0; ni<4; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],IMREAD_UNCHANGED);
@@ -177,11 +212,18 @@ int main(){
     {
         totaltime+=vTimesTrack[ni];
     }
+    float meanTime = totaltime/current_ni;
     cout << "-------" << endl << endl;
     cout << "mean tracking time: " << totaltime/current_ni << endl;
 
-    tracking.saveTrajectoryTUM("KLTVO_EuRoc.txt");
 
+
+//    tracking.saveTrajectoryKitti("results/euroc/"+resultFile);
+    tracking.saveTrajectoryEuroc(resultPath+resultFile);
+#if LOG
+    tracking.saveStatistics(statsPath+statsFile, meanTime, true);
+
+#endif
     cv::destroyAllWindows();
 
     return 0;

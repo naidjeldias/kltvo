@@ -7,13 +7,14 @@
 
 #define MAX_DELTAY 0
 //#define MAX_DELTAX 69
-#define MAX_DELTAX 62
+#define MAX_DELTAX 721
 
-#define LOG         true
-#define LOG_DRAW    false
+#define LOG             true
+#define ENABLE_PRINT    true
+#define LOG_DRAW        false
 
-#define FRAME_GRID_COLS 48
-#define FRAME_GRID_ROWS 48
+#define FRAME_GRID_COLS 24
+#define FRAME_GRID_ROWS 24
 
 #include "utils.h"
 #include "epnp.h"
@@ -25,6 +26,8 @@
 #include <mutex>
 #include <functional>
 #include <math.h>
+#include<Eigen/Dense>
+
 
 #include "opencv2/features2d/features2d.hpp"
 
@@ -37,7 +40,8 @@ public:
 
     enum status {CONVERGED, UPDATE, FAILED};
 
-    Tracking(const string &strSettingPath);
+    Tracking(const string &strSettingPath, const double &mfx, const double &mfy, const double &mcx, const double &mcy,
+            const double &mbf);
 
     ~Tracking();
 
@@ -53,13 +57,17 @@ public:
 
     void saveTrajectoryKitti(const string &filename);
 
-    void saveTrajectoryTUM(const string &filename);
+    void saveTrajectoryKitti8point(const string &filename);
+
+
+    void saveTrajectoryEuroc(const string &filename);
+
+    void saveStatistics (const string &filename, float &meanTime, bool withTime= false);
 
     void start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
 
     //create log file for debug
     bool debug_;
-    ofstream logFile;
 
 
 private:
@@ -67,12 +75,18 @@ private:
     std::list<cv::Mat> relativeFramePoses;
     std::list<double>  frameTimeStamp;
 
+#if LOG
+    std::list<int > gnIterations, leftPtsDetec, ptsNMS, ptsStereoMatch, ptsTracking,
+                    ptsQuadMatch, numInliersGN, maxItGN, ransacIt_8point;
+    std::list<double > gnMeanIterations, rep_err_3d;
+    std::list<cv::Mat> relativeFramePoses_;
+#endif
+
 
     bool initPhase;
     int numFrame;
 
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
-
 
     //-------------- feature extraction
     int nFeatures;
@@ -81,6 +95,8 @@ private:
     int fIniThFAST;
     int fMinThFAST;
     std::mutex mtxORB;
+    int frameGridCols;
+    int frameGridRows;
 
     ORBextractor* mpORBextractorLeft;
     ORBextractor* mpORBextractorRight;
@@ -96,7 +112,7 @@ private:
 
 
     //-------------- stereo matching
-    double maxDisp, minDisp, initTimestamp, thDepth;
+    double maxDisp, minDisp, initTimestamp, thDepth, sadMinValue, halfBlockSize;
 
 
     void stereoMatching(const std::vector<cv::Point2f>& pts_l, const std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
@@ -111,6 +127,8 @@ private:
 
     //------------- feature tracking
     std::mutex mtx1, mtx2, mtx3, mtx4;
+    int winSize, pyrMaxLevel;
+
 
     void featureTracking (const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
             std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose );
@@ -165,16 +183,18 @@ private:
     int maxIteration;           // max number of iteration for pose update
     int finalMaxIteration;      // max iterations for minimization final refinement
     bool reweigh;               // reweight in optimization
+    double adjustValue;
 
 
     void relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
             const std::vector<cv::Point3f> &pts3D, const std::vector<double> &rvec_est, const cv::Mat &t_est ,cv::Mat &Tcw);
 
     void poseRefinment(const std::vector<Point2f> &pts2DL, const std::vector<Point2f> &pts2DR,
-            const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers, std::vector<double> &p ,cv::Mat &rot_vec, cv::Mat &tr_vec);
+            const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers, std::vector<double> &p ,cv::Mat &rot_vec,
+            cv::Mat &tr_vec, const int &bestNumInliers);
 
     int poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr, const std::vector<cv::Point3f> &pts3d
-            , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh);
+            , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh, int &bestNumInliers);
 
     int poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr, const std::vector<cv::Point3d> &pts3d
             , std::vector<double> &p0, const int numPts, bool reweigh);
@@ -183,7 +203,10 @@ private:
                          const std::vector<cv::Point2d> &pts2d_r, std::vector<double> &p0, cv::Mat &J, cv::Mat &res, bool reweigh);
 
     int checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
-                     const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh);
+                     const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh, long double &stdDev);
+
+    //----------------------Tools functions
+    std::vector<float > toQuaternion(const cv::Mat &R);
 
 
     //----------------------debug functions
@@ -197,7 +220,7 @@ private:
     void logLocalMaping(const std::vector<Point3f> &pts3D, double &meanError);
     void logFeatureTracking(const std::vector<Point2f> &pts_l0, const std::vector<Point2f> &pts_r1, const cv::Mat &fmat,
                             const std::vector<Point2f> &pts_l1, const std::vector<bool> &inliers, const cv::Mat &im_l0,
-                            const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll, const cv::Mat &R);
+                            const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll);
     void logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const std::vector<Point2f> &pts_l1,
                          const std::vector<Point2f> &pts_r1, const std::vector<cv::DMatch> &mlr1, int numPts);
     void logPoseEstimation();

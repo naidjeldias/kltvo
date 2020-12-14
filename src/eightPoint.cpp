@@ -168,6 +168,10 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
         n ++;
     }
 
+    ransacNumit = n;
+
+//    std::cout << "8 point algorithm RANSAC it: " << ransacNumit << std::endl;
+
     delete [] errorVect;
 
 
@@ -425,8 +429,10 @@ void EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vecto
                 }
             }
 
+            Scalar color (rand() % 255,rand() % 255,rand() % 255);
+
             if(linePts.size()>=4){
-                Scalar color (rand() % 255,rand() % 255,rand() % 255);
+//                Scalar color (rand() % 255,rand() % 255,rand() % 255);
                 Point2d x0(linePts.at(0), linePts.at(1));
                 Point2d x1(linePts.at(2), linePts.at(3));
                 line(rgb, x0, x1, color, 1);
@@ -437,7 +443,7 @@ void EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vecto
             }
 
             if(linePts1.size()>=4){
-                Scalar color (rand() % 255,rand() % 255,rand() % 255);
+//                Scalar color (rand() % 255,rand() % 255,rand() % 255);
                 Point2d x0(linePts1.at(0), linePts1.at(1));
                 Point2d x1(linePts1.at(2), linePts1.at(3));
                 line(rgb1, x0, x1, color, 1);
@@ -449,7 +455,8 @@ void EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vecto
         }
     }
 
-    drawMatches_(image, image1, ptsl_, ptsr_, matches, false);
+    std::string prefix = "track";
+    drawMatches_(image, image1, ptsl_, ptsr_, matches, false, prefix);
 
     imwrite("lefteplines.png",rgb);
     imwrite("righteplines.png",rgb1);
@@ -459,7 +466,7 @@ void EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vecto
 
 void EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right_image,
                                 const std::vector<Point2f> &kpts_l, const std::vector<Point2f> &kpts_r,
-                                const std::vector<cv::DMatch> &matches, bool hold) {
+                                const std::vector<cv::DMatch> &matches, bool hold, const std::string &prefix) {
 
     cv::Mat imageMatches, imageKptsLeft, imageKptsRight;
     //convert vector of Point2f to vector of Keypoint
@@ -479,9 +486,13 @@ void EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right_im
     drawKeypoints( right_image, nextPoints, imageKptsRight, Scalar::all(-1), DrawMatchesFlags::DEFAULT );
 
 
-    imwrite("kptsLeft.png", imageKptsLeft);
-    imwrite("kptsRight.png", imageKptsRight);
-    imwrite("matches.png", imageMatches);
+    std::string kptsLeft     = std::string(prefix+"KptsLeft.png");
+    std::string kptsRight    = std::string(prefix+"kptsRight.png");
+    std::string matchStr     = std::string(prefix+"matches.png");
+
+    imwrite(kptsLeft, imageKptsLeft);
+    imwrite(kptsRight, imageKptsRight);
+    imwrite(matchStr, imageMatches);
 
 //    if(hold)
 //        waitKey(0);
@@ -491,4 +502,9 @@ void EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right_im
 double EightPoint::euclideanDist(const cv::Point2d &p, const cv::Point2d &q) {
     Point2d diff = p - q;
     return cv::sqrt(diff.x*diff.x + diff.y*diff.y);
+}
+
+int EightPoint::getRansacNumit()
+{
+    return ransacNumit;
 }

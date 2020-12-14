@@ -1,3 +1,8 @@
 \cmake-build-debug
 .idea/
 build/
+*.png
+results/*
+stats/*
+!results/.gitkeep
+!stats/.gitkeep

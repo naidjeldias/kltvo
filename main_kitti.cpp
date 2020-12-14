@@ -45,17 +45,44 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
     }
 }
 
-int main() {
-
-    //kitti dataset
-//   string path_data    = string("kitti");
-//   string path_left    = string ("/video_0.avi");
-//   string path_right   = string ("/video_1.avi");
-
+int main(int argc, char *argv[]) {
 
     // Retrieve paths to images
     //full kitti dataset
-    string path_data = string("../../KITTI_DATASET/dataset/sequences/03");
+    string seq = "03";
+
+    cout << endl << "-------" << endl;
+
+    if(argc >= 2)
+    {
+        seq = argv[1];
+        cout << "Sequence "<< seq << " selected!"<< endl;
+    }else
+        cout << "No sequence passed as argument default sequence "<< seq << " will be selected!"<< seq << endl;
+
+    string resultPath = "results/kitti/";
+    string resultFile = "KITTI_" + seq + "_KLTVO.txt";
+
+    string statsPath = "stats/kitti/";
+    string statsFile = "KITTI_" + seq + "_STATS.csv";
+
+    if(argc >= 4)
+    {
+        resultPath = argv[2];
+        resultFile = std::string (argv[3]) + ".txt";
+        cout << "Results will be saved in "<< resultPath << " with name "<< resultFile << endl;
+    }
+
+    if(argc >= 5)
+    {
+        statsPath = argv[4];
+        statsFile = std::string (argv[3]) + ".csv";
+        cout << "Stats will be saved in "<< statsPath << " with name "<< statsFile << endl;
+    }
+
+
+
+    string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
     vector<double> vTimestamps;
@@ -68,17 +95,37 @@ int main() {
     vTimesTrack.resize(nImages);
 
     cout << endl << "-------" << endl;
-    cout << "Start processing sequence ..." << endl;
+    cout << "Start processing sequence "<< seq << "..." << endl;
     cout << "Images in the sequence: " << nImages << endl << endl;
 
-    string path_calib   = string("kitti/KITTI03.yaml");
+    string yamlFile = "KITTI" + seq + ".yaml";
+    string path_calib       = string("kitti/"+yamlFile);
+    string path_config      = string("config/kitti.yaml");
 //    string path_calib   = string("kitti/KITTI00-02.yaml");
-    Tracking tracking(path_calib);
+
+    cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
+    if(!fsSettings.isOpened())
+    {
+        cerr << "ERROR: Wrong path to settings" << endl;
+        return -1;
+    }
+
+    double fu, fv, uc, vc, bf;
+
+    fu = fsSettings["Camera.fx"];
+    fv = fsSettings["Camera.fy"];
+    uc = fsSettings["Camera.cx"];
+    vc = fsSettings["Camera.cy"];
+
+    bf = fsSettings["Camera.bf"];
+
+    Tracking tracking(path_config, fu, fv, uc, vc, bf);
 
     // Main loop
     cv::Mat imLeft, imRight;
     int current_ni;
     for(int ni=0; ni<nImages; ni++)
+//    for(int ni=0; ni<2; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],IMREAD_UNCHANGED);
@@ -133,12 +180,20 @@ int main() {
     {
         totaltime+=vTimesTrack[ni];
     }
+    float meanTime = totaltime/current_ni;
     cout << "-------" << endl << endl;
-    cout << "mean tracking time: " << totaltime/current_ni << endl;
+    cout << "total time in seconds: "   << totaltime            << endl;
+    cout << "mean tracking time: "      << meanTime << endl;
 
-    tracking.saveTrajectoryKitti("KLTVO_KITTI.txt");
+
+    tracking.saveTrajectoryKitti(resultPath+resultFile);
+#if LOG
+    tracking.saveStatistics(statsPath+statsFile, meanTime);
+
+//    tracking.saveTrajectoryKitti8point(resultPath+"8point_"+resultFile);
+#endif
 //    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
-
+    cout << "-------" << endl << endl;
     cv::destroyAllWindows();
 
     return 0;
