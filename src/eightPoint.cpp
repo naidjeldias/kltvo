@@ -57,7 +57,8 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
     if(normalize && method == 0) computeMatNormTransform(kpt_l, kpt_r, kpt_l.size(), leftScaling, rightScaling);
 
-    int bestNumInliers = ransacMinSet;
+//    int bestNumInliers = ransacMinSet;
+    int bestNumInliers = 0;
 
     int n = 0;
     long int r              = 1000;//adjusted dinamically

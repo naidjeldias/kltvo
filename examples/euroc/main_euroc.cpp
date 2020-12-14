@@ -49,24 +49,32 @@ int main(int argc, char *argv[]){
 
     string seq = "MH01";
 
-    if(argc >= 2)
-    {
-        seq = argv[1];
-        cout << "Sequence "<< seq << " selected!"<< endl;
-    }else
-        cout << "No sequence passed as argument default sequence "<< seq << " will be selected!" << endl;
+    //    string path_data  = string("../../EuRoc_Dataset/MH01/mav0");
+    string path_data  = "../../EuRoc_Dataset/"+seq+"/mav0";
 
-    string resultPath = "results/euroc/";
+    if(argc <= 1){
+        cout << "No argument, the default path will be used. Dataset Path: "<< path_data << endl;
+    }
+    else if (argc == 3){
+        path_data = argv[1];
+        seq       = argv[2];
+        cout << "Using sequence" << seq << "on path: " << path_data << endl;
+    }else
+    {
+        cout << "Usage: <SEQUENCE_PATH> <SEQUENCE_ID>" << endl;
+        return 0;
+    }
+
+    string resultPath = "examples/euroc/results/";
 //    string resultFile = "Euroc_MH01_KLTVO.txt";
     string resultFile = "Euroc_" + seq + "_KLTVO.txt";
 
-//    string path_data  = string("../../EuRoc_Dataset/MH01/mav0");
-    string path_data  = "../../EuRoc_Dataset/"+seq+"/mav0";
+
     //change de sequence txt in order to use others sequences
 //    string path_times = string("euroc/times/MH    01.txt");
-    string path_times = "euroc/times/"+seq+".txt";
+    string path_times = "examples/euroc/times/"+seq+".txt";
 
-    string statsPath = "stats/euroc/";
+    string statsPath = "examples/euroc/stats/";
     string statsFile = "Euroc_" + seq + "_STATS.csv";
 
     LoadImages(path_data, path_times, vstrImageLeft, vstrImageRight, vTimeStamp);
@@ -84,8 +92,8 @@ int main(int argc, char *argv[]){
     }
 
     // Read rectification parameters
-    string path_calib   = string("euroc/EuRoC.yaml");
-    string path_config  = string("config/euroc.yaml");
+    string path_calib   = string("examples/euroc/calib/EuRoC.yaml");
+    string path_config  = string("examples/euroc/config/euroc.yaml");
 
 
     cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
@@ -149,8 +157,8 @@ int main(int argc, char *argv[]){
     // Main loop
     cv::Mat imLeft, imRight, imLeftRect, imRightRect;
     int current_ni;
-    for(int ni=0; ni<nImages; ni++)
-//    for(int ni=0; ni<4; ni++)
+   for(int ni=0; ni<nImages; ni++)
+   //for(int ni=0; ni<1644; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],IMREAD_UNCHANGED);
