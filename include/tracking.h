@@ -40,8 +40,7 @@ public:
 
     enum status {CONVERGED, UPDATE, FAILED};
 
-    Tracking(const string &strSettingPath, const double &mfx, const double &mfy, const double &mcx, const double &mcy,
-            const double &mbf);
+    Tracking(const string &strSettingPath);
 
     ~Tracking();
 
@@ -54,6 +53,9 @@ public:
     cv::Mat Tcw;
 
     cv::Mat getCurrentPose();
+
+    void setCalibrationParameters(const double &mFu, const double &mFv, const double &mUc, const double &mVc,
+                   const double &mbf);
 
     void saveTrajectoryKitti(const string &filename);
 

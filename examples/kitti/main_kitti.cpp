@@ -118,7 +118,9 @@ int main(int argc, char *argv[]) {
 
     bf = fsSettings["Camera.bf"];
 
-    Tracking tracking(path_config, fu, fv, uc, vc, bf);
+    Tracking tracking(path_config);
+
+    tracking.setCalibrationParameters(fu, fv, uc, vc, bf);
 
     // Main loop
     cv::Mat imLeft, imRight;

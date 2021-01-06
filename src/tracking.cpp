@@ -9,8 +9,7 @@
 
 using namespace cv;
 
-Tracking::Tracking(const string &strSettingPath, const double &mFu, const double &mFv, const double &mUc, const double &mVc,
-                   const double &mbf) {
+Tracking::Tracking(const string &strSettingPath) {
     srand(time(0));
 
     cv::FileStorage fsSettings(strSettingPath, cv::FileStorage::READ);
@@ -18,41 +17,6 @@ Tracking::Tracking(const string &strSettingPath, const double &mFu, const double
     {
         std::cerr << "ERROR: Wrong path to settings" << std::endl;
     }
-
-    std::cout << "Camera parameters: \n";
-
-    fu = mFu;
-    fv = mFv;
-    uc = mUc;
-    vc = mVc;
-
-    std::cout << "- fu: " << fu << std::endl;
-    std::cout << "- fv: " << fv << std::endl;
-    std::cout << "- uc: " << uc << std::endl;
-    std::cout << "- vc: " << vc << std::endl;
-
-    cv::Mat mK = cv::Mat::eye(3,3,CV_64F);
-    mK.at<double>(0,0) = fu;
-    mK.at<double>(1,1) = fv;
-    mK.at<double>(0,2) = uc;
-    mK.at<double>(1,2) = vc;
-    mK.copyTo(K);
-
-    double bf = mbf;
-    baseline = bf / fu;
-
-    std::cout << "- b: " << baseline << std::endl;
-
-    Mat mP1 = cv::Mat::eye(3,4, CV_64F);
-    Mat mP2 = cv::Mat::eye(3,4, CV_64F);
-
-    mK.copyTo(mP1.rowRange(0,3).colRange(0,3));
-    mK.copyTo(mP2.rowRange(0,3).colRange(0,3));
-
-    mP2.at<double>(0,3) = -bf;
-
-    mP1.copyTo(P1);
-    mP2.copyTo(P2);
 
     //-----Feature extraction
     std::cout << "NMS parameters: \n";
@@ -68,8 +32,7 @@ Tracking::Tracking(const string &strSettingPath, const double &mFu, const double
 
     minDisp         = fsSettings["Disparity.mindisp"];
     maxDisp         = fsSettings["Disparity.maxdisp"];
-    if(maxDisp == -1)
-        maxDisp = (int) fu;
+
     thDepth         = fsSettings["ThDepth"];
     sadMinValue     = fsSettings["SAD.minValue"];
     halfBlockSize   = fsSettings["SAD.winHalfBlockSize"];
@@ -77,7 +40,6 @@ Tracking::Tracking(const string &strSettingPath, const double &mFu, const double
     std::cout << "- Min disparity: "                  << minDisp           << std::endl;
     std::cout << "- Max disparity: "                  << maxDisp             << std::endl;
     std::cout << "- Threshold depth: "                << thDepth         << std::endl;
-    std::cout << "- Min disparity: "                  << minDisp           << std::endl;
 
     std::cout << "- SAD min value: "                  << sadMinValue             << std::endl;
     std::cout << "- SAD halfBlockSize: "              << halfBlockSize         << std::endl;
@@ -157,6 +119,42 @@ Tracking::Tracking(const string &strSettingPath, const double &mFu, const double
 Tracking::~Tracking() {
 }
 
+
+void Tracking::setCalibrationParameters(const double &mFu, const double &mFv, const double &mUc, const double &mVc,
+                   const double &mbf)
+{
+    fu = mFu; fv= mFv; uc = mUc; vc = mVc;
+
+    baseline = mbf / fu;
+
+    std::cout << "Camera parameters: \n";
+
+    std::cout << "- fu: " << fu << std::endl;
+    std::cout << "- fv: " << fv << std::endl;
+    std::cout << "- uc: " << uc << std::endl;
+    std::cout << "- vc: " << vc << std::endl;
+
+    cv::Mat mK = cv::Mat::eye(3,3,CV_64F);
+    mK.at<double>(0,0) = fu;
+    mK.at<double>(1,1) = fv;
+    mK.at<double>(0,2) = uc;
+    mK.at<double>(1,2) = vc;
+    mK.copyTo(K);
+
+    std::cout << "- b: " << baseline << std::endl;
+
+    Mat mP1 = cv::Mat::eye(3,4, CV_64F);
+    Mat mP2 = cv::Mat::eye(3,4, CV_64F);
+
+    mK.copyTo(mP1.rowRange(0,3).colRange(0,3));
+    mK.copyTo(mP2.rowRange(0,3).colRange(0,3));
+
+    mP2.at<double>(0,3) = -mbf;
+
+    mP1.copyTo(P1);
+    mP2.copyTo(P2);
+
+}
 void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
 
 
