@@ -159,7 +159,11 @@ int main(int argc, char *argv[]){
                 winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
                 ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, minIncTh, 
                 maxIteration, finalMaxIteration, reweigh, adjustValue);
-    Tracking tracking(path_config);
+    
+    Tracking tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, thDepth, sadMinValue, halfBlockSize, 
+                winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
+                ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, minIncTh, 
+                maxIteration, finalMaxIteration, reweigh, adjustValue);
     
 
     // Read rectification parameters

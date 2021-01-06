@@ -9,33 +9,28 @@
 
 using namespace cv;
 
-Tracking::Tracking(const string &strSettingPath) {
-    srand(time(0));
+Tracking::Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, 
+                    double &thDepth, double &sadMinValue, double &halfBlockSize, int &winSize, int &pyrMaxLevel, 
+                    int &nFeatures, float &fScaleFactor, int &nLevels, int &fIniThFAST, int &fMinThFAST,  
+                    double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, double &ransacThTrack, int &max_iter_3d, double &th_3d, 
+                    double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, int &ransacMaxItGN, double &minIncTh, 
+                    int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue) : 
+frameGridRows(frameGridRows), frameGridCols(frameGridCols),  maxDisp(maxDisp), minDisp(minDisp), thDepth(thDepth), sadMinValue(sadMinValue), halfBlockSize(halfBlockSize), 
+winSize(winSize), pyrMaxLevel(pyrMaxLevel), nFeatures(nFeatures), fScaleFactor(fScaleFactor), nLevels(nLevels), fIniThFAST(fIniThFAST), fMinThFAST(fMinThFAST), max_iter_3d(max_iter_3d), 
+th_3d(th_3d), ransacProb(ransacProbGN), ransacTh(ransacThGN), ransacMinSet(ransacMinSetGN), ransacMaxIt(ransacMaxItGN), minIncTh(minIncTh), 
+maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue)
 
-    cv::FileStorage fsSettings(strSettingPath, cv::FileStorage::READ);
-    if(!fsSettings.isOpened())
-    {
-        std::cerr << "ERROR: Wrong path to settings" << std::endl;
-    }
+{
+    srand(time(0));
 
     //-----Feature extraction
     std::cout << "NMS parameters: \n";
-
-    frameGridRows = fsSettings["FeaturExtrac.frameGridRows"];
-    frameGridCols = fsSettings["FeaturExtrac.frameGridCols"];
 
     std::cout << "- Num Grid rows : "                  << frameGridRows           << std::endl;
     std::cout << "- Num Grid cols:  "                  << frameGridCols             << std::endl;
 
     //----Stereo Matching
     std::cout << "Estereo Matching parameters: \n";
-
-    minDisp         = fsSettings["Disparity.mindisp"];
-    maxDisp         = fsSettings["Disparity.maxdisp"];
-
-    thDepth         = fsSettings["ThDepth"];
-    sadMinValue     = fsSettings["SAD.minValue"];
-    halfBlockSize   = fsSettings["SAD.winHalfBlockSize"];
 
     std::cout << "- Min disparity: "                  << minDisp           << std::endl;
     std::cout << "- Max disparity: "                  << maxDisp             << std::endl;
@@ -47,61 +42,32 @@ Tracking::Tracking(const string &strSettingPath) {
     //-----KLT feature tracker
     std::cout << "KLT parameters: \n";
 
-    winSize = fsSettings["KLT.winSize"];
-    pyrMaxLevel = fsSettings["KLT.pyrMaxLevel"];
-
     std::cout << "- Search Windows Size : "                  << winSize           << std::endl;
     std::cout << "- Pyramid max level:  "                    << pyrMaxLevel             << std::endl;
 
     //-----ORB extractor
 
-    nFeatures       = fsSettings["ORBextractor.nFeatures"];
-    fScaleFactor    = fsSettings["ORBextractor.scaleFactor"];
-    nLevels         = fsSettings["ORBextractor.nLevels"];
-    fIniThFAST      = fsSettings["ORBextractor.iniThFAST"];
-    fMinThFAST      = fsSettings["ORBextractor.minThFAST"];
-
     mpORBextractorLeft  = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
     mpORBextractorRight = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
 
     //-----Eight Point algorithm
-    std::cout << "Eight Point algorithm parameters: \n";
-    double ransacProb_      = fsSettings["EightPoint.ransacProb"];
-    double ransacMinSet_    = fsSettings["EightPoint.ransacSet"];
-    double ransacMaxIt_     = fsSettings["EightPoint.ransacMaxInt"];
-    double ransacTh_        = fsSettings["EightPoint.ransacTh"];
 
-    std::cout << "- Ransac prob: "                  << ransacProb_           << std::endl;
-    std::cout << "- Ransac Th: "                    << ransacTh_             << std::endl;
-    std::cout << "- Ransac min set: "               << ransacMinSet_         << std::endl;
-    std::cout << "- Ransac max it: "                << ransacMaxIt_          << std::endl;
+    std::cout << "- Ransac prob: "                  << ransacProb          << std::endl;
+    std::cout << "- Ransac Th: "                    << ransacTh            << std::endl;
+    std::cout << "- Ransac min set: "               << ransacMinSet         << std::endl;
+    std::cout << "- Ransac max it: "                << ransacMaxIt          << std::endl;
 
-    mEightPointLeft         = new EightPoint(ransacProb_, ransacMinSet_, ransacMaxIt_, ransacTh_);
+    mEightPointLeft         = new EightPoint(ransacProbTrack, ransacMinSetTrack, ransacMaxItTrack, ransacThTrack);
 
-    initPhase = true;
-
+    
     //----local mapping
     std::cout << "Triangulation parameters: \n";
-
-    max_iter_3d         = fsSettings["Triangulation.maxIt"];    // max iteration for 3D estimation
-    th_3d               = fsSettings["Triangulation.reproTh"];  // max reprojection error for 3D estimation
 
     std::cout << "- Max it: "   << max_iter_3d  << std::endl;
     std::cout << "- Th 3d: "    << th_3d        << std::endl;
 
-
     //----Pose estimation
     std::cout << "Pose estimation parameters: \n";
-
-    ransacProb          = fsSettings["GN.ransacProb"];
-    ransacTh            = fsSettings["GN.ransacTh"];        // th for RANSAC inlier selection using reprojection error
-    ransacMinSet        = fsSettings["GN.ransacMinSet"];
-    ransacMaxIt         = fsSettings["GN.ransacMaxIt"];     // RANSAC iteration for pose estimation
-    minIncTh            = 10E-5;                            // min increment for pose optimization
-    maxIteration        = fsSettings["GN.maxIt"];           // max iteration for minimization into RANSAC routine
-    finalMaxIteration   = fsSettings["GN.finalMaxIt"];      // max iterations for minimization final refinement
-    reweigh             = true;                             // reweight in optimization
-    adjustValue         = fsSettings["GN.weightAdjustVal"];
 
     std::cout << "- Ransac prob: "                         << ransacProb           << std::endl;
     std::cout << "- Ransac Th: "                           << ransacTh             << std::endl;
@@ -112,7 +78,7 @@ Tracking::Tracking(const string &strSettingPath) {
     std::cout << "- Refinment max iteration: "             << finalMaxIteration    << std::endl;
     std::cout << "- reprojection weight adjust value: "    << adjustValue          << std::endl;
 
-
+    initPhase = true;
 }
 
 

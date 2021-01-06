@@ -45,6 +45,61 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
     }
 }
 
+
+void LoadParameters (const string &strSettingPath, int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, 
+                    double &thDepth, double &sadMinValue, double &halfBlockSize, int &winSize, int &pyrMaxLevel, 
+                    int &nFeatures, float &fScaleFactor, int &nLevels, int &fIniThFAST, int &fMinThFAST,  
+                    double &ransacProb, int &ransacMinSet, int &ransacMaxIt, double &ransacTh, int &max_iter_3d, double &th_3d, 
+                    double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, int &ransacMaxItGN, double &minIncTh, 
+                    int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue)
+{
+
+    cv::FileStorage fsSettings(strSettingPath, cv::FileStorage::READ);
+    if(!fsSettings.isOpened())
+    {
+        std::cerr << "ERROR: Wrong path to settings" << std::endl;
+    }
+
+
+    frameGridRows = fsSettings["FeaturExtrac.frameGridRows"];
+    frameGridCols = fsSettings["FeaturExtrac.frameGridCols"];
+
+    minDisp         = fsSettings["Disparity.mindisp"];
+    maxDisp         = fsSettings["Disparity.maxdisp"];
+
+    thDepth         = fsSettings["ThDepth"];
+    sadMinValue     = fsSettings["SAD.minValue"];
+    halfBlockSize   = fsSettings["SAD.winHalfBlockSize"];
+
+    winSize         = fsSettings["KLT.winSize"];
+    pyrMaxLevel     = fsSettings["KLT.pyrMaxLevel"];
+
+    nFeatures       = fsSettings["ORBextractor.nFeatures"];
+    fScaleFactor    = fsSettings["ORBextractor.scaleFactor"];
+    nLevels         = fsSettings["ORBextractor.nLevels"];
+    fIniThFAST      = fsSettings["ORBextractor.iniThFAST"];
+    fMinThFAST      = fsSettings["ORBextractor.minThFAST"];
+
+    ransacProb      = fsSettings["EightPoint.ransacProb"];
+    ransacMinSet    = fsSettings["EightPoint.ransacSet"];
+    ransacMaxIt     = fsSettings["EightPoint.ransacMaxInt"];
+    ransacTh        = fsSettings["EightPoint.ransacTh"];
+
+    max_iter_3d     = fsSettings["Triangulation.maxIt"];    // max iteration for 3D estimation
+    th_3d           = fsSettings["Triangulation.reproTh"];  // max reprojection error for 3D estimation
+
+    ransacProbGN          = fsSettings["GN.ransacProb"];
+    ransacThGN            = fsSettings["GN.ransacTh"];        // th for RANSAC inlier selection using reprojection error
+    ransacMinSetGN        = fsSettings["GN.ransacMinSet"];
+    ransacMaxItGN         = fsSettings["GN.ransacMaxIt"];     // RANSAC iteration for pose estimation
+    minIncTh            = 10E-5;                            // min increment for pose optimization
+    maxIteration        = fsSettings["GN.maxIt"];           // max iteration for minimization into RANSAC routine
+    finalMaxIteration   = fsSettings["GN.finalMaxIt"];      // max iterations for minimization final refinement
+    reweigh             = true;                             // reweight in optimization
+    adjustValue         = fsSettings["GN.weightAdjustVal"];
+
+}
+
 int main(int argc, char *argv[]) {
 
     // Retrieve paths to images
@@ -102,6 +157,24 @@ int main(int argc, char *argv[]) {
     string path_config      = string("examples/kitti/config/kitti.yaml");
 //    string path_calib   = string("kitti/KITTI00-02.yaml");
 
+    int frameGridRows, frameGridCols, winSize, pyrMaxLevel, nFeatures, nLevels, fIniThFAST, fMinThFAST,
+        ransacMinSet, ransacMaxIt, max_iter_3d, ransacMinSetGN, ransacMaxItGN, maxIteration, finalMaxIteration;
+    double maxDisp, minDisp, thDepth, sadMinValue, halfBlockSize, ransacProb,ransacTh, th_3d, ransacProbGN,
+           ransacThGN, minIncTh, adjustValue;
+ 
+    float fScaleFactor; 
+    bool reweigh;
+
+    LoadParameters(path_config, frameGridRows, frameGridCols,  maxDisp, minDisp, thDepth, sadMinValue, halfBlockSize, 
+            winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
+            ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, minIncTh, 
+            maxIteration, finalMaxIteration, reweigh, adjustValue);
+
+    Tracking tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, thDepth, sadMinValue, halfBlockSize, 
+            winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
+            ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, minIncTh, 
+            maxIteration, finalMaxIteration, reweigh, adjustValue);
+
     cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
     if(!fsSettings.isOpened())
     {
@@ -117,8 +190,6 @@ int main(int argc, char *argv[]) {
     vc = fsSettings["Camera.cy"];
 
     bf = fsSettings["Camera.bf"];
-
-    Tracking tracking(path_config);
 
     tracking.setCalibrationParameters(fu, fv, uc, vc, bf);
 
