@@ -1737,7 +1737,7 @@ void Tracking::saveTrajectoryEuroc(const string &filename) {
     }
 
     f.close();
-    std::cout << endl << "trajectory saved!" << std::endl;
+    std::cout << endl << "trajectory saved on "<< filename << std::endl;
 
 }
 
