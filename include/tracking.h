@@ -40,12 +40,11 @@ public:
 
     enum status {CONVERGED, UPDATE, FAILED};
 
-    Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, 
-        double &thDepth, double &sadMinValue, double &halfBlockSize, int &winSize, int &pyrMaxLevel, 
-        int &nFeatures, float &fScaleFactor, int &nLevels, int &fIniThFAST, int &fMinThFAST,  
-        double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, double &ransacThTrack, int &max_iter_3d, double &th_3d, 
-        double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, int &ransacMaxItGN, double &minIncTh, 
-        int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue);
+    Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, double &sadMinValue, 
+        double &halfBlockSize, int &winSize, int &pyrMaxLevel, int &nFeatures, float &fScaleFactor, int &nLevels, 
+        int &fIniThFAST, int &fMinThFAST, double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, 
+        double &ransacThTrack, int &max_iter_3d, double &th_3d, double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, 
+        int &ransacMaxItGN, int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue);
 
     ~Tracking();
 
