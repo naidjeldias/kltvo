@@ -17,7 +17,6 @@
 #define FRAME_GRID_ROWS 24
 
 #include "utils.h"
-#include "epnp.h"
 #include <iostream>
 #include <stdio.h>
 #include <list>
