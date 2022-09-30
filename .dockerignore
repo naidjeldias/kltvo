@@ -1,5 +1,4 @@
-.git
-\cmake-build-debug
+.git/
 .idea/
 build/
 *.png
