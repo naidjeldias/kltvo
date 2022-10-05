@@ -109,24 +109,23 @@ int main(int argc, char *argv[]) {
 
     string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
 
-    if(argc <= 1){
-        cout << "No argument, the default path will be used. Dataset Path: "<< path_data << endl;
-    }
-    else if (argc == 3){
+    if (argc == 3){
         path_data = argv[1];
         seq       = argv[2];
         cout << "Using sequence" << seq << "on path: " << path_data << endl;
     }else
     {
-        cout << "Usage: <SEQUENCE_PATH> <SEQUENCE_ID>" << endl;
+        cout << "Usage: ./stereo_kitti <SEQUENCE_PATH> <SEQUENCE_ID>" << endl;
+        cout << "Example: ./stereo_kitti ~/dataset/sequences/00/ 00" << endl;
         return 0;
     }
-    
-    // if(argc <= 2)
-    // {
-    //     cout << "Sequence "<< seq << " selected!"<< endl;
-    // }else
-    //     cout << "No sequence passed as argument default sequence "<< seq << " will be selected!"<< seq << endl;
+
+    ifstream file(path_data);
+    if(!file)
+    {
+        cout << path_data << " path does not exist" << endl;
+        return 0;
+    }
 
     string resultPath = "examples/kitti/results/";
     string resultFile = "KITTI_" + seq + "_KLTVO.txt";
