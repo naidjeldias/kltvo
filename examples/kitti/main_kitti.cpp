@@ -1,7 +1,6 @@
 #include <iostream>
 #include <chrono>
 #include <opencv2/opencv.hpp>
-#include <zconf.h>
 #include "tracking.h"
 #include "utils.h"
 
@@ -204,9 +203,9 @@ int main(int argc, char *argv[]) {
         imRight = cv::imread(vstrImageRight[ni],IMREAD_UNCHANGED);
 
         if(imLeft.channels() == 3)
-            cvtColor(imLeft,imLeft,CV_RGB2GRAY);
+            cvtColor(imLeft,imLeft,COLOR_RGB2GRAY);
         if(imRight.channels() == 3)
-            cvtColor(imRight,imRight,CV_RGB2GRAY);
+            cvtColor(imRight,imRight,COLOR_RGB2GRAY);
 
         double tframe = vTimestamps[ni];
 
