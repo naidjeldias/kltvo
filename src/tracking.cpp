@@ -120,7 +120,7 @@ void Tracking::setCalibrationParameters(const double &mFu, const double &mFv, co
     mP2.copyTo(P2);
 
 }
-void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
+cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
 
 
     if (initPhase){
@@ -255,6 +255,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
     }
 
+    return Tcw;
 }
 
 void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts) {

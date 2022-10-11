@@ -69,7 +69,7 @@ public:
 
     void saveStatistics (const string &filename, float &meanTime, bool withTime= false);
 
-    void start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
+    cv::Mat start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
 
     //create log file for debug
     bool debug_;
