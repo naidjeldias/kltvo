@@ -24,6 +24,9 @@ RUN apt-get update \
     # Install rocker dependecies
     && apt-get install -y --no-install-recommends \
         libgtk2.0-dev \
+    # Intall dev packages
+    && apt-get install -y --no-install-recommends \
+        valgrind \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -52,6 +55,23 @@ RUN git clone $OPENCV_REPO opencv -b $OPENCV_VERSION \
     && ldconfig \
     && cd ../.. \
     && rm -rf opencv opencv_contrib
+
+# Setting up Pangolin lib
+# Installing dependecies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    libgl1-mesa-dev \ 
+    libglew-dev \
+    libwayland-dev \
+    libxkbcommon-dev \
+    wayland-protocols \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/stevenlovegrove/Pangolin.git Pangolin -b v0.6 \
+    && mkdir -p Pangolin/build \
+    && cd Pangolin/build \ 
+    && cmake .. \
+    && cmake --build .
 
 COPY . /root/kltvo/
 

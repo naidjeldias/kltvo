@@ -3,6 +3,7 @@
 #include <opencv2/opencv.hpp>
 #include "tracking.h"
 #include "utils.h"
+#include "viewer.hpp"
 
 
 class time_point;
@@ -199,10 +200,13 @@ int main(int argc, char *argv[]) {
             ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, minIncTh, 
             maxIteration, finalMaxIteration, reweigh, adjustValue);
 
-    Tracking tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, sadMinValue, halfBlockSize, 
+    Tracking* trackerPtr = new Tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, sadMinValue, halfBlockSize, 
             winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
             ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, 
             maxIteration, finalMaxIteration, reweigh, adjustValue);
+    
+    Viewer* viewerPtr = new Viewer(trackerPtr);
+    std::thread viewer (&Viewer::run, viewerPtr);
 
     cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
     if(!fsSettings.isOpened())
@@ -220,7 +224,7 @@ int main(int argc, char *argv[]) {
 
     bf = fsSettings["Camera.bf"];
 
-    tracking.setCalibrationParameters(fu, fv, uc, vc, bf);
+    trackerPtr->setCalibrationParameters(fu, fv, uc, vc, bf);
 
     // Main loop
     cv::Mat imLeft, imRight;
@@ -249,9 +253,13 @@ int main(int argc, char *argv[]) {
 
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
-        cv::Mat current_pose = tracking.start(imLeft,imRight, tframe);
+        // std::thread tracker (&Tracking::start, trackerPtr, imLeft,imRight, tframe);
+        // tracker.join();
+        trackerPtr->start(imLeft,imRight, tframe);
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+
+        cv::Mat current_pose = trackerPtr->getCurrentPose();
 
         double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
 
@@ -292,9 +300,9 @@ int main(int argc, char *argv[]) {
     cout << "mean tracking time: "      << meanTime << endl;
 
 
-    tracking.saveTrajectoryKitti(resultPath+resultFile);
+    trackerPtr->saveTrajectoryKitti(resultPath+resultFile);
 #if LOG
-    tracking.saveStatistics(statsPath+statsFile, meanTime);
+    trackerPtr->saveStatistics(statsPath+statsFile, meanTime);
 
 //    tracking.saveTrajectoryKitti8point(resultPath+"8point_"+resultFile);
 #endif
