@@ -3,6 +3,7 @@
 #include <opencv2/opencv.hpp>
 #include "tracking.h"
 #include "utils.h"
+#include <unistd.h>
 
 
 class time_point;

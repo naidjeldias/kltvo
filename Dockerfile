@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:20.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -19,8 +19,8 @@ RUN apt-get update \
     # Install opencv build dependencies
     && apt-get install -y --no-install-recommends \
         libeigen3-dev \
-        python-dev \
-        python-numpy \
+        python3-dev \
+        python3-numpy \
     # Install rocker dependecies
     && apt-get install -y --no-install-recommends \
         libgtk2.0-dev \
