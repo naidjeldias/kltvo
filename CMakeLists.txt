@@ -7,12 +7,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 find_package(OpenCV 4.0.0 REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Pangolin 0.4 REQUIRED)
+find_package(PythonLibs 3.8)
 
 include_directories(
         ${PROJECT_SOURCE_DIR}/include
         $(OpenCV_INCLUDE_DIRS)
         ${EIGEN3_INCLUDE_DIR}
         ${Pangolin_INCLUDE_DIRS}
+        ${PYTHON_INCLUDE_DIRS}
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -25,12 +27,16 @@ add_library(${PROJECT_NAME} SHARED
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
 
+# target_include_directories(${PROJECT_NAME} PRIVATE ${PYTHON_INCLUDE_DIRS})
+
 target_link_libraries(
         ${PROJECT_NAME}
         ${OpenCV_LIBS}
         ${EIGEN3_LIBS}
         ${Pangolin_LIBRARIES}
+        ${PYTHON_LIBRARIES}
 )
+
 
 add_executable(stereo_kitti
         examples/kitti/main_kitti.cpp)

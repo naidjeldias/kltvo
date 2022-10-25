@@ -5,6 +5,7 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include "tracking.h"
+#include <unistd.h>
 
 void LoadImages(const string &strPathToSequence, const string &strPathTimes,
                 vector<string> &vstrImageLeft, vector<string> &vstrImageRight, vector<double> &vTimeStamps)

@@ -426,7 +426,7 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
 }
 
 
-int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
+void Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
                               const std::vector<cv::Point3f> &pts3d, std::vector<double> &p0, std::vector<bool> &bestInliers,
                               std::vector<double> &p, bool reweigh, int &bestNumInliers) {
 

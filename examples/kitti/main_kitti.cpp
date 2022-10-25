@@ -4,6 +4,7 @@
 #include "tracking.h"
 #include "utils.h"
 #include "viewer.hpp"
+#include <unistd.h>
 
 
 class time_point;
