@@ -21,6 +21,7 @@ RUN apt-get update \
         libeigen3-dev \
         python3-dev \
         python3-numpy \
+        python3-matplotlib \
     # Install rocker dependecies
     && apt-get install -y --no-install-recommends \
         libgtk2.0-dev \
