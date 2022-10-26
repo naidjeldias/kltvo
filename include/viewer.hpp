@@ -1,4 +1,5 @@
-#include "tracking.h"
+#include <thread>
+#include <opencv2/opencv.hpp>
 #include <pangolin/pangolin.h>
 #include <pangolin/pangolin.h>
 #include <pangolin/scene/axis.h>
@@ -8,12 +9,13 @@ class Viewer
 {
 
 public:
-    Viewer(Tracking* trackerPtr);
+    Viewer();
     void run();
-    cv::Mat global_pose_ = cv::Mat::eye(4,4,CV_32F);
+    void setCameraPoses(const std::vector<cv::Mat>& cameraPoses);
 private:
-    std::mutex tracker_;
-    Tracking* trackerPtr_;
+    std::mutex data_buffer_mutex_;
+    std::vector<cv::Mat> cameraPoses_;
     cv::Mat computeGlobalPose();
     void computeOpenGLCameraMatrix(const cv::Mat& cameraPose, pangolin::OpenGlMatrix& Twc);
+    void drawTrajectory();
 };
