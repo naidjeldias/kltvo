@@ -3,7 +3,6 @@
 #include <opencv2/opencv.hpp>
 #include "tracking.h"
 #include "utils.h"
-#include "viewer.hpp"
 #include <unistd.h>
 
 
@@ -205,9 +204,6 @@ int main(int argc, char *argv[]) {
             winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
             ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, 
             maxIteration, finalMaxIteration, reweigh, adjustValue);
-    
-    Viewer* viewerPtr = new Viewer(trackerPtr);
-    std::thread viewer (&Viewer::run, viewerPtr);
 
     cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
     if(!fsSettings.isOpened())
@@ -282,7 +278,7 @@ int main(int argc, char *argv[]) {
 
         cv::imshow( "Trajectory", traj_img );
 
-        cv::imshow("Left Frame", imLeft);
+        // cv::imshow("Left Frame", imLeft);
         char c=(char) cv::waitKey(1);
         if(c==27)
             break;
