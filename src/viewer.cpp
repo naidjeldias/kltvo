@@ -45,6 +45,9 @@ void Viewer::run()
           }
         }
 
+        glColor3f(0.0f, 1.0f, 0.0f);
+        renderCamera(Twc);
+
         glColor3f(1.0f, 0.0f, 0.0f);
         drawTrajectory();
 
@@ -102,4 +105,43 @@ void Viewer::drawTrajectory()
     }
 
     glEnd();
+}
+
+void Viewer::renderCamera(const pangolin::OpenGlMatrix& camtMat)
+{
+    const float w = 0.5;
+    const float h = w * 0.75;
+    const float z = w * 0.6;
+
+    glPushMatrix();
+
+    glMultMatrixd(camtMat.m);
+
+    glLineWidth(3.0);
+    glBegin(GL_LINES);
+    glVertex3f(0, 0, 0);
+    glVertex3f(w, h, z);
+    glVertex3f(0, 0, 0);
+    glVertex3f(w, -h, z);
+    glVertex3f(0, 0, 0);
+    glVertex3f(-w, -h, z);
+    glVertex3f(0, 0, 0);
+    glVertex3f(-w, h, z);
+
+    glVertex3f(w, h, z);
+    glVertex3f(w, -h, z);
+
+    glVertex3f(-w, h, z);
+    glVertex3f(-w, -h, z);
+
+    glVertex3f(-w, h, z);
+    glVertex3f(w, h, z);
+
+    glVertex3f(-w, -h, z);
+    glVertex3f(w, -h, z);
+    glEnd();
+
+    glPopMatrix();
+
+    pangolin::glDrawAxis(camtMat, 0.2);
 }

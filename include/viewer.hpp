@@ -18,4 +18,5 @@ private:
     cv::Mat computeGlobalPose();
     void computeOpenGLCameraMatrix(const cv::Mat& cameraPose, pangolin::OpenGlMatrix& Twc);
     void drawTrajectory();
+    void renderCamera(const pangolin::OpenGlMatrix& camtMat);
 };
