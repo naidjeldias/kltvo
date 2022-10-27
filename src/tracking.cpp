@@ -240,7 +240,6 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         cameraPoses_.push_back(computeGlobalPose(Tcw_));
         viewer_->setCameraPoses(cameraPoses_);
 
-
         Tcw = Tcw_.clone();
 
         imLeft0     = imLeft.clone();
@@ -2051,6 +2050,5 @@ cv::Mat Tracking::computeGlobalPose(const cv::Mat &current_pose)
     C.copyTo(inv_pose.rowRange(0,3).col(3));
 
     cameraCurrentPose_ = cameraCurrentPose_ * inv_pose;
-
-    return cameraCurrentPose_;
+    return cameraCurrentPose_.clone();
 }

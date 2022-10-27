@@ -33,17 +33,20 @@ void Viewer::run()
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         d_cam.Activate(s_cam);
+        glClearColor(0.0f, 0.0f, 0.0f,1.0f);
 
-        std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-        if(!cameraPoses_.empty())
         {
-          computeOpenGLCameraMatrix(cameraPoses_.back(), Twc);
-          // s_cam.Follow(Twc);
-          drawTrajectory();
+          std::lock_guard<std::mutex> lg(data_buffer_mutex_);
+          if(!cameraPoses_.empty())
+          {
+            computeOpenGLCameraMatrix(cameraPoses_.back(), Twc);
+            s_cam.Follow(Twc);
+            
+          }
         }
-        
-        glColor3f(1.0,1.0,1.0);
-        pangolin::glDrawColouredCube();
+
+        glColor3f(1.0f, 0.0f, 0.0f);
+        drawTrajectory();
 
         // Swap frames and Process Events
         pangolin::FinishFrame();
@@ -66,7 +69,6 @@ void Viewer::computeOpenGLCameraMatrix(const cv::Mat& cameraPose, pangolin::Open
 
     Rwc = cameraPose.rowRange(0,3).colRange(0,3);
     twc = cameraPose.rowRange(0,3).col(3);
-    
 
     Twc.m[0] = Rwc.at<float>(0,0);
     Twc.m[1] = Rwc.at<float>(1,0);
@@ -93,11 +95,10 @@ void Viewer::drawTrajectory()
 {
     glLineWidth(3.0);
     glBegin(GL_LINE_STRIP);
-
     std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-    for (const auto& global_pose : cameraPoses_) {
+    for (const cv::Mat& global_pose : cameraPoses_) 
+    {
         glVertex3f(global_pose.at<float>(0,3), global_pose.at<float>(1,3), global_pose.at<float>(2,3));
-        std::cout << global_pose.at<float>(0,3) << ", " << global_pose.at<float>(1,3)<< ", " << global_pose.at<float>(2,3) << std::endl;
     }
 
     glEnd();
