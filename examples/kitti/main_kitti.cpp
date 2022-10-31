@@ -12,35 +12,6 @@ using namespace std;
 
 cv::Mat global_pose = cv::Mat::eye(4,4,CV_32F);
 
-void draw_trajectory(const cv::Mat &current_pose, cv::Mat &image)
-{
-    //Compute global pose
-    //Compute the inverse of relative pose estimation inv(current_pose) = [R' | C]
-    //where C = -1 * R' * t
-
-    cv::Mat R = current_pose.rowRange(0,3).colRange(0,3);
-    cv::Mat t = current_pose.col(3).rowRange(0,3);
-    
-    cv::Mat Rt  = R.t();
-    cv::Mat C   = -1 * Rt * t; 
-    
-    cv::Mat inv_pose = cv::Mat::eye(4,4,CV_32F);
-    Rt.copyTo(inv_pose.rowRange(0,3).colRange(0,3));
-    C.copyTo(inv_pose.rowRange(0,3).col(3));
-
-    global_pose = global_pose * inv_pose;
-
-    int x = int(global_pose.at<float>(0,3)) + 300;;
-    int z = int(global_pose.at<float>(2,3)) + 100;;
-    
-    cv::circle(image, Point(x, z) ,1, CV_RGB(255,0,0), 2);
-    rectangle( image, Point(10, 30), Point(550, 50), CV_RGB(0,0,0), cv::FILLED);
-    char text[100];
-    sprintf(text, "Coordinates: x = %02fm y = %02fm z = %02fm", global_pose.at<float>(0,3), global_pose.at<float>(1,3), global_pose.at<float>(2,3));
-    putText(image, text, cv::Point (10, 50), FONT_HERSHEY_PLAIN, 1, Scalar::all(255), 1, 8);
-
-}
-
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps){
     ifstream fTimes;
@@ -200,7 +171,7 @@ int main(int argc, char *argv[]) {
             ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, minIncTh, 
             maxIteration, finalMaxIteration, reweigh, adjustValue);
 
-    Tracking tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, sadMinValue, halfBlockSize, 
+    Tracking* trackerPtr = new Tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, sadMinValue, halfBlockSize, 
             winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
             ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, 
             maxIteration, finalMaxIteration, reweigh, adjustValue);
@@ -221,12 +192,11 @@ int main(int argc, char *argv[]) {
 
     bf = fsSettings["Camera.bf"];
 
-    tracking.setCalibrationParameters(fu, fv, uc, vc, bf);
+    trackerPtr->setCalibrationParameters(fu, fv, uc, vc, bf);
 
     // Main loop
     cv::Mat imLeft, imRight;
     int current_ni;
-    cv::Mat traj_img = Mat::zeros(600, 600, CV_8UC3);
     for(int ni=0; ni<nImages; ni++)
 //    for(int ni=0; ni<2; ni++)
     {
@@ -250,9 +220,13 @@ int main(int argc, char *argv[]) {
 
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
-        cv::Mat current_pose = tracking.start(imLeft,imRight, tframe);
+        // std::thread tracker (&Tracking::start, trackerPtr, imLeft,imRight, tframe);
+        // tracker.join();
+        trackerPtr->start(imLeft,imRight, tframe);
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+
+        cv::Mat current_pose = trackerPtr->getCurrentPose();
 
         double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
 
@@ -269,12 +243,8 @@ int main(int argc, char *argv[]) {
             usleep((T-ttrack)*1e6);
 
         current_ni = ni;
-
-        draw_trajectory(current_pose, traj_img);
-
-        cv::imshow( "Trajectory", traj_img );
-
-        cv::imshow("Left Frame", imLeft);
+        
+        // cv::imshow("Left Frame", imLeft);
         char c=(char) cv::waitKey(1);
         if(c==27)
             break;
@@ -293,9 +263,9 @@ int main(int argc, char *argv[]) {
     cout << "mean tracking time: "      << meanTime << endl;
 
 
-    tracking.saveTrajectoryKitti(resultPath+resultFile);
+    trackerPtr->saveTrajectoryKitti(resultPath+resultFile);
 #if LOG
-    tracking.saveStatistics(statsPath+statsFile, meanTime);
+    trackerPtr->saveStatistics(statsPath+statsFile, meanTime);
 
 //    tracking.saveTrajectoryKitti8point(resultPath+"8point_"+resultFile);
 #endif

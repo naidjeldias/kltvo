@@ -26,6 +26,7 @@
 #include <functional>
 #include <math.h>
 #include<Eigen/Dense>
+#include "viewer.hpp"
 
 
 #include "opencv2/features2d/features2d.hpp"
@@ -54,6 +55,9 @@ public:
 
     //Current relative pose
     cv::Mat Tcw;
+    // Camera poses
+    cv::Mat cameraCurrentPose_;
+    std::vector<cv::Mat> cameraPoses_;
 
     cv::Mat getCurrentPose();
 
@@ -92,6 +96,11 @@ private:
     int numFrame;
 
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
+
+    Viewer* viewer_;
+    std::thread* viewer_thd_;
+
+    cv::Mat computeGlobalPose(const cv::Mat &current_pose);
 
     //-------------- feature extraction
     int nFeatures;
