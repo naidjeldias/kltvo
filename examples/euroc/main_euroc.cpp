@@ -5,6 +5,7 @@
 #include <chrono>
 #include <opencv2/opencv.hpp>
 #include "tracking.h"
+#include <unistd.h>
 
 void LoadImages(const string &strPathToSequence, const string &strPathTimes,
                 vector<string> &vstrImageLeft, vector<string> &vstrImageRight, vector<double> &vTimeStamps)
@@ -105,16 +106,21 @@ int main(int argc, char *argv[]){
     //    string path_data  = string("../../EuRoc_Dataset/MH01/mav0");
     string path_data  = "../../EuRoc_Dataset/"+seq+"/mav0";
 
-    if(argc <= 1){
-        cout << "No argument, the default path will be used. Dataset Path: "<< path_data << endl;
-    }
-    else if (argc == 3){
+    if (argc == 3){
         path_data = argv[1];
         seq       = argv[2];
         cout << "Using sequence" << seq << "on path: " << path_data << endl;
     }else
     {
-        cout << "Usage: <SEQUENCE_PATH> <SEQUENCE_ID>" << endl;
+        cout << "Usage: ./stereo_euroc <SEQUENCE_PATH> <SEQUENCE_ID>" << endl;
+        cout << "Example: ./stereo_euroc ~/MH_02_easy/mav0/ MH02" << endl;
+        return 0;
+    }
+
+    ifstream file(path_data);
+    if(!file)
+    {
+        cout << path_data << " path does not exist" << endl;
         return 0;
     }
 
@@ -159,9 +165,9 @@ int main(int argc, char *argv[]){
                 ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, minIncTh, 
                 maxIteration, finalMaxIteration, reweigh, adjustValue);
     
-    Tracking tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, thDepth, sadMinValue, halfBlockSize, 
+    Tracking tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, sadMinValue, halfBlockSize, 
                 winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
-                ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, minIncTh, 
+                ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN,
                 maxIteration, finalMaxIteration, reweigh, adjustValue);
     
 

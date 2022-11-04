@@ -3,11 +3,14 @@
 #include <opencv2/opencv.hpp>
 #include "tracking.h"
 #include "utils.h"
+#include <unistd.h>
 
 
 class time_point;
 
 using namespace std;
+
+cv::Mat global_pose = cv::Mat::eye(4,4,CV_32F);
 
 void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps){
@@ -109,24 +112,23 @@ int main(int argc, char *argv[]) {
 
     string path_data = string("../../KITTI_DATASET/dataset/sequences/"+seq);
 
-    if(argc <= 1){
-        cout << "No argument, the default path will be used. Dataset Path: "<< path_data << endl;
-    }
-    else if (argc == 3){
+    if (argc == 3){
         path_data = argv[1];
         seq       = argv[2];
         cout << "Using sequence" << seq << "on path: " << path_data << endl;
     }else
     {
-        cout << "Usage: <SEQUENCE_PATH> <SEQUENCE_ID>" << endl;
+        cout << "Usage: ./stereo_kitti <SEQUENCE_PATH> <SEQUENCE_ID>" << endl;
+        cout << "Example: ./stereo_kitti ~/dataset/sequences/00/ 00" << endl;
         return 0;
     }
-    
-    // if(argc <= 2)
-    // {
-    //     cout << "Sequence "<< seq << " selected!"<< endl;
-    // }else
-    //     cout << "No sequence passed as argument default sequence "<< seq << " will be selected!"<< seq << endl;
+
+    ifstream file(path_data);
+    if(!file)
+    {
+        cout << path_data << " path does not exist" << endl;
+        return 0;
+    }
 
     string resultPath = "examples/kitti/results/";
     string resultFile = "KITTI_" + seq + "_KLTVO.txt";
@@ -169,9 +171,9 @@ int main(int argc, char *argv[]) {
             ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, minIncTh, 
             maxIteration, finalMaxIteration, reweigh, adjustValue);
 
-    Tracking tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, thDepth, sadMinValue, halfBlockSize, 
+    Tracking* trackerPtr = new Tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, sadMinValue, halfBlockSize, 
             winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
-            ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, minIncTh, 
+            ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, 
             maxIteration, finalMaxIteration, reweigh, adjustValue);
 
     cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
@@ -190,7 +192,7 @@ int main(int argc, char *argv[]) {
 
     bf = fsSettings["Camera.bf"];
 
-    tracking.setCalibrationParameters(fu, fv, uc, vc, bf);
+    trackerPtr->setCalibrationParameters(fu, fv, uc, vc, bf);
 
     // Main loop
     cv::Mat imLeft, imRight;
@@ -218,9 +220,13 @@ int main(int argc, char *argv[]) {
 
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
-        tracking.start(imLeft,imRight, tframe);
+        // std::thread tracker (&Tracking::start, trackerPtr, imLeft,imRight, tframe);
+        // tracker.join();
+        trackerPtr->start(imLeft,imRight, tframe);
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
+
+        cv::Mat current_pose = trackerPtr->getCurrentPose();
 
         double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
 
@@ -237,8 +243,8 @@ int main(int argc, char *argv[]) {
             usleep((T-ttrack)*1e6);
 
         current_ni = ni;
-
-        cv::imshow("Left Frame", imLeft);
+        
+        // cv::imshow("Left Frame", imLeft);
         char c=(char) cv::waitKey(1);
         if(c==27)
             break;
@@ -257,9 +263,9 @@ int main(int argc, char *argv[]) {
     cout << "mean tracking time: "      << meanTime << endl;
 
 
-    tracking.saveTrajectoryKitti(resultPath+resultFile);
+    trackerPtr->saveTrajectoryKitti(resultPath+resultFile);
 #if LOG
-    tracking.saveStatistics(statsPath+statsFile, meanTime);
+    trackerPtr->saveStatistics(statsPath+statsFile, meanTime);
 
 //    tracking.saveTrajectoryKitti8point(resultPath+"8point_"+resultFile);
 #endif

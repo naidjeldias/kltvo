@@ -10,7 +10,7 @@
 #define MAX_DELTAX 721
 
 #define LOG             true
-#define ENABLE_PRINT    true
+#define ENABLE_PRINT    false
 #define LOG_DRAW        false
 
 #define FRAME_GRID_COLS 24
@@ -26,6 +26,7 @@
 #include <functional>
 #include <math.h>
 #include<Eigen/Dense>
+#include "viewer.hpp"
 
 
 #include "opencv2/features2d/features2d.hpp"
@@ -39,12 +40,11 @@ public:
 
     enum status {CONVERGED, UPDATE, FAILED};
 
-    Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, 
-        double &thDepth, double &sadMinValue, double &halfBlockSize, int &winSize, int &pyrMaxLevel, 
-        int &nFeatures, float &fScaleFactor, int &nLevels, int &fIniThFAST, int &fMinThFAST,  
-        double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, double &ransacThTrack, int &max_iter_3d, double &th_3d, 
-        double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, int &ransacMaxItGN, double &minIncTh, 
-        int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue);
+    Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, double &sadMinValue, 
+        double &halfBlockSize, int &winSize, int &pyrMaxLevel, int &nFeatures, float &fScaleFactor, int &nLevels, 
+        int &fIniThFAST, int &fMinThFAST, double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, 
+        double &ransacThTrack, int &max_iter_3d, double &th_3d, double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, 
+        int &ransacMaxItGN, int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue);
 
     ~Tracking();
 
@@ -55,6 +55,9 @@ public:
 
     //Current relative pose
     cv::Mat Tcw;
+    // Camera poses
+    cv::Mat cameraCurrentPose_;
+    std::vector<cv::Mat> cameraPoses_;
 
     cv::Mat getCurrentPose();
 
@@ -70,7 +73,7 @@ public:
 
     void saveStatistics (const string &filename, float &meanTime, bool withTime= false);
 
-    void start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
+    cv::Mat start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
 
     //create log file for debug
     bool debug_;
@@ -93,6 +96,11 @@ private:
     int numFrame;
 
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
+
+    Viewer* viewer_;
+    std::thread* viewer_thd_;
+
+    cv::Mat computeGlobalPose(const cv::Mat &current_pose);
 
     //-------------- feature extraction
     int nFeatures;
@@ -199,7 +207,7 @@ private:
             const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers, std::vector<double> &p ,cv::Mat &rot_vec,
             cv::Mat &tr_vec, const int &bestNumInliers);
 
-    int poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr, const std::vector<cv::Point3f> &pts3d
+    void poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr, const std::vector<cv::Point3f> &pts3d
             , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh, int &bestNumInliers);
 
     int poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr, const std::vector<cv::Point3d> &pts3d

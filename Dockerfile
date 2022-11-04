@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:20.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -19,13 +19,25 @@ RUN apt-get update \
     # Install opencv build dependencies
     && apt-get install -y --no-install-recommends \
         libeigen3-dev \
-        python-dev \
-        python-numpy \
+        python3-dev \
+        python3-numpy \
+        python3-matplotlib \
     # Install rocker dependecies
     && apt-get install -y --no-install-recommends \
         libgtk2.0-dev \
+    # Intall dev packages
+    && apt-get install -y --no-install-recommends \
+        valgrind \
     && rm -rf /var/lib/apt/lists/*
 
+# Downgrading gcc version
+RUN echo "deb http://dk.archive.ubuntu.com/ubuntu/ xenial main" | tee -a /etc/apt/sources.list \
+    && echo "deb http://dk.archive.ubuntu.com/ubuntu/ xenial universe" | tee -a /etc/apt/sources.list \
+    && apt-get update \
+    && apt-get install -y g++-5 gcc-5 \
+    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 5 \
+    && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-5 5 \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN git clone $OPENCV_REPO opencv -b $OPENCV_VERSION \
     && git clone $OPENCV_CONTRIB_REPO opencv_contrib -b $OPENCV_CONTRIB_VERSION \
@@ -52,6 +64,23 @@ RUN git clone $OPENCV_REPO opencv -b $OPENCV_VERSION \
     && ldconfig \
     && cd ../.. \
     && rm -rf opencv opencv_contrib
+
+# Setting up Pangolin lib
+# Installing dependecies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    libgl1-mesa-dev \ 
+    libglew-dev \
+    libwayland-dev \
+    libxkbcommon-dev \
+    wayland-protocols \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/stevenlovegrove/Pangolin.git Pangolin -b v0.6 \
+    && mkdir -p Pangolin/build \
+    && cd Pangolin/build \ 
+    && cmake .. \
+    && cmake --build .
 
 COPY . /root/kltvo/
 

@@ -2,6 +2,7 @@
 .idea/
 build/
 *.png
+README.md
 examples/kitti/results/*
 examples/kitti/stats/*
 !examples/kitti/results/.gitkeep

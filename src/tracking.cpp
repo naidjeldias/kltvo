@@ -9,16 +9,15 @@
 
 using namespace cv;
 
-Tracking::Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, 
-                    double &thDepth, double &sadMinValue, double &halfBlockSize, int &winSize, int &pyrMaxLevel, 
+Tracking::Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, double &sadMinValue, double &halfBlockSize, int &winSize, int &pyrMaxLevel, 
                     int &nFeatures, float &fScaleFactor, int &nLevels, int &fIniThFAST, int &fMinThFAST,  
                     double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, double &ransacThTrack, int &max_iter_3d, double &th_3d, 
-                    double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, int &ransacMaxItGN, double &minIncTh, 
+                    double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, int &ransacMaxItGN, 
                     int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue) : 
-frameGridRows(frameGridRows), frameGridCols(frameGridCols),  maxDisp(maxDisp), minDisp(minDisp), thDepth(thDepth), sadMinValue(sadMinValue), halfBlockSize(halfBlockSize), 
+frameGridRows(frameGridRows), frameGridCols(frameGridCols),  maxDisp(maxDisp), minDisp(minDisp), thDepth(35.0), sadMinValue(sadMinValue), halfBlockSize(halfBlockSize), 
 winSize(winSize), pyrMaxLevel(pyrMaxLevel), nFeatures(nFeatures), fScaleFactor(fScaleFactor), nLevels(nLevels), fIniThFAST(fIniThFAST), fMinThFAST(fMinThFAST), max_iter_3d(max_iter_3d), 
-th_3d(th_3d), ransacProb(ransacProbGN), ransacTh(ransacThGN), ransacMinSet(ransacMinSetGN), ransacMaxIt(ransacMaxItGN), minIncTh(minIncTh), 
-maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue)
+th_3d(th_3d), ransacProb(ransacProbGN), ransacTh(ransacThGN), ransacMinSet(ransacMinSetGN), ransacMaxIt(ransacMaxItGN), minIncTh(10E-5), 
+maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue), Tcw(cv::Mat::eye(4,4,CV_32F)), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F))
 
 {
     srand(time(0));
@@ -79,6 +78,11 @@ maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweig
     std::cout << "- reprojection weight adjust value: "    << adjustValue          << std::endl;
 
     initPhase = true;
+
+    // starting visualizer thread
+    viewer_ = new Viewer();
+    viewer_thd_ = new thread(&Viewer::run, viewer_);
+
 }
 
 
@@ -121,7 +125,7 @@ void Tracking::setCalibrationParameters(const double &mFu, const double &mFv, co
     mP2.copyTo(P2);
 
 }
-void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
+cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
 
 
     if (initPhase){
@@ -233,18 +237,10 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         relativeFramePoses.push_back(Tcw_.clone());
         frameTimeStamp.push_back(timestamp);
 
+        cameraPoses_.push_back(computeGlobalPose(Tcw_));
+        viewer_->setCameraPoses(cameraPoses_);
+
         Tcw = Tcw_.clone();
-//#if LOG
-//        Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
-//        rot_vec.at<double>(0) = rvec_est.at(0);
-//        rot_vec.at<double>(1) = rvec_est.at(1);
-//        rot_vec.at<double>(2) = rvec_est.at(2);
-//        Mat Rotmat;
-//        Rodrigues(rot_vec, Rotmat, noArray());
-//
-//        Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
-//        relativeFramePoses_.push_back(Tcw_.clone());
-//#endif
 
         imLeft0     = imLeft.clone();
         imRight0    = imRight.clone();
@@ -256,6 +252,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
     }
 
+    return Tcw;
 }
 
 void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts) {
@@ -426,7 +423,7 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
 }
 
 
-int Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
+void Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
                               const std::vector<cv::Point3f> &pts3d, std::vector<double> &p0, std::vector<bool> &bestInliers,
                               std::vector<double> &p, bool reweigh, int &bestNumInliers) {
 
@@ -1738,7 +1735,7 @@ void Tracking::saveTrajectoryEuroc(const string &filename) {
     }
 
     f.close();
-    std::cout << endl << "trajectory saved!" << std::endl;
+    std::cout << endl << "trajectory saved on "<< filename << std::endl;
 
 }
 
@@ -2037,3 +2034,21 @@ std::vector<float > Tracking::toQuaternion(const cv::Mat &R) {
 
 }
 
+cv::Mat Tracking::computeGlobalPose(const cv::Mat &current_pose)
+{   
+    // Compute global pose
+    // Compute the inverse of relative pose estimation inv(current_pose) = [R' | C]
+    // where C = -1 * R' * t
+    cv::Mat R = current_pose.rowRange(0,3).colRange(0,3);
+    cv::Mat t = current_pose.col(3).rowRange(0,3);
+    
+    cv::Mat Rt  = R.t();
+    cv::Mat C   = -1 * Rt * t; 
+    
+    cv::Mat inv_pose = cv::Mat::eye(4,4,CV_32F);
+    Rt.copyTo(inv_pose.rowRange(0,3).colRange(0,3));
+    C.copyTo(inv_pose.rowRange(0,3).col(3));
+
+    cameraCurrentPose_ = cameraCurrentPose_ * inv_pose;
+    return cameraCurrentPose_.clone();
+}
