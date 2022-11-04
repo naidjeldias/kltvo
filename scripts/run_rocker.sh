@@ -5,4 +5,4 @@ rocker  --x11 \
         --devices /dev/dri \
         --name kltvo \
         --oyr-run-arg " -v $DATA_PATH:/data/ -v $SCRIPT_DIR/../:/root/kltvo/"  \
-        kltvo:latest bash
+        naidjeldias/kltvo bash
