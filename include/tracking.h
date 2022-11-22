@@ -88,7 +88,7 @@ private:
 #if LOG
     std::list<int > gnIterations, leftPtsDetec, ptsNMS, ptsStereoMatch, ptsTracking,
                     ptsQuadMatch, numInliersGN, maxItGN, ransacIt_8point;
-    std::list<double > gnMeanIterations, rep_err_3d;
+    std::list<double > gnMeanIterations, rep_err_3d, poses_entropy_;
     std::list<cv::Mat> relativeFramePoses_;
 #endif
 
@@ -201,18 +201,18 @@ private:
     double adjustValue;
 
 
-    void relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
-            const std::vector<cv::Point3f> &pts3D, const std::vector<double> &rvec_est, const cv::Mat &t_est ,cv::Mat &Tcw);
+    void relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR, const std::vector<cv::Point3f> &pts3D,
+                                const std::vector<double> &rvec_est, const cv::Mat &t_est ,cv::Mat &Tcw, cv::Mat &cov_mat);
 
     void poseRefinment(const std::vector<Point2f> &pts2DL, const std::vector<Point2f> &pts2DR,
             const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers, std::vector<double> &p ,cv::Mat &rot_vec,
-            cv::Mat &tr_vec, const int &bestNumInliers);
+            cv::Mat &tr_vec, const int &bestNumInliers, cv::Mat &cov_mat);
 
     void poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr, const std::vector<cv::Point3f> &pts3d
-            , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh, int &bestNumInliers);
+            , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh, int &bestNumInliers, cv::Mat &cov_mat);
 
     int poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr, const std::vector<cv::Point3d> &pts3d
-            , std::vector<double> &p0, const int numPts, bool reweigh);
+            , std::vector<double> &p0, const int numPts, bool reweigh, cv::Mat &cov_mat);
 
     void computeJacobian(const int numPts, const std::vector<cv::Point3d> &pts3D, const std::vector<cv::Point2d> &pts2d_l,
                          const std::vector<cv::Point2d> &pts2d_r, std::vector<double> &p0, cv::Mat &J, cv::Mat &res, bool reweigh);

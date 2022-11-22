@@ -285,7 +285,7 @@ void Tracking::gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const st
     int nBucketX = im.cols / frameGridCols;
     int nBucketY = im.rows / frameGridRows;
 
-    //______________Image grid for non-maximum suppression
+    // Image grid for non-maximum suppression
     std::vector<size_t > imageGrids[nBucketY][nBucketX];
 
     int numFeatures = kpts.size();
@@ -432,7 +432,7 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
 
 void Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
                               const std::vector<cv::Point3f> &pts3d, std::vector<double> &p0, std::vector<bool> &bestInliers,
-                              std::vector<double> &p, bool reweigh, int &bestNumInliers) {
+                              std::vector<double> &p, bool reweigh, int &bestNumInliers, cv::Mat &cov_mat) {
 
 
 //    std::vector<bool> bestInliers;
@@ -475,6 +475,9 @@ void Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, cons
         // initialize p0_ for pose otimization iteration
         std::vector<double> p0_ = p0;
 
+        // pose covariance matrix
+        cv::Mat aux_cov_mat = cv::Mat::zeros(6,6, CV_64F);
+
         int status  = 0;
 #if LOG
         int nIt_    = 0;
@@ -485,7 +488,7 @@ void Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, cons
             nIt_ ++;
 
 #endif
-            status = poseEstimation(aux_pt2dl, aux_pt2dr, aux_pt3d, p0_, randIndex.size(), reweigh);
+            status = poseEstimation(aux_pt2dl, aux_pt2dr, aux_pt3d, p0_, randIndex.size(), reweigh, aux_cov_mat);
             if(status != UPDATE)
                 break;
         }
@@ -521,6 +524,7 @@ void Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, cons
             bestNumInliers  = numInliers;
 //            sumErr_         = sumErr;
             bestStdDev      = stdDev;
+            cov_mat = aux_cov_mat;
         }
     }
 
@@ -538,29 +542,23 @@ void Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, cons
 
 }
 
-int Tracking::poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr,
-                             const std::vector<cv::Point3d> &pts3d, std::vector<double> &p0, const int numPts, bool reweigh) {
+int Tracking::poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr, const std::vector<cv::Point3d> &pts3d, 
+                            std::vector<double> &p0, const int numPts, bool reweigh, cv::Mat &cov_mat) {
 
     // 6 parameters rx, ry, rz, tx, ty, tz
     // 2 equation for each point, 2 parameters (u, v) for each 2Dpoint (left and right)
-    Mat J   = cv::Mat::zeros(4*numPts, 6, CV_64F);// Jacobian matrix
-    //residual matrix,
+    // Jacobian matrix
+    Mat J   = cv::Mat::zeros(4*numPts, 6, CV_64F);
+    // residual matrix
     Mat res = cv::Mat::zeros(4*numPts, 1, CV_64F);
 
+    cv::Mat I = cv::Mat::eye(4*numPts,4*numPts,CV_64F);
+
     computeJacobian(numPts, pts3d, pts2dl, pts2dr, p0, J, res, reweigh);
+    cov_mat = (J.t()* I *J).inv();
 
-//    std::cout << "Passou !!!!!!!" << std::endl;
-
-    cv::Mat A = cv::Mat(6,6,CV_64F);
-    cv::Mat B = cv::Mat(6,1,CV_64F);
     cv::Mat S = cv::Mat(6,1,CV_64F);
-//    cv::Mat I = cv::Mat::eye(6,6, CV_64F);
-
-    //computing augmented normal equations
-    A = J.t() * J;
-    B = J.t() * res;
-
-    bool status = cv::solve(A, B, S, DECOMP_NORMAL);
+    bool status = cv::solve(J, res, S, DECOMP_NORMAL);
 
     if(status){
         bool converged = true;
@@ -1569,8 +1567,8 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
 }
 
 void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
-                                      const std::vector<cv::Point3f> &pts3D, const std::vector<double> &rvec_est
-        , const cv::Mat &t_est , cv::Mat &Tcw_) {
+                                      const std::vector<cv::Point3f> &pts3D, const std::vector<double> &rvec_est, 
+                                      const cv::Mat &t_est , cv::Mat &Tcw_, cv::Mat &cov_mat) {
 
 
     //initialize vector of parameters with rotation and translation from essential matrix
@@ -1587,13 +1585,13 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
 
     std::vector<double> p (6, 0.0);
     int bestNumInliers = ransacMinSet;
-    poseEstimationRansac(pts2DL, pts2DR, pts3D, p0, inliers2, p, reweigh, bestNumInliers);
+    poseEstimationRansac(pts2DL, pts2DR, pts3D, p0, inliers2, p, reweigh, bestNumInliers, cov_mat);
 
     //pose refinment with all inliers
     Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
     Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
 
-    poseRefinment(pts2DL, pts2DR, pts3D, inliers2, p, rot_vec, tr_vec, bestNumInliers);
+    poseRefinment(pts2DL, pts2DR, pts3D, inliers2, p, rot_vec, tr_vec, bestNumInliers, cov_mat);
 
     Mat Rotmat;
     Rodrigues(rot_vec, Rotmat, noArray());
@@ -1608,8 +1606,8 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
 }
 
 void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vector<Point2f> &pts2DR,
-                             const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers,
-                             std::vector<double> &p, cv::Mat &rot_vec, cv::Mat &tr_vec, const int &numInliers) {
+                             const std::vector<Point3f> &pts3D, const std::vector<bool> &inliers, std::vector<double> &p, 
+                             cv::Mat &rot_vec, cv::Mat &tr_vec, const int &numInliers, cv::Mat &cov_mat) {
 
 //    std::cout << "Num inliers for refinment: " << numInliers << std::endl;
     std::vector<Point2d> inPts_l1, inPts_r1;
@@ -1635,7 +1633,7 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
     // pose refinement with all inliers
     int status = 0;
     for (int i = 0; i < finalMaxIteration; i++){
-        status = poseEstimation(inPts_l1, inPts_r1, inPts_3D, p, numInliers, reweigh);
+        status = poseEstimation(inPts_l1, inPts_r1, inPts_3D, p, numInliers, reweigh, cov_mat);
         if(status != UPDATE)
             break;
     }
