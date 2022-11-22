@@ -244,7 +244,7 @@ int main(int argc, char *argv[]) {
 
         current_ni = ni;
         
-        // cv::imshow("Left Frame", imLeft);
+        cv::imshow("Left Frame", imLeft);
         char c=(char) cv::waitKey(1);
         if(c==27)
             break;
