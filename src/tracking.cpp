@@ -252,13 +252,13 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         poses_entropy_.push_back(pose_entropy);
         writeOnLogFile("----------------------------", " ");
 #endif
-
-    }
-
 #if ENABLE_VIZ
         cameraPoses_.push_back(computeGlobalPose(Tcw_));
         viewer_->setCameraPoses(cameraPoses_);
 #endif
+    }
+
+
     return Tcw;
 }
 
@@ -1871,7 +1871,7 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
     f.open(filename.c_str());
     if(withTime){
         f<< "frame,time,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,Pts_Tracking,Pts_quad_match,"
-            "GN_it,GN_mean_it,GN_num_inliers,mean_time\n";
+            "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,mean_time\n";
     }else {
         f<< "frame,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,Pts_Tracking,Pts_quad_match,"
                    "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,mean_time,\n";
