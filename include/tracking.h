@@ -12,6 +12,7 @@
 #define LOG             true
 #define ENABLE_PRINT    false
 #define LOG_DRAW        false
+#define ENABLE_VIZ      true 
 
 #define FRAME_GRID_COLS 24
 #define FRAME_GRID_ROWS 24

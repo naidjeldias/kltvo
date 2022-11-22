@@ -79,10 +79,11 @@ maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweig
 
     initPhase = true;
 
+#if ENABLE_VIZ
     // starting visualizer thread
     viewer_ = new Viewer();
     viewer_thd_ = new thread(&Viewer::run, viewer_);
-
+#endif
 }
 
 
@@ -231,14 +232,15 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 
         //------------------------------------relative pose estimation
         Mat Tcw_ = cv::Mat::eye(3,4,CV_64F);
-        relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, Tcw_);
-
+        
+        // pose covariance matrix
+        cv::Mat cov_mat = cv::Mat::zeros(6,6, CV_64F);
+        
+        relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, Tcw_, cov_mat);
+        double pose_entropy = - std::log(cv::determinant(cov_mat));
         //saving relative pose estimated
         relativeFramePoses.push_back(Tcw_.clone());
         frameTimeStamp.push_back(timestamp);
-
-        cameraPoses_.push_back(computeGlobalPose(Tcw_));
-        viewer_->setCameraPoses(cameraPoses_);
 
         Tcw = Tcw_.clone();
 
@@ -246,12 +248,17 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         imRight0    = imRight.clone();
 
 #if LOG
+        writeOnLogFile("Pose entropy: ", std::to_string(pose_entropy));
+        poses_entropy_.push_back(pose_entropy);
         writeOnLogFile("----------------------------", " ");
 #endif
 
-
     }
-
+    
+#if ENABLE_VIZ
+        cameraPoses_.push_back(computeGlobalPose(Tcw_));
+        viewer_->setCameraPoses(cameraPoses_);
+#endif
     return Tcw;
 }
 
