@@ -237,7 +237,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         cv::Mat cov_mat = cv::Mat::zeros(6,6, CV_64F);
         
         relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, Tcw_, cov_mat);
-        double pose_entropy = - std::log(cv::determinant(cov_mat));
+        double pose_entropy = std::log(cv::determinant(cov_mat));
         //saving relative pose estimated
         relativeFramePoses.push_back(Tcw_.clone());
         frameTimeStamp.push_back(timestamp);
@@ -555,7 +555,7 @@ int Tracking::poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::
     cv::Mat I = cv::Mat::eye(4*numPts,4*numPts,CV_64F);
 
     computeJacobian(numPts, pts3d, pts2dl, pts2dr, p0, J, res, reweigh);
-    cov_mat = (J.t()* I *J).inv();
+    cov_mat = J.t()* I *J;
 
     cv::Mat S = cv::Mat(6,1,CV_64F);
     bool status = cv::solve(J, res, S, DECOMP_NORMAL);
