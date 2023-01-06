@@ -28,6 +28,9 @@ RUN apt-get update \
     # Intall dev packages
     && apt-get install -y --no-install-recommends \
         valgrind \
+        python3-pip \
+        python3-tk \
+        unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Downgrading gcc version
@@ -89,6 +92,8 @@ RUN cd /root/kltvo \
     && cd  build && cmake .. \
     && make
 
+# Benchmark tools
+RUN pip3 install evo --upgrade --no-binary evo
 
 WORKDIR /root/kltvo
 CMD ["bash"]
