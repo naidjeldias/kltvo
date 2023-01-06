@@ -42,7 +42,7 @@ std::vector<int> EightPoint::generateRandomIndices(const unsigned long &maxIndic
 
 void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
                                               std::vector<DMatch>& finalMatches, std::vector<bool> &bestInliers, bool normalize,
-                                              int method, cv::Mat &bestFmat) {
+                                              int method, cv::Mat &bestFmat, double &bestGRIC) {
 
     finalMatches.clear();
 
@@ -62,7 +62,13 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
     int n = 0;
     long int r              = 1000;//adjusted dinamically
-    long double bestStdDev  = LDBL_MAX;
+    long double bestVar  = LDBL_MAX;
+
+//  correspondence goodness (GRIC) variables for F mat P. H. S. T o r r Geometric motion segmentation and model selection
+// Parameters based on Knoblauch, D. et al. Non-Parametric Sequential Frame Decimation for Scene Reconstruction in Low-Memory Streaming Environments
+    int gD = 3, gK = 7, gR = 4, gN = kpt_l.size() - ransacMinSet;
+    double gLambda1 = std::log10(gR), gLambda2 = std::log10(gR*gN), gLambda3 = gN;
+
     while (n < r && n < ransacMaxIt){
 
         std::vector<int> randValues;    //vector of rand index
@@ -84,7 +90,10 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
         //validate model againts the init set
         int pos = 0;
-        long double meanError = 0;
+        long double meanError = 0, gMeanError = 0;
+        // GRIC vector of residuals
+        std::vector<double> gResVect;
+        gResVect.reserve(kpt_l.size());
         for(int i = 0; i < kpt_l.size() ; i++){
 
             //validadte against other elements
@@ -103,6 +112,10 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
                 X_r.at<double>(2)   = 1.0;
 
                 double d   =  sampsonError(fmat, X_l, X_r);
+                
+                gResVect.push_back(d);
+                gMeanError += d;
+                // std::cout << "Residual error: " << d << std::endl;
 
                 if( d < ransacTh){
                     inliers.push_back(true);
@@ -130,27 +143,48 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
             }
 
         }
+        
+        // computing the correspondence goodness given by the F matrix
+        gMeanError /= gN;
+        // std::cout << "Residual Mean: " << gMeanError << std::endl;
+        long double resVar = 0;
+        for (unsigned int i=0; i < gN; i++)
+        {
+            double resDelta =  gResVect[i] - gMeanError;
+            resVar += resDelta*resDelta;
+        }
+        resVar /= gN;
+        // std::cout << "Residual Variance: " << resVar << std::endl;
+        
+        double gSum =0;
+        for (unsigned int i=0; i < gN; i++)
+        {
+            gSum += std::min((gResVect[i] / resVar), (long double) gLambda3*(gR - gD));
+        }
+
+        double gric = gSum + gLambda1*gD*gN + gLambda2*gK;
 
         meanError /= (long double) numInliers;
-
-        long double stdDev = 0;
+        long double var = 0;
         {
             for (unsigned int p=0; p<numInliers; p++)
             {
                 long double delta = errorVect[p]-meanError;
-                stdDev += delta*delta;
+                var += delta*delta;
             }
         }
-        stdDev /= (double)(numInliers);
+        var /= (double)(numInliers);
 
-        if((numInliers > bestNumInliers) || (numInliers == bestNumInliers && stdDev<bestStdDev)){
+        
+        if((numInliers > bestNumInliers) || (numInliers == bestNumInliers && var<bestVar)){
 
             bestInliers     = inliers;
             finalMatches    = matches_;
 
             bestFmat        = fmat.clone();
-            bestStdDev      = stdDev;
+            bestVar         = var;
             bestNumInliers  = numInliers;
+            bestGRIC        = gric;
 
             //fraction of inliers in the set of points
             double w    = (double) bestNumInliers / (double) kpt_l.size();
@@ -167,14 +201,15 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
         }
         n ++;
-    }
 
+        // std::cout << "GRIC VAL: " << gric << std::endl;
+        // std::cout << "Num inliers: " << numInliers << std::endl;
+        // std::cout << "Res variance: " << var << std::endl;
+        // std::cout << "----------------------"<< std::endl;
+    }
     ransacNumit = n;
 
-//    std::cout << "8 point algorithm RANSAC it: " << ransacNumit << std::endl;
-
     delete [] errorVect;
-
 
 }
 

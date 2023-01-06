@@ -24,7 +24,7 @@ public:
 
     void operator() (const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
                                       std::vector<DMatch> &finalMatches, std::vector<bool> &inliers2D, bool normalize,
-                                      int method, cv::Mat &bestFmat);
+                                      int method, cv::Mat &bestFmat, double &bestGRIC);
     //using normalized 8-point algorithm
     cv::Mat computeFundamentalMatrix(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
                                      const std::vector<int> &indices, const cv::Mat &leftScalingMat, const cv::Mat &rightScalingMat, bool normalize);

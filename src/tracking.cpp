@@ -1543,7 +1543,9 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
 
     Mat fmat;
     std::vector<DMatch> mll, mrr;
-    (*mEightPointLeft) (ptsL0, ptsL1, mll, inliers, true, 0, fmat);
+    double gricVal = 0.0;
+
+    (*mEightPointLeft) (ptsL0, ptsL1, mll, inliers, true, 0, fmat, gricVal);
 
 #if LOG_DRAW
     mEightPointLeft->drawEpLines(ptsL0, ptsL1, fmat, inliers, 0, imL0, imL1, mll);
@@ -1554,8 +1556,10 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
     logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll);
     writeOnLogFile("Num of inliers tracking:", std::to_string(mll.size()));
     writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
+    writeOnLogFile("GRIC Val:", std::to_string(gricVal));
     ptsTracking.push_back(mll.size());
     ransacIt_8point.push_back(mEightPointLeft->getRansacNumit());
+    ransacGricVals_.push_back(gricVal);
 #endif
 
 //    Mat R_est;
@@ -1870,10 +1874,10 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
     std::ofstream f;
     f.open(filename.c_str());
     if(withTime){
-        f<< "frame,time,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,Pts_Tracking,Pts_quad_match,"
+        f<< "frame,time,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,ransac_gric_val,Pts_Tracking,Pts_quad_match,"
             "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,mean_time\n";
     }else {
-        f<< "frame,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,Pts_Tracking,Pts_quad_match,"
+        f<< "frame,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,ransac_gric_val,Pts_Tracking,Pts_quad_match,"
                    "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,mean_time,\n";
     }
 
@@ -1883,22 +1887,22 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
     auto lPtsTracking       = ptsTracking.begin();          auto lPtsQuadMatch      = ptsQuadMatch.begin();
     auto lNumInliersGN      = numInliersGN.begin();         auto lMeanRepErr3d      = rep_err_3d.begin();
     auto lRansacIt8point    = ransacIt_8point.begin();      auto lTime              = frameTimeStamp.begin();
-    auto lPosesEntropy      = poses_entropy_.begin();
+    auto lPosesEntropy      = poses_entropy_.begin();       auto lGricVal           = ransacGricVals_.begin();
 
     int nFrames = 0;
     bool first = true;
     for (lGNit = gnIterations.begin(); lGNit != gnIterations.end(); ++lGNit, ++lMeanGNit, ++lPtsNMS,
             ++lPtsDetec, ++lPtsStereoMatch, ++lPtsTracking, ++lPtsQuadMatch, ++lNumInliersGN, ++lMeanRepErr3d,
-            ++lRansacIt8point, ++lTime, ++lPosesEntropy)
+            ++lRansacIt8point, ++lTime, ++lPosesEntropy, ++lGricVal)
     {
         if(withTime){
             if(first){
                 f  << setprecision(18) << (*lTime) <<"," << setprecision(6) << 0.0 <<","  << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
-                  << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
                   << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << ","<< meanTime << "\n";
             } else{
                 f << setprecision(18) << (*lTime) <<","<< setprecision(6) << (*lTime)-initTimestamp <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
-                  << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
                   << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) <<"\n";
             }
             first = false;
@@ -1906,11 +1910,11 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
         }else{
             if(first){
                 f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
-                  << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
                   << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << meanTime << "\n";
             } else{
                 f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
-                  << (*lRansacIt8point) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
                   << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) <<"\n";
             }
             first = false;

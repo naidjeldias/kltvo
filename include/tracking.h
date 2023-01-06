@@ -88,7 +88,7 @@ private:
 #if LOG
     std::list<int > gnIterations, leftPtsDetec, ptsNMS, ptsStereoMatch, ptsTracking,
                     ptsQuadMatch, numInliersGN, maxItGN, ransacIt_8point;
-    std::list<double > gnMeanIterations, rep_err_3d, poses_entropy_;
+    std::list<double > gnMeanIterations, rep_err_3d, poses_entropy_ , ransacGricVals_;
     std::list<cv::Mat> relativeFramePoses_;
 #endif
 
