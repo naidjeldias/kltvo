@@ -88,8 +88,9 @@ private:
 #if LOG
     std::list<int > gnIterations, leftPtsDetec, ptsNMS, ptsStereoMatch, ptsTracking,
                     ptsQuadMatch, numInliersGN, maxItGN, ransacIt_8point;
-    std::list<double > gnMeanIterations, rep_err_3d, poses_entropy_ , ransacGricVals_;
+    std::list<double > gnMeanIterations, rep_err_3d, poses_entropy_ , ransacGricVals_, depth_kurtoisis_, depth_mean_;
     std::list<cv::Mat> relativeFramePoses_;
+    std::list<cv::Vec2d> image_pts_eigenvalues_;
 #endif
 
 
@@ -219,6 +220,9 @@ private:
 
     int checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
                      const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh, long double &stdDev);
+    
+    void computePointsDispersionEigenValues(const std::vector<cv::Point2d> &points, cv::Vec2d &eigenvalues);
+    void computeDataAsymmetry(const std::vector<double> &points, double &kurtois, double &mean);
 
     //----------------------Tools functions
     std::vector<float > toQuaternion(const cv::Mat &R);

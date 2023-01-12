@@ -1621,6 +1621,9 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
     std::vector<Point3d> inPts_3D;
     inPts_3D.reserve(numInliers);
 
+    std::vector<double> pts_depth;
+    pts_depth.reserve(numInliers);
+    
     for (int i=0; i<inliers.size(); i++){
         if(inliers.at(i)){
             Point2f aux1 = pts2DL[i];
@@ -1629,10 +1632,21 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
             inPts_r1.push_back(aux2);
             Point3f aux3 = pts3D[i];
             inPts_3D.push_back(aux3);
+            pts_depth.push_back(aux3.z);
         }
     }
 
-
+#if LOG
+    cv::Vec2d eigenvalues;
+    computePointsDispersionEigenValues(inPts_l1, eigenvalues);
+    image_pts_eigenvalues_.push_back(eigenvalues);
+    double depth_mean, depth_kurtoisis;
+    computeDataAsymmetry(pts_depth, depth_kurtoisis, depth_mean);
+    depth_kurtoisis_.push_back(depth_kurtoisis);
+    depth_mean_.push_back(depth_mean);
+    writeOnLogFile("Pts depth mean: ", std::to_string(depth_mean));
+    writeOnLogFile("Pts depth kurtoisis: ", std::to_string(depth_kurtoisis));
+#endif
 
     // pose refinement with all inliers
     int status = 0;
@@ -1875,16 +1889,16 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
     f.open(filename.c_str());
     if(withTime){
         f<< "frame,time,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,ransac_gric_val,Pts_Tracking,Pts_quad_match,"
-            "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,mean_time\n";
+            "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,depth_kurtosis,depth_mean,mean_time\n";
     }else {
         f<< "frame,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,ransac_gric_val,Pts_Tracking,Pts_quad_match,"
-                   "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,mean_time,\n";
+                   "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,depth_kurtosis,depth_mean,x_eigenvalue,y_eigenvalue,mean_time,\n";
     }
 
     std::list<int >::iterator lGNit;
-    auto lMeanGNit          = gnMeanIterations.begin();     auto lPtsNMS            = ptsNMS.begin();
-    auto lPtsDetec          = leftPtsDetec.begin();         auto lPtsStereoMatch    = ptsStereoMatch.begin();
-    auto lPtsTracking       = ptsTracking.begin();          auto lPtsQuadMatch      = ptsQuadMatch.begin();
+    auto lMeanGNit          = gnMeanIterations.begin();     auto lPtsNMS            = ptsNMS.begin();             auto lDepthKurtosis = depth_kurtoisis_.begin();
+    auto lPtsDetec          = leftPtsDetec.begin();         auto lPtsStereoMatch    = ptsStereoMatch.begin();     auto lDepthMean = depth_mean_.begin();
+    auto lPtsTracking       = ptsTracking.begin();          auto lPtsQuadMatch      = ptsQuadMatch.begin();       auto lEigenValues = image_pts_eigenvalues_.begin();  
     auto lNumInliersGN      = numInliersGN.begin();         auto lMeanRepErr3d      = rep_err_3d.begin();
     auto lRansacIt8point    = ransacIt_8point.begin();      auto lTime              = frameTimeStamp.begin();
     auto lPosesEntropy      = poses_entropy_.begin();       auto lGricVal           = ransacGricVals_.begin();
@@ -1893,17 +1907,20 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
     bool first = true;
     for (lGNit = gnIterations.begin(); lGNit != gnIterations.end(); ++lGNit, ++lMeanGNit, ++lPtsNMS,
             ++lPtsDetec, ++lPtsStereoMatch, ++lPtsTracking, ++lPtsQuadMatch, ++lNumInliersGN, ++lMeanRepErr3d,
-            ++lRansacIt8point, ++lTime, ++lPosesEntropy, ++lGricVal)
+            ++lRansacIt8point, ++lTime, ++lPosesEntropy, ++lGricVal, ++lDepthKurtosis, ++lDepthMean, ++lEigenValues)
     {
         if(withTime){
             if(first){
                 f  << setprecision(18) << (*lTime) <<"," << setprecision(6) << 0.0 <<","  << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
                   << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
-                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << ","<< meanTime << "\n";
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," 
+                  << (*lEigenValues)[0] << "," << (*lEigenValues)[1] << ","<< meanTime << "\n";
             } else{
-                f << setprecision(18) << (*lTime) <<","<< setprecision(6) << (*lTime)-initTimestamp <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
+                f << setprecision(18) << (*lTime) <<","<< setprecision(6) << (*lTime)-initTimestamp <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," 
+                  << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
                   << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
-                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) <<"\n";
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," 
+                  << (*lEigenValues)[0] << "," << (*lEigenValues)[1]  <<"\n";
             }
             first = false;
             nFrames ++;
@@ -1911,11 +1928,13 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
             if(first){
                 f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
                   << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
-                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << meanTime << "\n";
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," 
+                  << (*lEigenValues)[0] << "," << (*lEigenValues)[1]  << "," << meanTime << "\n";
             } else{
                 f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
                   << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
-                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) <<"\n";
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," 
+                  << (*lEigenValues)[0] << "," << (*lEigenValues)[1]  <<"\n";
             }
             first = false;
             nFrames ++;
@@ -2062,4 +2081,53 @@ cv::Mat Tracking::computeGlobalPose(const cv::Mat &current_pose)
 
     cameraCurrentPose_ = cameraCurrentPose_ * inv_pose;
     return cameraCurrentPose_.clone();
+}
+
+void Tracking::computePointsDispersionEigenValues(const std::vector<cv::Point2d> &points, cv::Vec2d &eigenvalues)
+{
+    double mean_x = 0;
+    double mean_y = 0;
+    for (const cv::Point2d &point : points) {
+        mean_x += point.x;
+        mean_y += point.y;
+        // std::cout << "x: " << point.x << ", " << "y: " << point.y << std::endl;
+    }
+    mean_x /= points.size();
+    mean_y /= points.size();
+
+    cv::Matx22d covariance = cv::Matx22d::zeros();
+    for (const cv::Point2d &point : points) {
+        covariance(0, 0) += (point.x - mean_x) * (point.x - mean_x);
+        covariance(1, 1) += (point.y - mean_y) * (point.y - mean_y);
+        covariance(0, 1) += (point.x - mean_x) * (point.y - mean_y);
+        covariance(1, 0) += (point.y - mean_y) * (point.x - mean_x);
+    }
+  covariance *= 1.0 / points.size();
+
+  cv::eigen(covariance, eigenvalues);
+}
+
+void Tracking::computeDataAsymmetry(const std::vector<double> &points, double &kurtosis, double &mean)
+{
+    // long double mean = 0;
+    for (const double &point : points) {
+        // std::cout << "point: " << point << std::endl;
+        mean += point;
+    }
+    mean /= points.size();
+    // std::cout << "mean: " << mean << std::endl;
+
+    long double variance = 0;
+    // long double kurtosis = 0;
+    for (const double &point : points) {
+        double diff = point - mean;
+        variance += diff * diff;
+        kurtosis += diff * diff * diff * diff;
+    }
+    variance /= points.size();
+    kurtosis /= points.size();
+
+    // std::cout << "variance: " << variance << std::endl;
+
+    kurtosis = (kurtosis / (variance * variance)) - 3;
 }
