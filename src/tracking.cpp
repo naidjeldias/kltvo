@@ -1572,7 +1572,7 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
 
 void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
                                       const std::vector<cv::Point3f> &pts3D, const std::vector<double> &rvec_est, 
-                                      const cv::Mat &t_est , cv::Mat &Tcw_, cv::Mat &cov_mat) {
+                                      const cv::Mat &t_est , cv::Mat &Tcw, cv::Mat &cov_mat) {
 
 
     //initialize vector of parameters with rotation and translation from essential matrix
@@ -1600,8 +1600,8 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
     Mat Rotmat;
     Rodrigues(rot_vec, Rotmat, noArray());
 
-    Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
-    tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
+    Rotmat.copyTo(Tcw.rowRange(0,3).colRange(0,3));
+    tr_vec.copyTo(Tcw.rowRange(0,3).col(3));
 #if LOG
     writeOnLogFile("Rotation matrix det(): ", std::to_string(cv::determinant(Rotmat)));
 #endif
