@@ -93,7 +93,8 @@ RUN cd /root/kltvo \
     && make
 
 # Benchmark tools
-RUN pip3 install evo --upgrade --no-binary evo
+RUN pip3 install evo --upgrade --no-binary evo \
+    && pip3 install pandas seaborn
 
 WORKDIR /root/kltvo
 CMD ["bash"]
