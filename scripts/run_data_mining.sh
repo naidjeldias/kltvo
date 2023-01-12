@@ -44,6 +44,7 @@ evo_rpe tum \
     --pose_relation trans_part \
     --delta 1 \
     --delta_unit f \
+    --plot_x_dimension index \
     --save_results $DIR/${SEQ}_trans.zip \
     --save_plot $DIR/
 
@@ -63,6 +64,7 @@ evo_rpe tum \
     --pose_relation rot_part \
     --delta 1 \
     --delta_unit f \
+    --plot_x_dimension index \
     --save_results $DIR/${SEQ}_rot.zip \
     --save_plot $DIR/
 
