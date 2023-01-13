@@ -12,7 +12,7 @@
 #define LOG             true
 #define ENABLE_PRINT    false
 #define LOG_DRAW        false
-#define ENABLE_VIZ      true 
+#define ENABLE_VIZ      false 
 
 #define FRAME_GRID_COLS 24
 #define FRAME_GRID_ROWS 24
@@ -222,7 +222,7 @@ private:
                      const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh, long double &stdDev);
     
     void computePointsDispersionEigenValues(const std::vector<cv::Point2d> &points, cv::Vec2d &eigenvalues);
-    void computeDataAsymmetry(const std::vector<double> &points, double &kurtois, double &mean);
+    void computeDataMoments(const std::vector<double> &points, double &mean, double &kurtosis, double &skewness);
 
     //----------------------Tools functions
     std::vector<float > toQuaternion(const cv::Mat &R);

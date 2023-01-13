@@ -1641,8 +1641,8 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
     cv::Vec2d eigenvalues;
     computePointsDispersionEigenValues(inPts_l1, eigenvalues);
     image_pts_eigenvalues_.push_back(eigenvalues);
-    double depth_mean, depth_kurtoisis;
-    computeDataAsymmetry(pts_depth, depth_kurtoisis, depth_mean);
+    double depth_mean = 0.0, depth_kurtoisis = 0.0, depth_skewness = 0.0;
+    computeDataMoments(pts_depth, depth_mean, depth_kurtoisis, depth_skewness);
     depth_kurtoisis_.push_back(depth_kurtoisis);
     depth_mean_.push_back(depth_mean);
     writeOnLogFile("Pts depth mean: ", std::to_string(depth_mean));
@@ -2108,27 +2108,40 @@ void Tracking::computePointsDispersionEigenValues(const std::vector<cv::Point2d>
   cv::eigen(covariance, eigenvalues);
 }
 
-void Tracking::computeDataAsymmetry(const std::vector<double> &points, double &kurtosis, double &mean)
+void Tracking::computeDataMoments(const std::vector<double> &points, double &mean, double &kurtosis, double &skewness)
 {
+    int n = points.size();
     // long double mean = 0;
     for (const double &point : points) {
         // std::cout << "point: " << point << std::endl;
         mean += point;
     }
-    mean /= points.size();
-    // std::cout << "mean: " << mean << std::endl;
+    mean /= n;
+    
 
-    long double variance = 0;
-    // long double kurtosis = 0;
+    long double variance = 0.0;
+    long double kurt = 0.0;
+    long double skew = 0.0;
+    double stddev = 0.0;
+    
     for (const double &point : points) {
         double diff = point - mean;
-        variance += diff * diff;
-        kurtosis += diff * diff * diff * diff;
+        variance += pow(diff, 2);
+        skew += pow(diff, 3);
+        kurt += pow(diff, 4);
     }
-    variance /= points.size();
-    kurtosis /= points.size();
+    variance /= n;
+    stddev = sqrt(variance);
 
+    skew = skew / (n * pow(stddev, 3));
+    // Convert to Fisher-Pearson standardized moment coefficient
+    skewness = skew * sqrt(n*(n-1))/(n-2);
+
+    kurtosis = kurt / (n * pow(stddev, 4)) - 3;
+
+    // std::cout << "mean: " << mean << std::endl;
     // std::cout << "variance: " << variance << std::endl;
-
-    kurtosis = (kurtosis / (variance * variance)) - 3;
+    // std::cout << "skewness: " << skewness << std::endl;
+    // std::cout << "kurtosis: " << kurtosis << std::endl;
+    
 }
