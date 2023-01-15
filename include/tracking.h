@@ -88,7 +88,8 @@ private:
 #if LOG
     std::list<int > gnIterations, leftPtsDetec, ptsNMS, ptsStereoMatch, ptsTracking,
                     ptsQuadMatch, numInliersGN, maxItGN, ransacIt_8point;
-    std::list<double > gnMeanIterations, rep_err_3d, poses_entropy_ , ransacGricVals_, depth_kurtoisis_, depth_mean_;
+    std::list<double > gnMeanIterations, rep_err_3d, poses_entropy_ , ransacGricVals_, 
+                      depth_kurtoisis_, depth_mean_, depth_skewness_, trans_entropy_, rot_entropy_;
     std::list<cv::Mat> relativeFramePoses_;
     std::list<cv::Vec2d> image_pts_eigenvalues_;
 #endif

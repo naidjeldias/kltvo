@@ -237,7 +237,21 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         cv::Mat cov_mat = cv::Mat::zeros(6,6, CV_64F);
         
         relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, Tcw_, cov_mat);
-        double pose_entropy = std::log(cv::determinant(cov_mat));
+#if LOG
+        cv::Mat rot_cov_mat = cov_mat.rowRange(0,3).colRange(0,3);
+        cv::Mat trans_cov_mat = cov_mat.rowRange(3,6).colRange(3,6);
+
+        // std::cout << "Cov mat: " << cov_mat << std::endl;
+        // std::cout << "Trans cov mat: " << trans_cov_mat << std::endl;
+        // std::cout << "Rot cov mat: " << rot_cov_mat << std::endl;
+        
+        double pose_entropy = - std::log(cv::determinant(cov_mat));
+        writeOnLogFile("Pose entropy: ", std::to_string(pose_entropy));
+        poses_entropy_.push_back(pose_entropy);
+        trans_entropy_.push_back(- std::log(cv::determinant(trans_cov_mat)));
+        rot_entropy_.push_back(- std::log(cv::determinant(rot_cov_mat)));
+        writeOnLogFile("----------------------------", " ");
+#endif
         //saving relative pose estimated
         relativeFramePoses.push_back(Tcw_.clone());
         frameTimeStamp.push_back(timestamp);
@@ -247,11 +261,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         imLeft0     = imLeft.clone();
         imRight0    = imRight.clone();
 
-#if LOG
-        writeOnLogFile("Pose entropy: ", std::to_string(pose_entropy));
-        poses_entropy_.push_back(pose_entropy);
-        writeOnLogFile("----------------------------", " ");
-#endif
+
 #if ENABLE_VIZ
         cameraPoses_.push_back(computeGlobalPose(Tcw_));
         viewer_->setCameraPoses(cameraPoses_);
@@ -552,11 +562,11 @@ int Tracking::poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::
     // residual matrix
     Mat res = cv::Mat::zeros(4*numPts, 1, CV_64F);
 
-    cv::Mat I = cv::Mat::eye(4*numPts,4*numPts,CV_64F);
+    // cv::Mat I = cv::Mat::eye(4*numPts,4*numPts,CV_64F);
 
     computeJacobian(numPts, pts3d, pts2dl, pts2dr, p0, J, res, reweigh);
-    // cov_mat = (J.t()* I *J).inv();
-    cov_mat = J.t()*J;
+    cov_mat = (J.t()*J).inv();
+    // cov_mat = J.t()*J;
 
     cv::Mat S = cv::Mat(6,1,CV_64F);
     bool status = cv::solve(J, res, S, DECOMP_NORMAL);
@@ -1645,6 +1655,7 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
     computeDataMoments(pts_depth, depth_mean, depth_kurtoisis, depth_skewness);
     depth_kurtoisis_.push_back(depth_kurtoisis);
     depth_mean_.push_back(depth_mean);
+    depth_skewness_.push_back(depth_skewness);
     writeOnLogFile("Pts depth mean: ", std::to_string(depth_mean));
     writeOnLogFile("Pts depth kurtoisis: ", std::to_string(depth_kurtoisis));
 #endif
@@ -1890,37 +1901,37 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
     f.open(filename.c_str());
     if(withTime){
         f<< "frame,time,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,ransac_gric_val,Pts_Tracking,Pts_quad_match,"
-            "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,depth_kurtosis,depth_mean,mean_time\n";
+            "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,trans_entropy,rot_entropy,depth_kurtosis,depth_mean,depth_skewness,x_eigenvalue,y_eigenvalue,mean_time\n";
     }else {
         f<< "frame,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,ransac_gric_val,Pts_Tracking,Pts_quad_match,"
-                   "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,depth_kurtosis,depth_mean,x_eigenvalue,y_eigenvalue,mean_time,\n";
+                   "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,trans_entropy,rot_entropy,depth_kurtosis,depth_mean,depth_skewness,x_eigenvalue,y_eigenvalue,mean_time,\n";
     }
 
     std::list<int >::iterator lGNit;
     auto lMeanGNit          = gnMeanIterations.begin();     auto lPtsNMS            = ptsNMS.begin();             auto lDepthKurtosis = depth_kurtoisis_.begin();
     auto lPtsDetec          = leftPtsDetec.begin();         auto lPtsStereoMatch    = ptsStereoMatch.begin();     auto lDepthMean = depth_mean_.begin();
     auto lPtsTracking       = ptsTracking.begin();          auto lPtsQuadMatch      = ptsQuadMatch.begin();       auto lEigenValues = image_pts_eigenvalues_.begin();  
-    auto lNumInliersGN      = numInliersGN.begin();         auto lMeanRepErr3d      = rep_err_3d.begin();
-    auto lRansacIt8point    = ransacIt_8point.begin();      auto lTime              = frameTimeStamp.begin();
-    auto lPosesEntropy      = poses_entropy_.begin();       auto lGricVal           = ransacGricVals_.begin();
+    auto lNumInliersGN      = numInliersGN.begin();         auto lMeanRepErr3d      = rep_err_3d.begin();         auto lDepthSkewness = depth_skewness_.begin();  
+    auto lRansacIt8point    = ransacIt_8point.begin();      auto lTime              = frameTimeStamp.begin();     auto lTransEntropy = trans_entropy_.begin();
+    auto lPosesEntropy      = poses_entropy_.begin();       auto lGricVal           = ransacGricVals_.begin();    auto lRotEntropy = rot_entropy_.begin();
 
     int nFrames = 0;
     bool first = true;
     for (lGNit = gnIterations.begin(); lGNit != gnIterations.end(); ++lGNit, ++lMeanGNit, ++lPtsNMS,
             ++lPtsDetec, ++lPtsStereoMatch, ++lPtsTracking, ++lPtsQuadMatch, ++lNumInliersGN, ++lMeanRepErr3d,
-            ++lRansacIt8point, ++lTime, ++lPosesEntropy, ++lGricVal, ++lDepthKurtosis, ++lDepthMean, ++lEigenValues)
+            ++lRansacIt8point, ++lTime, ++lPosesEntropy, ++lGricVal, ++lDepthKurtosis, ++lDepthMean, ++lEigenValues, ++lDepthSkewness, ++lTransEntropy, ++lRotEntropy)
     {
         if(withTime){
             if(first){
                 f  << setprecision(18) << (*lTime) <<"," << setprecision(6) << 0.0 <<","  << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
                   << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
-                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," 
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lTransEntropy) << "," << (*lRotEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," << (*lDepthSkewness) << "," 
                   << (*lEigenValues)[0] << "," << (*lEigenValues)[1] << ","<< meanTime << "\n";
             } else{
                 f << setprecision(18) << (*lTime) <<","<< setprecision(6) << (*lTime)-initTimestamp <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," 
                   << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
                   << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
-                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," 
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lTransEntropy) << "," << (*lRotEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," << (*lDepthSkewness) << "," 
                   << (*lEigenValues)[0] << "," << (*lEigenValues)[1]  <<"\n";
             }
             first = false;
@@ -1929,12 +1940,12 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
             if(first){
                 f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
                   << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
-                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," 
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lTransEntropy) << "," << (*lRotEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," << (*lDepthSkewness) << "," 
                   << (*lEigenValues)[0] << "," << (*lEigenValues)[1]  << "," << meanTime << "\n";
             } else{
                 f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
                   << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
-                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," 
+                  << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lTransEntropy) << "," << (*lRotEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," << (*lDepthSkewness) << "," 
                   << (*lEigenValues)[0] << "," << (*lEigenValues)[1]  <<"\n";
             }
             first = false;
