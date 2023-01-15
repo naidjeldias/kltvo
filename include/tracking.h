@@ -89,7 +89,7 @@ private:
     std::list<int > gnIterations, leftPtsDetec, ptsNMS, ptsStereoMatch, ptsTracking,
                     ptsQuadMatch, numInliersGN, maxItGN, ransacIt_8point;
     std::list<double > gnMeanIterations, rep_err_3d, poses_entropy_ , ransacGricVals_, 
-                      depth_kurtoisis_, depth_mean_, depth_skewness_, trans_entropy_, rot_entropy_;
+                      depth_kurtoisis_, depth_mean_, depth_skewness_, trans_entropy_, rot_entropy_, mean_feat_flow_;
     std::list<cv::Mat> relativeFramePoses_;
     std::list<cv::Vec2d> image_pts_eigenvalues_;
 #endif
@@ -157,6 +157,8 @@ private:
     void checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,
                              const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose);
 
+    void computeFeatureFlowMagnitudes(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector<double> &flowMagn);
+
     //-------------- Outliers removal and motion estimation
     EightPoint* mEightPointLeft;
 
@@ -189,7 +191,7 @@ private:
     void quadMatching(const std::vector<cv::Point3f> &pts3D, const std::vector<cv::Point2f> &pts2D_l, const std::vector<cv::Point2f> &pts2D_r
             , std::vector<bool> &inliers, const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::Point3f> &new_pts3D,
                       std::vector<cv::Point2f> &new_pts2D_l, std::vector<cv::Point2f> &new_pts2D_r,
-                      std::vector<cv::DMatch> &matches, const std::vector<bool> &ptsClose);
+                      std::vector<cv::DMatch> &matches, const std::vector<bool> &ptsClose, std::vector<double> &flowMagn);
 
 
     //----------Pose estimation

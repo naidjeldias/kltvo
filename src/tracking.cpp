@@ -208,7 +208,8 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         outlierRemovalAndMotionEstimation(imLeft0, new_pts_l0, imLeft, pts_l1, imRight0,
                 new_pts_r0, imRight, pts_r1, inliers, rvec_est, t_est);
 
-
+        std::vector<double> flow_magn;
+        computeFeatureFlowMagnitudes(new_pts_l0, pts_l1, flow_magn);
 
         //------------------------------------circular matching
         std::vector<Point3f> new_pts3D;
@@ -220,7 +221,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         std::vector<DMatch> mlr1;
         mlr1.reserve(pts_l1.size());
 
-        quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1, ptsClose);
+        quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1, ptsClose, flow_magn);
 #if LOG
         logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
 #endif
@@ -1123,7 +1124,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
 void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::vector<cv::Point2f> &pts2D_l,
                             const std::vector<cv::Point2f> &pts2D_r, std::vector<bool> &inliers, const cv::Mat &imLeft,
                             const cv::Mat &imRight, std::vector<cv::Point3f> &new_pts3D, std::vector<cv::Point2f> &new_pts2D_l,
-                            std::vector<cv::Point2f> &new_pts2D_r, std::vector<cv::DMatch> &matches, const std::vector<bool> &ptsClose) {
+                            std::vector<cv::Point2f> &new_pts2D_r, std::vector<cv::DMatch> &matches, const std::vector<bool> &ptsClose, std::vector<double> &flowMagn) {
 
     std::vector<Point2f> aux_pts_r(pts2D_r);
 
@@ -1153,6 +1154,7 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
 
 
     int pos = 0;
+    double sum_flow = 0.0;
     for (int i = 0; i < inliers.size(); i++){
 
         if(inliers.at(i) /*&& ptsClose.at(i)*/){
@@ -1173,12 +1175,21 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
                 matches.push_back(match);
                 pos++;
 
+                sum_flow += flowMagn[i];
+                // std::cout << "Magnitude: " << flowMagn[i] << std::endl;
             }
 
         }
-
     }
+    // std::cout << "Sum of flow magnitudes: " << sum_flow << std::endl;
+    sum_flow /= new_pts3D.size();
+    mean_feat_flow_.push_back(sum_flow);
+    // std::cout << "Mean of flow magnitudes: " << sum_flow << std::endl;
 
+
+#if LOG
+    writeOnLogFile("Mean feature flow magnitude:", std::to_string(sum_flow));
+#endif
 
 }
 
@@ -1900,10 +1911,10 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
     std::ofstream f;
     f.open(filename.c_str());
     if(withTime){
-        f<< "frame,time,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,ransac_gric_val,Pts_Tracking,Pts_quad_match,"
+        f<< "frame,time,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,ransac_gric_val,Pts_Tracking,Pts_quad_match,mean_feat_flow,"
             "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,trans_entropy,rot_entropy,depth_kurtosis,depth_mean,depth_skewness,x_eigenvalue,y_eigenvalue,mean_time\n";
     }else {
-        f<< "frame,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,ransac_gric_val,Pts_Tracking,Pts_quad_match,"
+        f<< "frame,Pts_detected,Pts_after_NMS,Pts_Stereo_Match,3D_reproj_error_mean,8-point_ransac_it,ransac_gric_val,Pts_Tracking,Pts_quad_match,mean_feat_flow,"
                    "GN_it,GN_mean_it,GN_num_inliers,Pose_entropy,trans_entropy,rot_entropy,depth_kurtosis,depth_mean,depth_skewness,x_eigenvalue,y_eigenvalue,mean_time,\n";
     }
 
@@ -1914,23 +1925,25 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
     auto lNumInliersGN      = numInliersGN.begin();         auto lMeanRepErr3d      = rep_err_3d.begin();         auto lDepthSkewness = depth_skewness_.begin();  
     auto lRansacIt8point    = ransacIt_8point.begin();      auto lTime              = frameTimeStamp.begin();     auto lTransEntropy = trans_entropy_.begin();
     auto lPosesEntropy      = poses_entropy_.begin();       auto lGricVal           = ransacGricVals_.begin();    auto lRotEntropy = rot_entropy_.begin();
+    auto lMeanFeatFlow      = mean_feat_flow_.begin();
 
     int nFrames = 0;
     bool first = true;
     for (lGNit = gnIterations.begin(); lGNit != gnIterations.end(); ++lGNit, ++lMeanGNit, ++lPtsNMS,
             ++lPtsDetec, ++lPtsStereoMatch, ++lPtsTracking, ++lPtsQuadMatch, ++lNumInliersGN, ++lMeanRepErr3d,
-            ++lRansacIt8point, ++lTime, ++lPosesEntropy, ++lGricVal, ++lDepthKurtosis, ++lDepthMean, ++lEigenValues, ++lDepthSkewness, ++lTransEntropy, ++lRotEntropy)
+            ++lRansacIt8point, ++lTime, ++lPosesEntropy, ++lGricVal, ++lDepthKurtosis, ++lDepthMean, ++lEigenValues, 
+            ++lDepthSkewness, ++lTransEntropy, ++lRotEntropy, ++lMeanFeatFlow)
     {
         if(withTime){
             if(first){
                 f  << setprecision(18) << (*lTime) <<"," << setprecision(6) << 0.0 <<","  << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
-                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << "," << (*lMeanFeatFlow) << ","  << (*lGNit) << ","
                   << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lTransEntropy) << "," << (*lRotEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," << (*lDepthSkewness) << "," 
                   << (*lEigenValues)[0] << "," << (*lEigenValues)[1] << ","<< meanTime << "\n";
             } else{
                 f << setprecision(18) << (*lTime) <<","<< setprecision(6) << (*lTime)-initTimestamp <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," 
                   << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
-                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << "," << (*lMeanFeatFlow) << ","  << (*lGNit) << ","
                   << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lTransEntropy) << "," << (*lRotEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," << (*lDepthSkewness) << "," 
                   << (*lEigenValues)[0] << "," << (*lEigenValues)[1]  <<"\n";
             }
@@ -1939,12 +1952,12 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
         }else{
             if(first){
                 f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
-                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << "," << (*lMeanFeatFlow) << ","  << (*lGNit) << ","
                   << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lTransEntropy) << "," << (*lRotEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," << (*lDepthSkewness) << "," 
                   << (*lEigenValues)[0] << "," << (*lEigenValues)[1]  << "," << meanTime << "\n";
             } else{
                 f << nFrames <<"," << (*lPtsDetec) << ","<< (*lPtsNMS) << "," << (*lPtsStereoMatch) << "," << (*lMeanRepErr3d) << ","
-                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << ","  << (*lGNit) << ","
+                  << (*lRansacIt8point) << "," << (*lGricVal) << "," << (*lPtsTracking) << "," << (*lPtsQuadMatch) << "," << (*lMeanFeatFlow) << ","  << (*lGNit) << ","
                   << (*lMeanGNit) << "," << (*lNumInliersGN) << "," << (*lPosesEntropy) << "," << (*lTransEntropy) << "," << (*lRotEntropy) << "," << (*lDepthKurtosis) << "," << (*lDepthMean) << "," << (*lDepthSkewness) << "," 
                   << (*lEigenValues)[0] << "," << (*lEigenValues)[1]  <<"\n";
             }
@@ -2155,4 +2168,13 @@ void Tracking::computeDataMoments(const std::vector<double> &points, double &mea
     // std::cout << "skewness: " << skewness << std::endl;
     // std::cout << "kurtosis: " << kurtosis << std::endl;
     
+}
+
+void Tracking::computeFeatureFlowMagnitudes(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector<double> &flowMagn)
+{
+    for(int i=0; i < prevPts.size(); i++)
+    {
+        cv::Point2f flow_vector = nextPts[i] - prevPts[i];
+        flowMagn.push_back(cv::norm(flow_vector));
+    }
 }
