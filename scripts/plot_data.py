@@ -48,18 +48,21 @@ def concatenate_data(df, error_array, column_name, output):
             df[column_name] = error_array.tolist()
             df.to_csv(output, encoding='utf-8', index=False)
 
-def compute_data_correlation(df, output, range):
+def compute_data_correlation(df, output, range, fields):
     if range:
         df = filter_df_by_range(df, 'frame', range[0], range[1])
     if 'frame' in df.columns:
         df.drop(columns=['frame'], axis=1, inplace=True)
+    if fields:
+        df = df.loc[:, fields]
     corrM = df.corr()
-    print(corrM)
     fig, ax = plt.subplots(figsize=(15,15))
     sns.heatmap(corrM, annot=True, fmt='.4f', 
     cmap=plt.get_cmap('coolwarm'), cbar=False, ax=ax)
     ax.set_yticklabels(ax.get_yticklabels(), rotation="horizontal")
-    plt.savefig(output, bbox_inches='tight', pad_inches=0.0)
+    if output:
+        plt.savefig(output, bbox_inches='tight', pad_inches=0.0)
+    plt.show()
 
 def plot_data(df, fields, range_values, normalize_data):
     vectors = {}
@@ -148,10 +151,10 @@ parser.add_argument('--plot_multi_data',
                     action="store_true",
                     help='Plot multiple defined data in the same graph')
 
-parser.add_argument('--plot_fields',
+parser.add_argument('--fields',
                     nargs='+',
                     help='List of the fields to be analyzed')
-parser.add_argument('--plot_range',
+parser.add_argument('--range',
                     nargs='+',
                     type=int,
                     help='Range of data to be analyzed (e.g. frame index)')
@@ -185,7 +188,7 @@ if(args.fuse_data):
         concatenate_data(df, error_array, args.column_name, args.file)
 
 if(args.compute_df_correlation):
-    compute_data_correlation(df, args.output, args.plot_range)
+    compute_data_correlation(df, args.output, args.range, args.fields)
 
 if(args.plot_multi_data):
-    plot_data(df, args.plot_fields, args.plot_range, args.normalize_data)
+    plot_data(df, args.fields, args.range, args.normalize_data)
