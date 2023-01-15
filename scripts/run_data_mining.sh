@@ -45,6 +45,7 @@ evo_rpe tum \
     --delta 1 \
     --delta_unit f \
     --plot_x_dimension index \
+    --plot_mode=xz \
     --save_results $DIR/${SEQ}_trans.zip \
     --save_plot $DIR/
 
@@ -65,12 +66,30 @@ evo_rpe tum \
     --delta 1 \
     --delta_unit f \
     --plot_x_dimension index \
+    --plot_mode=xz \
     --save_results $DIR/${SEQ}_rot.zip \
     --save_plot $DIR/
 
 unzip $DIR/${SEQ}_rot.zip -d $DIR
 fi
 
+echo "Absolute error"
+DIR="/root/kltvo/examples/kitti/results/${SEQ}_ape"
+if [ -d "$DIR" ];
+then
+    echo "$DIR directory exists."
+else
+mkdir $DIR
+evo_ape tum \
+    /data/KITTI-dataset/data_odometry_poses/tum_format/${SEQ}.tum \
+    /root/kltvo/examples/kitti/results/KITTI_${SEQ}_KLTVO.tum \
+    --plot_x_dimension index \
+    --plot_mode=xz \
+    --save_results $DIR/${SEQ}_ape.zip \
+    --save_plot $DIR/
+
+unzip $DIR/${SEQ}_ape.zip -d $DIR
+fi
 echo "Stats data augmentation"
 echo "Adding translation RPE"
 
@@ -86,6 +105,14 @@ python3 /root/kltvo/scripts/plot_data.py \
         -f /root/kltvo/examples/kitti/stats/KITTI_${SEQ}_STATS_extended.csv \
         --error_file /root/kltvo/examples/kitti/results/${SEQ}_rot/error_array.npy \
         --fuse_data --column_name rpe_rot \
+        -o /root/kltvo/examples/kitti/stats/KITTI_${SEQ}_STATS_extended.csv
+
+echo "Adding APE"
+
+python3 /root/kltvo/scripts/plot_data.py \
+        -f /root/kltvo/examples/kitti/stats/KITTI_${SEQ}_STATS_extended.csv \
+        --error_file /root/kltvo/examples/kitti/results/${SEQ}_ape/error_array.npy \
+        --fuse_data --column_name ape \
         -o /root/kltvo/examples/kitti/stats/KITTI_${SEQ}_STATS_extended.csv
 
 echo "Computing correlation matrix"
