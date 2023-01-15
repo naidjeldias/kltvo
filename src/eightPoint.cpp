@@ -183,11 +183,13 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
             bestFmat        = fmat.clone();
             bestVar         = var;
-            bestNumInliers  = numInliers;
+            bestNumInliers  = numInliers+ransacMinSet; //because the pts used to estimate the model are inliers too
             bestGRIC        = gric;
 
             //fraction of inliers in the set of points
             double w    = (double) bestNumInliers / (double) kpt_l.size();
+
+            // double w = 0.5; // Probability that a random sample of min set points is an inlier
 
             //probability of not all N points are inliers
             //in each iteration we pick N points that are all inliers with probability w^N
