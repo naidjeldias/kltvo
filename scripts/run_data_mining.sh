@@ -62,7 +62,7 @@ mkdir $DIR
 evo_rpe tum \
     /data/KITTI-dataset/data_odometry_poses/tum_format/${SEQ}.tum \
     /root/kltvo/examples/kitti/results/KITTI_${SEQ}_KLTVO.tum \
-    --pose_relation rot_part \
+    --pose_relation angle_deg \
     --delta 1 \
     --delta_unit f \
     --plot_x_dimension index \
