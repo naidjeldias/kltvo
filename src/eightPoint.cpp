@@ -57,8 +57,8 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
     if(normalize && method == 0) computeMatNormTransform(kpt_l, kpt_r, kpt_l.size(), leftScaling, rightScaling);
 
-//    int bestNumInliers = ransacMinSet;
-    int bestNumInliers = 0;
+    int bestNumInliers = ransacMinSet;
+    // int bestNumInliers = 0;
 
     int n = 0;
     long int r              = 1000;//adjusted dinamically
@@ -160,10 +160,10 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
             double p1   = 1 - pow(w, ransacMinSet);
             p1 = MAX(LDBL_MIN, p1);     // Avoid division by -Inf
             p1 = MIN(1-LDBL_MIN, p1);   // Avoid division by 0.
-
+            
             //probability of not all N points are inliers in r iterations is (1 - w^N)^r
             //the probability that in r iteration, at least once, all N points are inliers: p = 1-(1 - W^N)^r
-            r = log(1 - ransacProb)/log(p1);
+            r = std::ceil(log(1 - ransacProb)/log(p1));
 
         }
         n ++;
