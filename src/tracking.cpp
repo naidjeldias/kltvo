@@ -1028,7 +1028,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
 
 
         //epipolar constraints, the correspondent keypoint must be at the same row and disparity should be positive
-        if (deltax >= minDisp && deltax <= maxDisp) {
+        if (deltax > minDisp && deltax <= maxDisp) {
 
             //compute SAD
             double meanC    = 0; //mean of intensities of current template
