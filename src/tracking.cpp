@@ -542,18 +542,10 @@ int Tracking::poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::
 
     computeJacobian(numPts, pts3d, pts2dl, pts2dr, p0, J, res, reweigh);
 
-//    std::cout << "Passou !!!!!!!" << std::endl;
-
-    cv::Mat A = cv::Mat(6,6,CV_64F);
-    cv::Mat B = cv::Mat(6,1,CV_64F);
     cv::Mat S = cv::Mat(6,1,CV_64F);
-//    cv::Mat I = cv::Mat::eye(6,6, CV_64F);
 
-    //computing augmented normal equations
-    A = J.t() * J;
-    B = J.t() * res;
-
-    bool status = cv::solve(A, B, S, DECOMP_NORMAL);
+    // Solving normal equations
+    bool status = cv::solve(J, res, S, DECOMP_NORMAL);
 
     if(status){
         bool converged = true;
