@@ -1383,24 +1383,16 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
         w = p0.at<double>(2);
     }
 
-//    Mat M   = P1.rowRange(0,3).colRange(0,3);
-//    Mat m3  = M.row(2);
-//
-//    depth = (sign(determinant(M))*w)/cv::norm(m3);
-
     depth = (baseline * fu)/(kp_l.x - kp_r.x);
-
-//    std::cout << "Depth: " << depth << std::endl;
 
     pt3d.x           = (float) point3d.at<double>(0);
     pt3d.y           = (float) point3d.at<double>(1);
     pt3d.z           = (float) point3d.at<double>(2);
 
-//    std::cout << "Z coordinate: " << pt3d.z << std::endl;
 
     error = dist;
 
-    if (dist < 2*th_3d)
+    if (dist < 2*th_3d && depth > 0)
         return true;
     else
         return false;
