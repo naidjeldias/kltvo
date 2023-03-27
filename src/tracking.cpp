@@ -542,18 +542,10 @@ int Tracking::poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::
 
     computeJacobian(numPts, pts3d, pts2dl, pts2dr, p0, J, res, reweigh);
 
-//    std::cout << "Passou !!!!!!!" << std::endl;
-
-    cv::Mat A = cv::Mat(6,6,CV_64F);
-    cv::Mat B = cv::Mat(6,1,CV_64F);
     cv::Mat S = cv::Mat(6,1,CV_64F);
-//    cv::Mat I = cv::Mat::eye(6,6, CV_64F);
 
-    //computing augmented normal equations
-    A = J.t() * J;
-    B = J.t() * res;
-
-    bool status = cv::solve(A, B, S, DECOMP_NORMAL);
+    // Solving normal equations
+    bool status = cv::solve(J, res, S, DECOMP_NORMAL);
 
     if(status){
         bool converged = true;
@@ -1036,7 +1028,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
 
 
         //epipolar constraints, the correspondent keypoint must be at the same row and disparity should be positive
-        if (deltax >= minDisp && deltax <= maxDisp) {
+        if (deltax > minDisp && deltax <= maxDisp) {
 
             //compute SAD
             double meanC    = 0; //mean of intensities of current template
@@ -1391,24 +1383,16 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
         w = p0.at<double>(2);
     }
 
-//    Mat M   = P1.rowRange(0,3).colRange(0,3);
-//    Mat m3  = M.row(2);
-//
-//    depth = (sign(determinant(M))*w)/cv::norm(m3);
-
     depth = (baseline * fu)/(kp_l.x - kp_r.x);
-
-//    std::cout << "Depth: " << depth << std::endl;
 
     pt3d.x           = (float) point3d.at<double>(0);
     pt3d.y           = (float) point3d.at<double>(1);
     pt3d.z           = (float) point3d.at<double>(2);
 
-//    std::cout << "Z coordinate: " << pt3d.z << std::endl;
 
     error = dist;
 
-    if (dist < 2*th_3d)
+    if (dist < 2*th_3d && depth > 0)
         return true;
     else
         return false;

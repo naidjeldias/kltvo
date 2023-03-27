@@ -7,7 +7,7 @@ ThDepth: 35.0
 # Stereo Matching parameters
 #--------------------------------------------------------------------------------------------
 Disparity.maxdisp: 128 # a default parameter can be the camera matrix fx value
-Disparity.mindisp: 0
+Disparity.mindisp: 0  # minDisp < disp <= maxDisp
 
 SAD.winHalfBlockSize: 2
 SAD.minValue: 0.04
