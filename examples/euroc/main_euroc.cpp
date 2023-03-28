@@ -6,6 +6,7 @@
 #include <opencv2/opencv.hpp>
 #include "tracking.h"
 #include <unistd.h>
+#include "viewer.hpp"
 
 void LoadImages(const string &strPathToSequence, const string &strPathTimes,
                 vector<string> &vstrImageLeft, vector<string> &vstrImageRight, vector<double> &vTimeStamps)
@@ -165,7 +166,7 @@ int main(int argc, char *argv[]){
                 ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, minIncTh, 
                 maxIteration, finalMaxIteration, reweigh, adjustValue);
     
-    Tracking tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, sadMinValue, halfBlockSize, 
+    Tracking* trackerPtr = new Tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, sadMinValue, halfBlockSize, 
                 winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
                 ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN,
                 maxIteration, finalMaxIteration, reweigh, adjustValue);
@@ -219,7 +220,11 @@ int main(int argc, char *argv[]){
 
     bf = -P_r.at<double>(0,3);
     
-    tracking.setCalibrationParameters(fu, fv, uc, vc, bf);
+    trackerPtr->setCalibrationParameters(fu, fv, uc, vc, bf);
+
+    // starting visualizer thread
+    Viewer* viewer_ = new Viewer(path_config, trackerPtr);
+    std::thread* viewer_thd_ = new thread(&Viewer::run, viewer_);
 
     const int nImages = vstrImageLeft.size();
 
@@ -263,7 +268,7 @@ int main(int argc, char *argv[]){
 
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
-        tracking.start(imLeftRect,imRightRect, tframe);
+        trackerPtr->start(imLeftRect,imRightRect, tframe);
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
@@ -283,11 +288,6 @@ int main(int argc, char *argv[]){
 
         current_ni = ni;
 
-        cv::imshow("Left Frame", imLeft);
-        char c=(char) cv::waitKey(1);
-        if(c==27)
-            break;
-
     }
 
     // Tracking time statistics
@@ -303,13 +303,17 @@ int main(int argc, char *argv[]){
 
 
 
-//    tracking.saveTrajectoryKitti("results/euroc/"+resultFile);
-    tracking.saveTrajectoryEuroc(resultPath+resultFile);
+//    trackerPtr->saveTrajectoryKitti("results/euroc/"+resultFile);
+    trackerPtr->saveTrajectoryEuroc(resultPath+resultFile);
 #if LOG
-    tracking.saveStatistics(statsPath+statsFile, meanTime, true);
+    trackerPtr->saveStatistics(statsPath+statsFile, meanTime, true);
 
 #endif
-    cv::destroyAllWindows();
+    viewer_->shutdown();
+    viewer_thd_->join();
+    delete viewer_thd_;
+    delete viewer_;
+    delete trackerPtr;
 
     return 0;
 }
