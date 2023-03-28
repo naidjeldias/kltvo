@@ -44,7 +44,7 @@ public:
         double &halfBlockSize, int &winSize, int &pyrMaxLevel, int &nFeatures, float &fScaleFactor, int &nLevels, 
         int &fIniThFAST, int &fMinThFAST, double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, 
         double &ransacThTrack, int &max_iter_3d, double &th_3d, double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, 
-        int &ransacMaxItGN, int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue);
+        int &ransacMaxItGN, int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue, bool useViewer);
 
     ~Tracking();
 
@@ -92,7 +92,7 @@ private:
 #endif
 
 
-    bool initPhase;
+    bool initPhase, useViewer_;
     int numFrame;
 
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
@@ -100,6 +100,7 @@ private:
     Viewer* viewer_;
     std::thread* viewer_thd_;
 
+    void updateViewer();    
     cv::Mat computeGlobalPose(const cv::Mat &current_pose);
 
     //-------------- feature extraction

@@ -13,11 +13,11 @@ Tracking::Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, dou
                     int &nFeatures, float &fScaleFactor, int &nLevels, int &fIniThFAST, int &fMinThFAST,  
                     double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, double &ransacThTrack, int &max_iter_3d, double &th_3d, 
                     double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, int &ransacMaxItGN, 
-                    int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue) : 
+                    int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue, bool useViewer) : 
 frameGridRows(frameGridRows), frameGridCols(frameGridCols),  maxDisp(maxDisp), minDisp(minDisp), thDepth(35.0), sadMinValue(sadMinValue), halfBlockSize(halfBlockSize), 
 winSize(winSize), pyrMaxLevel(pyrMaxLevel), nFeatures(nFeatures), fScaleFactor(fScaleFactor), nLevels(nLevels), fIniThFAST(fIniThFAST), fMinThFAST(fMinThFAST), max_iter_3d(max_iter_3d), 
 th_3d(th_3d), ransacProb(ransacProbGN), ransacTh(ransacThGN), ransacMinSet(ransacMinSetGN), ransacMaxIt(ransacMaxItGN), minIncTh(10E-5), 
-maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue), Tcw(cv::Mat::eye(4,4,CV_32F)), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F))
+maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue), Tcw(cv::Mat::eye(4,4,CV_32F)), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F)), useViewer_(useViewer)
 
 {
     srand(time(0));
@@ -80,8 +80,10 @@ maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweig
     initPhase = true;
 
     // starting visualizer thread
-    viewer_ = new Viewer();
-    viewer_thd_ = new thread(&Viewer::run, viewer_);
+    if (useViewer_) {
+        viewer_ = new Viewer();
+        viewer_thd_ = new thread(&Viewer::run, viewer_);
+    }
 
 }
 
@@ -245,7 +247,8 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         frameTimeStamp.push_back(timestamp);
 
         cameraPoses_.push_back(computeGlobalPose(Tcw_));
-        viewer_->setCameraPoses(cameraPoses_);
+        if(useViewer_)
+            updateViewer();
 
         Tcw = Tcw_.clone();
 
@@ -260,6 +263,10 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
     }
 
     return Tcw;
+}
+
+void Tracking::updateViewer() {
+    viewer_->setCameraPoses(cameraPoses_);
 }
 
 void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts) {

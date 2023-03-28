@@ -174,7 +174,7 @@ int main(int argc, char *argv[]) {
     Tracking* trackerPtr = new Tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, sadMinValue, halfBlockSize, 
             winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
             ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, 
-            maxIteration, finalMaxIteration, reweigh, adjustValue);
+            maxIteration, finalMaxIteration, reweigh, adjustValue, true);
 
     cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
     if(!fsSettings.isOpened())
