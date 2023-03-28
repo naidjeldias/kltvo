@@ -26,7 +26,6 @@
 #include <functional>
 #include <math.h>
 #include<Eigen/Dense>
-#include "viewer.hpp"
 
 
 #include "opencv2/features2d/features2d.hpp"
@@ -44,7 +43,7 @@ public:
         double &halfBlockSize, int &winSize, int &pyrMaxLevel, int &nFeatures, float &fScaleFactor, int &nLevels, 
         int &fIniThFAST, int &fMinThFAST, double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, 
         double &ransacThTrack, int &max_iter_3d, double &th_3d, double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, 
-        int &ransacMaxItGN, int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue, bool useViewer);
+        int &ransacMaxItGN, int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue);
 
     ~Tracking();
 
@@ -60,7 +59,6 @@ public:
     std::vector<cv::Mat> cameraPoses_;
 
     cv::Mat getCurrentPose();
-    void shutdown();
     void setCalibrationParameters(const double &mFu, const double &mFv, const double &mUc, const double &mVc,
                    const double &mbf);
 
@@ -92,15 +90,11 @@ private:
 #endif
 
 
-    bool initPhase, useViewer_;
+    bool initPhase;
     int numFrame;
 
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
 
-    Viewer* viewer_;
-    std::thread* viewer_thd_;
-
-    void updateViewer();    
     cv::Mat computeGlobalPose(const cv::Mat &current_pose);
 
     //-------------- feature extraction

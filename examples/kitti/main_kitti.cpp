@@ -4,6 +4,7 @@
 #include "tracking.h"
 #include "utils.h"
 #include <unistd.h>
+#include "viewer.hpp"
 
 
 class time_point;
@@ -174,7 +175,7 @@ int main(int argc, char *argv[]) {
     Tracking* trackerPtr = new Tracking(frameGridRows, frameGridCols,  maxDisp, minDisp, sadMinValue, halfBlockSize, 
             winSize, pyrMaxLevel, nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST, ransacProb, ransacMinSet, 
             ransacMaxIt, ransacTh, max_iter_3d, th_3d, ransacProbGN, ransacThGN, ransacMinSetGN, ransacMaxItGN, 
-            maxIteration, finalMaxIteration, reweigh, adjustValue, true);
+            maxIteration, finalMaxIteration, reweigh, adjustValue);
 
     cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
     if(!fsSettings.isOpened())
@@ -194,11 +195,16 @@ int main(int argc, char *argv[]) {
 
     trackerPtr->setCalibrationParameters(fu, fv, uc, vc, bf);
 
+    // starting visualizer thread
+    Viewer* viewer_ = new Viewer(trackerPtr);
+    std::thread* viewer_thd_ = new thread(&Viewer::run, viewer_);
+
+
     // Main loop
     cv::Mat imLeft, imRight;
     int current_ni;
-    for(int ni=0; ni<nImages; ni++)
-//    for(int ni=0; ni<2; ni++)
+   for(int ni=0; ni<nImages; ni++)
+//    for(int ni=0; ni<20; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],IMREAD_UNCHANGED);
@@ -267,7 +273,10 @@ int main(int argc, char *argv[]) {
 #endif
 //    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
 
-    trackerPtr->shutdown();
+    viewer_->shutdown();
+    viewer_thd_->join();
+    delete viewer_thd_;
+    delete viewer_;
     cout << "-------" << endl << endl;
 
     return 0;

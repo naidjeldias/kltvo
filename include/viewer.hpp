@@ -1,4 +1,5 @@
 #include <thread>
+#include "tracking.h"
 #include <opencv2/opencv.hpp>
 #include <pangolin/pangolin.h>
 #include <pangolin/pangolin.h>
@@ -9,11 +10,11 @@ class Viewer
 {
 
 public:
-    Viewer();
+    Viewer(Tracking* tracker);
     void run();
-    void setCameraPoses(const std::vector<cv::Mat>& cameraPoses);
     void shutdown();
 private:
+    Tracking* trackerPtr_;
     bool finishRequested_;
     std::mutex data_buffer_mutex_;
     std::vector<cv::Mat> cameraPoses_;

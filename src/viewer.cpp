@@ -1,6 +1,6 @@
 #include "viewer.hpp"
 
-Viewer::Viewer():finishRequested_(false)
+Viewer::Viewer(Tracking* tracker):trackerPtr_(tracker), finishRequested_(false)
 {
 }
 
@@ -37,6 +37,7 @@ void Viewer::run()
 
         {
           std::lock_guard<std::mutex> lg(data_buffer_mutex_);
+          cameraPoses_ = trackerPtr_->cameraPoses_;
           if(!cameraPoses_.empty())
           {
             computeOpenGLCameraMatrix(cameraPoses_.back(), Twc);
@@ -67,11 +68,6 @@ void Viewer::shutdown()
   finishRequested_ = true;
 }
 
-void Viewer::setCameraPoses(const std::vector<cv::Mat>& cameraPoses)
-{
-  std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-  cameraPoses_ = cameraPoses;
-}
 
 void Viewer::computeOpenGLCameraMatrix(const cv::Mat& cameraPose, pangolin::OpenGlMatrix& Twc)
 {
