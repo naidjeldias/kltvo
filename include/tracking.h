@@ -52,13 +52,10 @@ public:
     cv::Mat P1, P2;
     double uc, vc, fu, fv;
 
-    //Current relative pose
-    cv::Mat Tcw;
     // Camera poses
     cv::Mat cameraCurrentPose_;
     std::vector<cv::Mat> cameraPoses_;
 
-    cv::Mat getCurrentPose();
     void setCalibrationParameters(const double &mFu, const double &mFv, const double &mUc, const double &mVc,
                    const double &mbf);
 

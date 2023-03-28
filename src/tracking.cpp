@@ -17,7 +17,7 @@ Tracking::Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, dou
 frameGridRows(frameGridRows), frameGridCols(frameGridCols),  maxDisp(maxDisp), minDisp(minDisp), thDepth(35.0), sadMinValue(sadMinValue), halfBlockSize(halfBlockSize), 
 winSize(winSize), pyrMaxLevel(pyrMaxLevel), nFeatures(nFeatures), fScaleFactor(fScaleFactor), nLevels(nLevels), fIniThFAST(fIniThFAST), fMinThFAST(fMinThFAST), max_iter_3d(max_iter_3d), 
 th_3d(th_3d), ransacProb(ransacProbGN), ransacTh(ransacThGN), ransacMinSet(ransacMinSetGN), ransacMaxIt(ransacMaxItGN), minIncTh(10E-5), 
-maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue), Tcw(cv::Mat::eye(4,4,CV_32F)), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F))
+maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F))
 
 {
     srand(time(0));
@@ -124,7 +124,7 @@ void Tracking::setCalibrationParameters(const double &mFu, const double &mFv, co
 }
 cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
 
-
+    Mat relativePose = cv::Mat::eye(3,4,CV_64F);
     if (initPhase){
         imLeft0         = imLeft.clone();
         imRight0        = imRight.clone();
@@ -227,16 +227,13 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         std::vector<Point3f>().swap(pts3D);
 
         //------------------------------------relative pose estimation
-        Mat Tcw_ = cv::Mat::eye(3,4,CV_64F);
-        relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, Tcw_);
+        relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, relativePose);
 
         //saving relative pose estimated
-        relativeFramePoses.push_back(Tcw_.clone());
+        relativeFramePoses.push_back(relativePose.clone());
         frameTimeStamp.push_back(timestamp);
 
-        cameraPoses_.push_back(computeGlobalPose(Tcw_));
-
-        Tcw = Tcw_.clone();
+        cameraPoses_.push_back(computeGlobalPose(relativePose));
 
         imLeft0     = imLeft.clone();
         imRight0    = imRight.clone();
@@ -248,7 +245,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 
     }
 
-    return Tcw;
+    return relativePose;
 }
 
 
@@ -1634,10 +1631,6 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
 //    tr_vec.at<double>(2)  = p.at(5);
 
 
-}
-
-cv::Mat Tracking::getCurrentPose() {
-    return Tcw;
 }
 
 void Tracking::saveTrajectoryEuroc(const string &filename) {
