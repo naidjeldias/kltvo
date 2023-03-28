@@ -126,8 +126,8 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 
     Mat relativePose = cv::Mat::eye(3,4,CV_64F);
     if (initPhase){
-        imLeft0         = imLeft.clone();
-        imRight0        = imRight.clone();
+        imLeft0_         = imLeft.clone();
+        imRight0_        = imRight.clone();
 
         initPhase       = false;
         numFrame        = 0;
@@ -148,12 +148,12 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         pts_l0.reserve(nFeatures);
         pts_r0.reserve(nFeatures);
 
-        featureExtraction(imLeft0, imRight0, kpts_l, kpts_r, pts_l0, pts_r0);
+        featureExtraction(imLeft0_, imRight0_, kpts_l, kpts_r, pts_l0, pts_r0);
 
 //        std::vector<cv::KeyPoint> kp_;
 //        cv::Mat imOut;
-//        cv::FAST(imLeft0, kp_, 100, true, cv::FastFeatureDetector::TYPE_9_16);
-//        cv::drawKeypoints(imLeft0,kp_,imOut, cv::Scalar(0,255,0));
+//        cv::FAST(imLeft0_, kp_, 100, true, cv::FastFeatureDetector::TYPE_9_16);
+//        cv::drawKeypoints(imLeft0_,kp_,imOut, cv::Scalar(0,255,0));
 //        cv::imwrite("kptsFAST.png", imOut);
 
         //convert vector of keypoints to vector of Point2f
@@ -180,9 +180,9 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         std::vector<bool> ptsClose;
         ptsClose.reserve(pts_l0.size());
 
-        stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0, pts3D, meanError, ptsClose);
+        stereoMatching(pts_l0, pts_r0, imLeft0_, imRight0_, mlr0, new_pts_l0, new_pts_r0, pts3D, meanError, ptsClose);
 #if LOG
-        logStereoMatching(imRight0, imLeft0, mlr0, new_pts_r0, new_pts_l0);
+        logStereoMatching(imRight0_, imLeft0_, mlr0, new_pts_r0, new_pts_l0);
         logLocalMaping(pts3D, meanError);
         rep_err_3d.push_back(meanError);
 #endif
@@ -193,7 +193,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         pts_l1.reserve(new_pts_l0.size());
         pts_r1.reserve(new_pts_r0.size());
 
-        featureTracking(imLeft0, imLeft, imRight0, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D, ptsClose);
+        featureTracking(imLeft0_, imLeft, imRight0_, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D, ptsClose);
 
 
         //-----------------------------------outliers removal and 2D motion estimation
@@ -201,7 +201,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         std::vector<double>     rvec_est;
         Mat t_est;
 
-        outlierRemovalAndMotionEstimation(imLeft0, new_pts_l0, imLeft, pts_l1, imRight0,
+        outlierRemovalAndMotionEstimation(imLeft0_, new_pts_l0, imLeft, pts_l1, imRight0_,
                 new_pts_r0, imRight, pts_r1, inliers, rvec_est, t_est);
 
 
@@ -235,8 +235,8 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 
         cameraPoses_.push_back(computeGlobalPose(relativePose));
 
-        imLeft0     = imLeft.clone();
-        imRight0    = imRight.clone();
+        imLeft0_     = imLeft.clone();
+        imRight0_    = imRight.clone();
 
 #if LOG
         writeOnLogFile("----------------------------", " ");

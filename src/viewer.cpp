@@ -1,7 +1,26 @@
 #include "viewer.hpp"
 
-Viewer::Viewer(Tracking* tracker):trackerPtr_(tracker), finishRequested_(false)
+Viewer::Viewer(const string &strSettingPath, Tracking* tracker):trackerPtr_(tracker), finishRequested_(false)
 {
+    cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
+
+    float fps = fSettings["Viewer.Camera.fps"];
+    if(fps<1)
+        fps=30;
+    updateRate_ = 1e3/fps;
+    
+    imageWidth_ = fSettings["Viewer.Camera.width"];
+    imageHeight_ = fSettings["Viewer.Camera.height"];
+    if(imageWidth_<1 || imageHeight_<1)
+    {
+        imageWidth_ = 640;
+        imageHeight_ = 480;
+    }
+
+    viewpointX_ = fSettings["Viewer.ViewpointX"];
+    viewpointY_ = fSettings["Viewer.ViewpointY"];
+    viewpointZ_ = fSettings["Viewer.ViewpointZ"];
+    viewpointF_ = fSettings["Viewer.ViewpointF"];
 }
 
 void Viewer::run()
@@ -16,13 +35,13 @@ void Viewer::run()
     
     // Define Projection and initial ModelView matrix
     pangolin::OpenGlRenderState s_cam(
-    pangolin::ProjectionMatrix(640,480,420,420,320,240,0.1,1000),
-    pangolin::ModelViewLookAt(-1,1,-1, 0,0,0, pangolin::AxisY)
+    pangolin::ProjectionMatrix(imageWidth_, imageHeight_, viewpointF_, viewpointF_, 320, 240, 0.1, 1000),
+    pangolin::ModelViewLookAt(viewpointX_, viewpointY_, viewpointZ_, 0, 0, 0, pangolin::AxisY)
   );
 
     // Add named OpenGL viewport to window and provide 3D Handler
     pangolin::View& d_cam = pangolin::Display("cam")
-      .SetBounds(0,1.0f,0,1.0f,-640/480.0)
+      .SetBounds(0,1.0f,0,1.0f,-imageWidth_/(float)imageHeight_)
       .SetHandler(new pangolin::Handler3D(s_cam));
     
     pangolin::OpenGlMatrix Twc;
@@ -54,6 +73,10 @@ void Viewer::run()
 
         // Swap frames and Process Events
         pangolin::FinishFrame();
+
+        cv::Mat im = trackerPtr_->imLeft0_;
+        cv::imshow("Current Frame",im);
+        cv::waitKey(updateRate_);
 
         if(finishRequested_)
           break;

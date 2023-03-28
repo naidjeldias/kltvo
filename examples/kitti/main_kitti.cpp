@@ -196,7 +196,7 @@ int main(int argc, char *argv[]) {
     trackerPtr->setCalibrationParameters(fu, fv, uc, vc, bf);
 
     // starting visualizer thread
-    Viewer* viewer_ = new Viewer(trackerPtr);
+    Viewer* viewer_ = new Viewer(path_config, trackerPtr);
     std::thread* viewer_thd_ = new thread(&Viewer::run, viewer_);
 
 
@@ -275,6 +275,7 @@ int main(int argc, char *argv[]) {
     viewer_thd_->join();
     delete viewer_thd_;
     delete viewer_;
+    delete trackerPtr;
     cout << "-------" << endl << endl;
 
     return 0;

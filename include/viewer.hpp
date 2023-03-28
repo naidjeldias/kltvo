@@ -10,12 +10,14 @@ class Viewer
 {
 
 public:
-    Viewer(Tracking* tracker);
+    Viewer(const string &strSettingPath, Tracking* tracker);
     void run();
     void shutdown();
 private:
     Tracking* trackerPtr_;
     bool finishRequested_;
+    int imageWidth_, imageHeight_;
+    float updateRate_, viewpointX_, viewpointY_, viewpointZ_, viewpointF_;
     std::mutex data_buffer_mutex_;
     std::vector<cv::Mat> cameraPoses_;
     cv::Mat computeGlobalPose();

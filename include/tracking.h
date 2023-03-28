@@ -51,6 +51,7 @@ public:
     double  baseline;
     cv::Mat P1, P2;
     double uc, vc, fu, fv;
+    cv::Mat imLeft0_, imRight0_;
 
     // Camera poses
     cv::Mat cameraCurrentPose_;
@@ -166,7 +167,6 @@ private:
     //----------local mapping
     int max_iter_3d;
     double th_3d;
-    cv::Mat imLeft0, imRight0;
 
     void localMapping (const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
                        std::vector<cv::Point3f> &pts3D, const std::vector<cv::DMatch> &macthes, double &meanError);
