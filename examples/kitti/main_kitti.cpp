@@ -244,10 +244,6 @@ int main(int argc, char *argv[]) {
 
         current_ni = ni;
         
-        // cv::imshow("Left Frame", imLeft);
-        char c=(char) cv::waitKey(1);
-        if(c==27)
-            break;
     }
 
     // Tracking time statistics
@@ -270,8 +266,9 @@ int main(int argc, char *argv[]) {
 //    tracking.saveTrajectoryKitti8point(resultPath+"8point_"+resultFile);
 #endif
 //    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
+
+    trackerPtr->shutdown();
     cout << "-------" << endl << endl;
-    cv::destroyAllWindows();
 
     return 0;
 }

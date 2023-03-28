@@ -12,7 +12,9 @@ public:
     Viewer();
     void run();
     void setCameraPoses(const std::vector<cv::Mat>& cameraPoses);
+    void shutdown();
 private:
+    bool finishRequested_;
     std::mutex data_buffer_mutex_;
     std::vector<cv::Mat> cameraPoses_;
     cv::Mat computeGlobalPose();

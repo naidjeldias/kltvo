@@ -90,6 +90,13 @@ Tracking::~Tracking() {
 }
 
 
+void Tracking::shutdown() {
+    viewer_->shutdown();
+    viewer_thd_->join();
+    delete viewer_thd_;
+    delete viewer_;
+}
+
 void Tracking::setCalibrationParameters(const double &mFu, const double &mFv, const double &mUc, const double &mVc,
                    const double &mbf)
 {

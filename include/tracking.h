@@ -60,7 +60,7 @@ public:
     std::vector<cv::Mat> cameraPoses_;
 
     cv::Mat getCurrentPose();
-
+    void shutdown();
     void setCalibrationParameters(const double &mFu, const double &mFv, const double &mUc, const double &mVc,
                    const double &mbf);
 

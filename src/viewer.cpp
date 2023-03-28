@@ -1,6 +1,6 @@
 #include "viewer.hpp"
 
-Viewer::Viewer()
+Viewer::Viewer():finishRequested_(false)
 {
 }
 
@@ -54,9 +54,17 @@ void Viewer::run()
         // Swap frames and Process Events
         pangolin::FinishFrame();
 
+        if(finishRequested_)
+          break;
+
     }
 
 
+}
+
+void Viewer::shutdown()
+{
+  finishRequested_ = true;
 }
 
 void Viewer::setCameraPoses(const std::vector<cv::Mat>& cameraPoses)
