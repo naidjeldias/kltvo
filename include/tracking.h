@@ -36,6 +36,11 @@
 class Tracking{
 
 public:
+    
+    struct{
+        std::vector<cv::Point2f> features;
+        std::vector<cv::Point2f> keypoints;
+    }keyframe_;
 
     enum status {CONVERGED, UPDATE, FAILED};
 

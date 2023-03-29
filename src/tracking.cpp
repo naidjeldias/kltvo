@@ -149,7 +149,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         pts_r0.reserve(nFeatures);
 
         featureExtraction(imLeft0_, imRight0_, kpts_l, kpts_r, pts_l0, pts_r0);
-
+        keyframe_.features = pts_l0;
 //        std::vector<cv::KeyPoint> kp_;
 //        cv::Mat imOut;
 //        cv::FAST(imLeft0_, kp_, 100, true, cv::FastFeatureDetector::TYPE_9_16);
@@ -220,7 +220,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 #if LOG
         logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
 #endif
-
+        keyframe_.keypoints = new_pts_l1;
         //free memory
         std::vector<Point2f>().swap(pts_l1);
         std::vector<Point2f>().swap(pts_r1);

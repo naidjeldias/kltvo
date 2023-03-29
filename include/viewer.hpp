@@ -25,4 +25,5 @@ private:
     void drawTrajectory();
     void renderCamera(const pangolin::OpenGlMatrix& camtMat);
     cv::Mat convertToOpenGLFrame(const cv::Mat& camMat);
+    void drawFeatures(cv::Mat &im);
 };

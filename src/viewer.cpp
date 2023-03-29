@@ -75,7 +75,9 @@ void Viewer::run()
         // Swap frames and Process Events
         pangolin::FinishFrame();
 
-        cv::Mat im = trackerPtr_->imLeft0_;
+        cv::Mat im = trackerPtr_->imLeft0_.clone();
+        cv::cvtColor(im, im, cv::COLOR_GRAY2BGR);
+        drawFeatures(im);
         cv::imshow("Current Frame",im);
         cv::waitKey(updateRate_);
 
@@ -188,4 +190,19 @@ cv::Mat Viewer::convertToOpenGLFrame(const cv::Mat& camMat)
   rotMatrix.at<float>(2, 2) = 1;
 
   return rotMatrix * camMat;
+}
+
+void Viewer::drawFeatures(cv::Mat& im)
+{
+  std::lock_guard<std::mutex> lg(data_buffer_mutex_);
+  // Draw the features
+  for (const cv::Point2f& pt : trackerPtr_->keyframe_.features) 
+  {
+    cv::circle(im, pt, 2, cv::Scalar(0, 0, 255), 2);
+  }
+  // Draw the keypoints
+  for (const cv::Point2f& pt : trackerPtr_->keyframe_.keypoints)
+  {
+    cv::circle(im, pt, 2, cv::Scalar(0, 255, 0), 2);
+  }
 }
