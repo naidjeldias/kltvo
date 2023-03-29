@@ -24,4 +24,5 @@ private:
     void computeOpenGLCameraMatrix(const cv::Mat& cameraPose, pangolin::OpenGlMatrix& Twc);
     void drawTrajectory();
     void renderCamera(const pangolin::OpenGlMatrix& camtMat);
+    cv::Mat convertToOpenGLFrame(const cv::Mat& camMat);
 };

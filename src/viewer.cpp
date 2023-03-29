@@ -34,6 +34,7 @@ void Viewer::run()
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     // Define Projection and initial ModelView matrix
+    // for more info see: https://www.songho.ca/opengl/gl_transform.html
     pangolin::OpenGlRenderState s_cam(
     pangolin::ProjectionMatrix(imageWidth_, imageHeight_, viewpointF_, viewpointF_, 320, 240, 0.1, 1000),
     pangolin::ModelViewLookAt(viewpointX_, viewpointY_, viewpointZ_, 0, 0, 0, pangolin::AxisY)
@@ -59,7 +60,7 @@ void Viewer::run()
           cameraPoses_ = trackerPtr_->cameraPoses_;
           if(!cameraPoses_.empty())
           {
-            computeOpenGLCameraMatrix(cameraPoses_.back(), Twc);
+            computeOpenGLCameraMatrix(convertToOpenGLFrame(cameraPoses_.back()), Twc);
             s_cam.Follow(Twc);
             
           }
@@ -126,9 +127,10 @@ void Viewer::drawTrajectory()
     glLineWidth(3.0);
     glBegin(GL_LINE_STRIP);
     std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-    for (const cv::Mat& global_pose : cameraPoses_) 
+    for (const cv::Mat& cameraPose : cameraPoses_) 
     {
-        glVertex3f(global_pose.at<float>(0,3), global_pose.at<float>(1,3), global_pose.at<float>(2,3));
+      cv::Mat global_pose = convertToOpenGLFrame(cameraPose);
+      glVertex3f(global_pose.at<float>(0,3), global_pose.at<float>(1,3), global_pose.at<float>(2,3));
     }
 
     glEnd();
@@ -171,4 +173,19 @@ void Viewer::renderCamera(const pangolin::OpenGlMatrix& camtMat)
     glPopMatrix();
 
     pangolin::glDrawAxis(camtMat, 0.2);
+}
+
+cv::Mat Viewer::convertToOpenGLFrame(const cv::Mat& camMat)
+{
+  
+  // Create the rotation matrix
+  Mat rotMatrix = Mat::eye(4, 4, CV_32F);
+  float angle = CV_PI;
+  rotMatrix.at<float>(0, 0) = cos(angle);
+  rotMatrix.at<float>(0, 1) = -sin(angle);
+  rotMatrix.at<float>(1, 0) = sin(angle);
+  rotMatrix.at<float>(1, 1) = cos(angle);
+  rotMatrix.at<float>(2, 2) = 1;
+
+  return rotMatrix * camMat;
 }
