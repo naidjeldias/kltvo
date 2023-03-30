@@ -47,7 +47,7 @@ void Viewer::run()
     // Menu.
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(175));
 
-    pangolin::Var<bool> menu_follow_cam("menu.Follow Camera", true, true);
+    pangolin::Var<bool> menu_follow_cam("menu.Follow Camera", false, true);
     pangolin::Var<bool> show_cam("menu.Show Camera", true, true);
     pangolin::Var<bool> show_traj("menu.Show Traj", true, true);
     pangolin::Var<bool> show_features("menu.Features", true, true);
