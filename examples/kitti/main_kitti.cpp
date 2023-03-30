@@ -272,7 +272,7 @@ int main(int argc, char *argv[]) {
 //    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
 
     cv::waitKey(0);
-    
+
     viewer_->shutdown();
     viewer_thd_->join();
     delete viewer_thd_;

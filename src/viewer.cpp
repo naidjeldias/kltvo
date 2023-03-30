@@ -36,15 +36,24 @@ void Viewer::run()
     // Define Projection and initial ModelView matrix
     // for more info see: https://www.songho.ca/opengl/gl_transform.html
     pangolin::OpenGlRenderState s_cam(
-    pangolin::ProjectionMatrix(imageWidth_, imageHeight_, viewpointF_, viewpointF_, 320, 240, 0.1, 1000),
-    pangolin::ModelViewLookAt(viewpointX_, viewpointY_, viewpointZ_, 0, 0, 0, pangolin::AxisY)
-  );
+      pangolin::ProjectionMatrix(imageWidth_, imageHeight_, viewpointF_, viewpointF_, 320, 240, 0.1, 1000),
+      pangolin::ModelViewLookAt(viewpointX_, viewpointY_, viewpointZ_, 0, 0, 0, pangolin::AxisY));
 
     // Add named OpenGL viewport to window and provide 3D Handler
     pangolin::View& d_cam = pangolin::Display("cam")
-      .SetBounds(0,1.0f,0,1.0f,-imageWidth_/(float)imageHeight_)
+      .SetBounds(0,1.0f,pangolin::Attach::Pix(175),1.0f,-imageWidth_/(float)imageHeight_)
       .SetHandler(new pangolin::Handler3D(s_cam));
     
+    // Menu.
+    pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(175));
+
+    pangolin::Var<bool> menu_follow_cam("menu.Follow Camera", true, true);
+    pangolin::Var<bool> show_cam("menu.Show Camera", true, true);
+    pangolin::Var<bool> show_traj("menu.Show Traj", true, true);
+    pangolin::Var<bool> show_features("menu.Features", true, true);
+    pangolin::Var<bool> show_keypoints("menu.Keypoints", true, true);
+
+
     pangolin::OpenGlMatrix Twc;
     Twc.SetIdentity();
     
@@ -61,17 +70,23 @@ void Viewer::run()
           if(!cameraPoses_.empty())
           {
             computeOpenGLCameraMatrix(convertToOpenGLFrame(cameraPoses_.back()), Twc);
-            s_cam.Follow(Twc);
+            if(menu_follow_cam)
+              s_cam.Follow(Twc);
             
           }
         }
 
-        glColor3f(0.0f, 1.0f, 0.0f);
-        renderCamera(Twc);
+        if (show_cam.Get()) 
+        {
+          glColor3f(0.0f, 1.0f, 0.0f);
+          renderCamera(Twc);
+        }
 
-        glColor3f(1.0f, 0.0f, 0.0f);
-        drawTrajectory();
-
+        if (show_traj.Get()) 
+        {
+          glColor3f(1.0f, 0.0f, 0.0f);
+          drawTrajectory();
+        }
         // Swap frames and Process Events
         pangolin::FinishFrame();
 
@@ -79,10 +94,12 @@ void Viewer::run()
         cv::cvtColor(im, im, cv::COLOR_GRAY2RGB);
 
         // Draw features
-        drawPointsImage(im, trackerPtr_->keyframe_.features, cv::Scalar(0,0,255));
+        if(show_features.Get())
+          drawPointsImage(im, trackerPtr_->keyframe_.features, cv::Scalar(0,0,255));
 
         // Draw keypoints
-        drawPointsImage(im, trackerPtr_->keyframe_.keypoints, cv::Scalar(0,255,0));
+        if(show_keypoints.Get())
+          drawPointsImage(im, trackerPtr_->keyframe_.keypoints, cv::Scalar(0,255,0));
         
         cv::imshow("Current Frame",im);
         cv::waitKey(updateRate_);
