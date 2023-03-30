@@ -309,11 +309,13 @@ int main(int argc, char *argv[]){
     trackerPtr->saveStatistics(statsPath+statsFile, meanTime, true);
 
 #endif
+    
+    cv::waitKey(0);
+
     viewer_->shutdown();
     viewer_thd_->join();
     delete viewer_thd_;
     delete viewer_;
     delete trackerPtr;
-
     return 0;
 }
