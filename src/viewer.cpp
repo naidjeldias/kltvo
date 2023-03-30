@@ -76,8 +76,14 @@ void Viewer::run()
         pangolin::FinishFrame();
 
         cv::Mat im = trackerPtr_->imLeft0_.clone();
-        cv::cvtColor(im, im, cv::COLOR_GRAY2BGR);
-        drawFeatures(im);
+        cv::cvtColor(im, im, cv::COLOR_GRAY2RGB);
+
+        // Draw features
+        drawPointsImage(im, trackerPtr_->keyframe_.features, cv::Scalar(0,0,255));
+
+        // Draw keypoints
+        drawPointsImage(im, trackerPtr_->keyframe_.keypoints, cv::Scalar(0,255,0));
+        
         cv::imshow("Current Frame",im);
         cv::waitKey(updateRate_);
 
@@ -192,17 +198,12 @@ cv::Mat Viewer::convertToOpenGLFrame(const cv::Mat& camMat)
   return rotMatrix * camMat;
 }
 
-void Viewer::drawFeatures(cv::Mat& im)
+void Viewer::drawPointsImage(cv::Mat &im, const std::vector<cv::Point2f> &pts, cv::Scalar color)
 {
   std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-  // Draw the features
-  for (const cv::Point2f& pt : trackerPtr_->keyframe_.features) 
+  // Draw the points
+  for (const cv::Point2f& pt : pts) 
   {
-    cv::circle(im, pt, 2, cv::Scalar(0, 0, 255), 2);
-  }
-  // Draw the keypoints
-  for (const cv::Point2f& pt : trackerPtr_->keyframe_.keypoints)
-  {
-    cv::circle(im, pt, 2, cv::Scalar(0, 255, 0), 2);
+    cv::circle(im, pt, 2, color, 2);
   }
 }
