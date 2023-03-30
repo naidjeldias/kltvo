@@ -37,10 +37,10 @@ class Tracking{
 
 public:
     
-    struct{
+    struct Keyframe{
         std::vector<cv::Point2f> features;
         std::vector<cv::Point2f> keypoints;
-    }keyframe_;
+    };
 
     enum status {CONVERGED, UPDATE, FAILED};
 
@@ -51,7 +51,8 @@ public:
         int &ransacMaxItGN, int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue);
 
     ~Tracking();
-
+    
+    Keyframe currentKeyframe_;
     cv::Mat K;
     double  baseline;
     cv::Mat P1, P2;

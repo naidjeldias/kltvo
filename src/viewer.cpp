@@ -95,11 +95,11 @@ void Viewer::run()
 
         // Draw features
         if(show_features.Get())
-          drawPointsImage(im, trackerPtr_->keyframe_.features, cv::Scalar(0,0,255));
+          drawPointsImage(im, trackerPtr_->currentKeyframe_.features, cv::Scalar(0,0,255));
 
         // Draw keypoints
         if(show_keypoints.Get())
-          drawPointsImage(im, trackerPtr_->keyframe_.keypoints, cv::Scalar(0,255,0));
+          drawPointsImage(im, trackerPtr_->currentKeyframe_.keypoints, cv::Scalar(0,255,0));
         
         cv::imshow("Current Frame",im);
         cv::waitKey(updateRate_);
