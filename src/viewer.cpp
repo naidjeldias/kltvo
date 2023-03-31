@@ -1,6 +1,29 @@
 #include "viewer.hpp"
 
-Viewer::Viewer()
+Viewer::Viewer(const string &strSettingPath):finishRequested_(false), trackingState_(Tracking::NOT_INITIALIZED)
+{
+    cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
+
+    float fps = fSettings["Viewer.Camera.fps"];
+    if(fps<1)
+        fps=30;
+    updateRate_ = 1e3/fps;
+    
+    imageWidth_ = fSettings["Viewer.Camera.width"];
+    imageHeight_ = fSettings["Viewer.Camera.height"];
+    if(imageWidth_<1 || imageHeight_<1)
+    {
+        imageWidth_ = 640;
+        imageHeight_ = 480;
+    }
+
+    viewpointX_ = fSettings["Viewer.ViewpointX"];
+    viewpointY_ = fSettings["Viewer.ViewpointY"];
+    viewpointZ_ = fSettings["Viewer.ViewpointZ"];
+    viewpointF_ = fSettings["Viewer.ViewpointF"];
+}
+
+Viewer::~Viewer()
 {
 }
 
@@ -15,55 +38,88 @@ void Viewer::run()
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     // Define Projection and initial ModelView matrix
+    // for more info see: https://www.songho.ca/opengl/gl_transform.html
     pangolin::OpenGlRenderState s_cam(
-    pangolin::ProjectionMatrix(640,480,420,420,320,240,0.1,1000),
-    pangolin::ModelViewLookAt(-1,1,-1, 0,0,0, pangolin::AxisY)
-  );
+      pangolin::ProjectionMatrix(imageWidth_, imageHeight_, viewpointF_, viewpointF_, 320, 240, 0.1, 1000),
+      pangolin::ModelViewLookAt(viewpointX_, viewpointY_, viewpointZ_, 0, 0, 0, pangolin::AxisY));
 
     // Add named OpenGL viewport to window and provide 3D Handler
     pangolin::View& d_cam = pangolin::Display("cam")
-      .SetBounds(0,1.0f,0,1.0f,-640/480.0)
+      .SetBounds(0,1.0f,pangolin::Attach::Pix(175),1.0f,-imageWidth_/(float)imageHeight_)
       .SetHandler(new pangolin::Handler3D(s_cam));
     
+    // Menu.
+    pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(175));
+
+    pangolin::Var<bool> menu_follow_cam("menu.Follow Camera", true, true);
+    pangolin::Var<bool> show_cam("menu.Show Camera", true, true);
+    pangolin::Var<bool> show_traj("menu.Show Traj", true, true);
+    pangolin::Var<bool> show_features("menu.Features", true, true);
+    pangolin::Var<bool> show_keypoints("menu.Keypoints", true, true);
+
+
     pangolin::OpenGlMatrix Twc;
     Twc.SetIdentity();
     
     while(!pangolin::ShouldQuit())
     {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        d_cam.Activate(s_cam);
-        glClearColor(0.0f, 0.0f, 0.0f,1.0f);
-
+        if(trackingState_ == Tracking::OK)
         {
-          std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-          if(!cameraPoses_.empty())
-          {
-            computeOpenGLCameraMatrix(cameraPoses_.back(), Twc);
-            s_cam.Follow(Twc);
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            d_cam.Activate(s_cam);
+            glClearColor(0.0f, 0.0f, 0.0f,1.0f);
+                  
+            if(!cameraPoses_.empty())
+            {
+              computeOpenGLCameraMatrix(convertToOpenGLFrame(cameraPoses_.back()), Twc);
+              if(menu_follow_cam)
+                s_cam.Follow(Twc);
+              
+            }
+
+            if (show_cam.Get()) 
+            {
+              glColor3f(0.0f, 1.0f, 0.0f);
+              renderCamera(Twc);
+            }
+
+            if (show_traj.Get()) 
+            {
+              glColor3f(1.0f, 0.0f, 0.0f);
+              drawTrajectory();
+            }
+            // Swap frames and Process Events
+            pangolin::FinishFrame();
+
+            // Draw features
+            if(show_features.Get())
+              drawPointsImage(imLeft0_, features_, cv::Scalar(0,0,255));
+
+            // Draw keypoints
+            if(show_keypoints.Get())
+              drawPointsImage(imLeft0_, keypoints_, cv::Scalar(0,255,0));
             
-          }
+            cv::imshow("Current Frame",imLeft0_);
+            
         }
 
-        glColor3f(0.0f, 1.0f, 0.0f);
-        renderCamera(Twc);
-
-        glColor3f(1.0f, 0.0f, 0.0f);
-        drawTrajectory();
-
-        // Swap frames and Process Events
-        pangolin::FinishFrame();
+        if(finishRequested_)
+          break;
+        cv::waitKey(updateRate_);
 
     }
 
 
 }
 
-void Viewer::setCameraPoses(const std::vector<cv::Mat>& cameraPoses)
+void Viewer::shutdown()
 {
-  std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-  cameraPoses_ = cameraPoses;
+  finishRequested_ = true;
 }
+
 
 void Viewer::computeOpenGLCameraMatrix(const cv::Mat& cameraPose, pangolin::OpenGlMatrix& Twc)
 {
@@ -99,9 +155,10 @@ void Viewer::drawTrajectory()
     glLineWidth(3.0);
     glBegin(GL_LINE_STRIP);
     std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-    for (const cv::Mat& global_pose : cameraPoses_) 
+    for (const cv::Mat& cameraPose : cameraPoses_) 
     {
-        glVertex3f(global_pose.at<float>(0,3), global_pose.at<float>(1,3), global_pose.at<float>(2,3));
+      cv::Mat global_pose = convertToOpenGLFrame(cameraPose);
+      glVertex3f(global_pose.at<float>(0,3), global_pose.at<float>(1,3), global_pose.at<float>(2,3));
     }
 
     glEnd();
@@ -144,4 +201,45 @@ void Viewer::renderCamera(const pangolin::OpenGlMatrix& camtMat)
     glPopMatrix();
 
     pangolin::glDrawAxis(camtMat, 0.2);
+}
+
+cv::Mat Viewer::convertToOpenGLFrame(const cv::Mat& camMat)
+{
+  
+  // Create the rotation matrix
+  Mat rotMatrix = Mat::eye(4, 4, CV_32F);
+  float angle = CV_PI;
+  rotMatrix.at<float>(0, 0) = cos(angle);
+  rotMatrix.at<float>(0, 1) = -sin(angle);
+  rotMatrix.at<float>(1, 0) = sin(angle);
+  rotMatrix.at<float>(1, 1) = cos(angle);
+  rotMatrix.at<float>(2, 2) = 1;
+
+  return rotMatrix * camMat;
+}
+
+void Viewer::drawPointsImage(cv::Mat &im, const std::vector<cv::Point2f> &pts, cv::Scalar color)
+{
+  std::lock_guard<std::mutex> lg(data_buffer_mutex_);
+  if(pts.empty())
+    return;
+  // Draw the points
+  for (const cv::Point2f& pt : pts) 
+  {
+    cv::circle(im, pt, 2, color, 2);
+  }
+}
+
+void Viewer::update(Tracking* trackerPtr)
+{
+  std::lock_guard<std::mutex> lg(data_buffer_mutex_);
+  trackingState_ = trackerPtr->trackingState_;
+  if(trackingState_ == Tracking::OK)
+  {
+    trackerPtr->currentKeyframe_.imLeft0.copyTo(imLeft0_);
+    cv::cvtColor(imLeft0_, imLeft0_, cv::COLOR_GRAY2RGB);
+    cameraPoses_ = trackerPtr->cameraPoses_;
+    features_ = trackerPtr->currentKeyframe_.features;
+    keypoints_ = trackerPtr->currentKeyframe_.keypoints;
+  }
 }

@@ -4,6 +4,7 @@
 #include "tracking.h"
 #include "utils.h"
 #include <unistd.h>
+#include "viewer.hpp"
 
 
 class time_point;
@@ -194,11 +195,16 @@ int main(int argc, char *argv[]) {
 
     trackerPtr->setCalibrationParameters(fu, fv, uc, vc, bf);
 
+    // starting visualizer thread
+    Viewer* viewer_ = new Viewer(path_config);
+    std::thread* viewer_thd_ = new thread(&Viewer::run, viewer_);
+
+
     // Main loop
     cv::Mat imLeft, imRight;
     int current_ni;
-    for(int ni=0; ni<nImages; ni++)
-//    for(int ni=0; ni<2; ni++)
+   for(int ni=0; ni<nImages; ni++)
+//    for(int ni=0; ni<20; ni++)
     {
         // Read left and right images from file
         imLeft = cv::imread(vstrImageLeft[ni],IMREAD_UNCHANGED);
@@ -223,10 +229,9 @@ int main(int argc, char *argv[]) {
         // std::thread tracker (&Tracking::start, trackerPtr, imLeft,imRight, tframe);
         // tracker.join();
         trackerPtr->start(imLeft,imRight, tframe);
+        viewer_->update(trackerPtr);
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
-
-        cv::Mat current_pose = trackerPtr->getCurrentPose();
 
         double ttrack= std::chrono::duration_cast<std::chrono::duration<double> >(t2 - t1).count();
 
@@ -244,10 +249,6 @@ int main(int argc, char *argv[]) {
 
         current_ni = ni;
         
-        // cv::imshow("Left Frame", imLeft);
-        char c=(char) cv::waitKey(1);
-        if(c==27)
-            break;
     }
 
     // Tracking time statistics
@@ -270,8 +271,15 @@ int main(int argc, char *argv[]) {
 //    tracking.saveTrajectoryKitti8point(resultPath+"8point_"+resultFile);
 #endif
 //    tracking.saveTrajectoryTUM("KLTVO_KITTI_TUM.txt");
+
+    cv::waitKey(0);
+
+    viewer_->shutdown();
+    viewer_thd_->join();
+    delete viewer_thd_;
+    delete viewer_;
+    delete trackerPtr;
     cout << "-------" << endl << endl;
-    cv::destroyAllWindows();
 
     return 0;
 }

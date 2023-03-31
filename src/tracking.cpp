@@ -13,11 +13,11 @@ Tracking::Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, dou
                     int &nFeatures, float &fScaleFactor, int &nLevels, int &fIniThFAST, int &fMinThFAST,  
                     double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, double &ransacThTrack, int &max_iter_3d, double &th_3d, 
                     double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, int &ransacMaxItGN, 
-                    int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue) : 
+                    int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue) : trackingState_(NOT_INITIALIZED),
 frameGridRows(frameGridRows), frameGridCols(frameGridCols),  maxDisp(maxDisp), minDisp(minDisp), thDepth(35.0), sadMinValue(sadMinValue), halfBlockSize(halfBlockSize), 
 winSize(winSize), pyrMaxLevel(pyrMaxLevel), nFeatures(nFeatures), fScaleFactor(fScaleFactor), nLevels(nLevels), fIniThFAST(fIniThFAST), fMinThFAST(fMinThFAST), max_iter_3d(max_iter_3d), 
 th_3d(th_3d), ransacProb(ransacProbGN), ransacTh(ransacThGN), ransacMinSet(ransacMinSetGN), ransacMaxIt(ransacMaxItGN), minIncTh(10E-5), 
-maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue), Tcw(cv::Mat::eye(4,4,CV_32F)), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F))
+maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F))
 
 {
     srand(time(0));
@@ -79,15 +79,12 @@ maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweig
 
     initPhase = true;
 
-    // starting visualizer thread
-    viewer_ = new Viewer();
-    viewer_thd_ = new thread(&Viewer::run, viewer_);
-
 }
 
 
 Tracking::~Tracking() {
 }
+
 
 
 void Tracking::setCalibrationParameters(const double &mFu, const double &mFv, const double &mUc, const double &mVc,
@@ -127,10 +124,10 @@ void Tracking::setCalibrationParameters(const double &mFu, const double &mFv, co
 }
 cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
 
-
+    Mat relativePose = cv::Mat::eye(3,4,CV_64F);
     if (initPhase){
-        imLeft0         = imLeft.clone();
-        imRight0        = imRight.clone();
+        imLeft0_         = imLeft.clone();
+        imRight0_        = imRight.clone();
 
         initPhase       = false;
         numFrame        = 0;
@@ -138,6 +135,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
     }else{
 
         numFrame ++;
+        currentKeyframe_.imLeft0 = imLeft0_;
 #if LOG
         writeOnLogFile("Frame:", std::to_string(numFrame+1));
 #endif
@@ -151,14 +149,9 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         pts_l0.reserve(nFeatures);
         pts_r0.reserve(nFeatures);
 
-        featureExtraction(imLeft0, imRight0, kpts_l, kpts_r, pts_l0, pts_r0);
-
-//        std::vector<cv::KeyPoint> kp_;
-//        cv::Mat imOut;
-//        cv::FAST(imLeft0, kp_, 100, true, cv::FastFeatureDetector::TYPE_9_16);
-//        cv::drawKeypoints(imLeft0,kp_,imOut, cv::Scalar(0,255,0));
-//        cv::imwrite("kptsFAST.png", imOut);
-
+        featureExtraction(imLeft0_, imRight0_, kpts_l, kpts_r, pts_l0, pts_r0);
+        currentKeyframe_.features = pts_l0;
+        
         //convert vector of keypoints to vector of Point2f
         for (auto& kpt:kpts_r)
             pts_r0.push_back(kpt.pt);
@@ -183,9 +176,9 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         std::vector<bool> ptsClose;
         ptsClose.reserve(pts_l0.size());
 
-        stereoMatching(pts_l0, pts_r0, imLeft0, imRight0, mlr0, new_pts_l0, new_pts_r0, pts3D, meanError, ptsClose);
+        stereoMatching(pts_l0, pts_r0, imLeft0_, imRight0_, mlr0, new_pts_l0, new_pts_r0, pts3D, meanError, ptsClose);
 #if LOG
-        logStereoMatching(imRight0, imLeft0, mlr0, new_pts_r0, new_pts_l0);
+        logStereoMatching(imRight0_, imLeft0_, mlr0, new_pts_r0, new_pts_l0);
         logLocalMaping(pts3D, meanError);
         rep_err_3d.push_back(meanError);
 #endif
@@ -196,7 +189,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         pts_l1.reserve(new_pts_l0.size());
         pts_r1.reserve(new_pts_r0.size());
 
-        featureTracking(imLeft0, imLeft, imRight0, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D, ptsClose);
+        featureTracking(imLeft0_, imLeft, imRight0_, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D, ptsClose);
 
 
         //-----------------------------------outliers removal and 2D motion estimation
@@ -204,7 +197,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         std::vector<double>     rvec_est;
         Mat t_est;
 
-        outlierRemovalAndMotionEstimation(imLeft0, new_pts_l0, imLeft, pts_l1, imRight0,
+        outlierRemovalAndMotionEstimation(imLeft0_, new_pts_l0, imLeft, pts_l1, imRight0_,
                 new_pts_r0, imRight, pts_r1, inliers, rvec_est, t_est);
 
 
@@ -223,37 +216,35 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 #if LOG
         logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
 #endif
-
+        currentKeyframe_.keypoints = new_pts_l1;
         //free memory
         std::vector<Point2f>().swap(pts_l1);
         std::vector<Point2f>().swap(pts_r1);
         std::vector<Point3f>().swap(pts3D);
 
         //------------------------------------relative pose estimation
-        Mat Tcw_ = cv::Mat::eye(3,4,CV_64F);
-        relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, Tcw_);
+        relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, relativePose);
 
         //saving relative pose estimated
-        relativeFramePoses.push_back(Tcw_.clone());
+        relativeFramePoses.push_back(relativePose.clone());
         frameTimeStamp.push_back(timestamp);
 
-        cameraPoses_.push_back(computeGlobalPose(Tcw_));
-        viewer_->setCameraPoses(cameraPoses_);
+        cameraPoses_.push_back(computeGlobalPose(relativePose));
 
-        Tcw = Tcw_.clone();
+        imLeft0_     = imLeft.clone();
+        imRight0_    = imRight.clone();
 
-        imLeft0     = imLeft.clone();
-        imRight0    = imRight.clone();
+        trackingState_ = OK;
 
 #if LOG
         writeOnLogFile("----------------------------", " ");
 #endif
 
-
     }
 
-    return Tcw;
+    return relativePose;
 }
+
 
 void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts) {
 
@@ -1637,10 +1628,6 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
 //    tr_vec.at<double>(2)  = p.at(5);
 
 
-}
-
-cv::Mat Tracking::getCurrentPose() {
-    return Tcw;
 }
 
 void Tracking::saveTrajectoryEuroc(const string &filename) {

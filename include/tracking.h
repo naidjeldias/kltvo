@@ -26,7 +26,6 @@
 #include <functional>
 #include <math.h>
 #include<Eigen/Dense>
-#include "viewer.hpp"
 
 
 #include "opencv2/features2d/features2d.hpp"
@@ -37,8 +36,17 @@
 class Tracking{
 
 public:
+    
+    struct Keyframe{
+        cv::Mat imLeft0;
+        std::vector<cv::Point2f> features;
+        std::vector<cv::Point2f> keypoints;
+    };
 
     enum status {CONVERGED, UPDATE, FAILED};
+
+    // Tracking states
+    enum trackingState{NOT_INITIALIZED, OK};
 
     Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, double &sadMinValue, 
         double &halfBlockSize, int &winSize, int &pyrMaxLevel, int &nFeatures, float &fScaleFactor, int &nLevels, 
@@ -47,19 +55,17 @@ public:
         int &ransacMaxItGN, int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue);
 
     ~Tracking();
-
+    trackingState trackingState_;
+    Keyframe currentKeyframe_;
     cv::Mat K;
     double  baseline;
     cv::Mat P1, P2;
     double uc, vc, fu, fv;
+    cv::Mat imLeft0_, imRight0_;
 
-    //Current relative pose
-    cv::Mat Tcw;
     // Camera poses
     cv::Mat cameraCurrentPose_;
     std::vector<cv::Mat> cameraPoses_;
-
-    cv::Mat getCurrentPose();
 
     void setCalibrationParameters(const double &mFu, const double &mFv, const double &mUc, const double &mVc,
                    const double &mbf);
@@ -96,9 +102,6 @@ private:
     int numFrame;
 
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
-
-    Viewer* viewer_;
-    std::thread* viewer_thd_;
 
     cv::Mat computeGlobalPose(const cv::Mat &current_pose);
 
@@ -174,7 +177,6 @@ private:
     //----------local mapping
     int max_iter_3d;
     double th_3d;
-    cv::Mat imLeft0, imRight0;
 
     void localMapping (const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
                        std::vector<cv::Point3f> &pts3D, const std::vector<cv::DMatch> &macthes, double &meanError);

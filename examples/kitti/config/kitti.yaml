@@ -98,3 +98,13 @@ ORBextractor.nLevels: 8
 ORBextractor.iniThFAST: 20
 ORBextractor.minThFAST: 7
 
+#--------------------------------------------------------------------------------------------
+# Viewer Parameters
+#--------------------------------------------------------------------------------------------
+Viewer.Camera.width: 1241
+Viewer.Camera.height: 376
+Viewer.Camera.fps: 10.0
+Viewer.ViewpointX: -1
+Viewer.ViewpointY: 1
+Viewer.ViewpointZ: -1
+Viewer.ViewpointF: 420
