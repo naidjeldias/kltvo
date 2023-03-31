@@ -151,12 +151,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 
         featureExtraction(imLeft0_, imRight0_, kpts_l, kpts_r, pts_l0, pts_r0);
         currentKeyframe_.features = pts_l0;
-//        std::vector<cv::KeyPoint> kp_;
-//        cv::Mat imOut;
-//        cv::FAST(imLeft0_, kp_, 100, true, cv::FastFeatureDetector::TYPE_9_16);
-//        cv::drawKeypoints(imLeft0_,kp_,imOut, cv::Scalar(0,255,0));
-//        cv::imwrite("kptsFAST.png", imOut);
-
+        
         //convert vector of keypoints to vector of Point2f
         for (auto& kpt:kpts_r)
             pts_r0.push_back(kpt.pt);
