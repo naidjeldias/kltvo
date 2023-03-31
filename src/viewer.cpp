@@ -1,6 +1,6 @@
 #include "viewer.hpp"
 
-Viewer::Viewer(const string &strSettingPath, Tracking* tracker):trackerPtr_(tracker), finishRequested_(false)
+Viewer::Viewer(const string &strSettingPath):finishRequested_(false), trackingState_(Tracking::NOT_INITIALIZED)
 {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
 
@@ -21,6 +21,10 @@ Viewer::Viewer(const string &strSettingPath, Tracking* tracker):trackerPtr_(trac
     viewpointY_ = fSettings["Viewer.ViewpointY"];
     viewpointZ_ = fSettings["Viewer.ViewpointZ"];
     viewpointF_ = fSettings["Viewer.ViewpointF"];
+}
+
+Viewer::~Viewer()
+{
 }
 
 void Viewer::run()
@@ -59,53 +63,52 @@ void Viewer::run()
     
     while(!pangolin::ShouldQuit())
     {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        d_cam.Activate(s_cam);
-        glClearColor(0.0f, 0.0f, 0.0f,1.0f);
-
+        if(trackingState_ == Tracking::OK)
         {
-          std::lock_guard<std::mutex> lg(data_buffer_mutex_);
-          cameraPoses_ = trackerPtr_->cameraPoses_;
-          if(!cameraPoses_.empty())
-          {
-            computeOpenGLCameraMatrix(convertToOpenGLFrame(cameraPoses_.back()), Twc);
-            if(menu_follow_cam)
-              s_cam.Follow(Twc);
+
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            d_cam.Activate(s_cam);
+            glClearColor(0.0f, 0.0f, 0.0f,1.0f);
+                  
+            if(!cameraPoses_.empty())
+            {
+              computeOpenGLCameraMatrix(convertToOpenGLFrame(cameraPoses_.back()), Twc);
+              if(menu_follow_cam)
+                s_cam.Follow(Twc);
+              
+            }
+
+            if (show_cam.Get()) 
+            {
+              glColor3f(0.0f, 1.0f, 0.0f);
+              renderCamera(Twc);
+            }
+
+            if (show_traj.Get()) 
+            {
+              glColor3f(1.0f, 0.0f, 0.0f);
+              drawTrajectory();
+            }
+            // Swap frames and Process Events
+            pangolin::FinishFrame();
+
+            // Draw features
+            if(show_features.Get())
+              drawPointsImage(imLeft0_, features_, cv::Scalar(0,0,255));
+
+            // Draw keypoints
+            if(show_keypoints.Get())
+              drawPointsImage(imLeft0_, keypoints_, cv::Scalar(0,255,0));
             
-          }
+            cv::imshow("Current Frame",imLeft0_);
+            
         }
-
-        if (show_cam.Get()) 
-        {
-          glColor3f(0.0f, 1.0f, 0.0f);
-          renderCamera(Twc);
-        }
-
-        if (show_traj.Get()) 
-        {
-          glColor3f(1.0f, 0.0f, 0.0f);
-          drawTrajectory();
-        }
-        // Swap frames and Process Events
-        pangolin::FinishFrame();
-
-        cv::Mat im = trackerPtr_->imLeft0_.clone();
-        cv::cvtColor(im, im, cv::COLOR_GRAY2RGB);
-
-        // Draw features
-        if(show_features.Get())
-          drawPointsImage(im, trackerPtr_->currentKeyframe_.features, cv::Scalar(0,0,255));
-
-        // Draw keypoints
-        if(show_keypoints.Get())
-          drawPointsImage(im, trackerPtr_->currentKeyframe_.keypoints, cv::Scalar(0,255,0));
-        
-        cv::imshow("Current Frame",im);
-        cv::waitKey(updateRate_);
 
         if(finishRequested_)
           break;
+        cv::waitKey(updateRate_);
 
     }
 
@@ -218,9 +221,25 @@ cv::Mat Viewer::convertToOpenGLFrame(const cv::Mat& camMat)
 void Viewer::drawPointsImage(cv::Mat &im, const std::vector<cv::Point2f> &pts, cv::Scalar color)
 {
   std::lock_guard<std::mutex> lg(data_buffer_mutex_);
+  if(pts.empty())
+    return;
   // Draw the points
   for (const cv::Point2f& pt : pts) 
   {
     cv::circle(im, pt, 2, color, 2);
+  }
+}
+
+void Viewer::update(Tracking* trackerPtr)
+{
+  std::lock_guard<std::mutex> lg(data_buffer_mutex_);
+  trackingState_ = trackerPtr->trackingState_;
+  if(trackingState_ == Tracking::OK)
+  {
+    trackerPtr->currentKeyframe_.imLeft0.copyTo(imLeft0_);
+    cv::cvtColor(imLeft0_, imLeft0_, cv::COLOR_GRAY2RGB);
+    cameraPoses_ = trackerPtr->cameraPoses_;
+    features_ = trackerPtr->currentKeyframe_.features;
+    keypoints_ = trackerPtr->currentKeyframe_.keypoints;
   }
 }

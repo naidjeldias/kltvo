@@ -10,16 +10,21 @@ class Viewer
 {
 
 public:
-    Viewer(const string &strSettingPath, Tracking* tracker);
+    Viewer(const string &strSettingPath);
+    ~Viewer();
     void run();
     void shutdown();
+    void update(Tracking* tracker);
 private:
-    Tracking* trackerPtr_;
+    int trackingState_;
     bool finishRequested_;
     int imageWidth_, imageHeight_;
     float updateRate_, viewpointX_, viewpointY_, viewpointZ_, viewpointF_;
     std::mutex data_buffer_mutex_;
     std::vector<cv::Mat> cameraPoses_;
+    cv::Mat imLeft0_;
+    std::vector<cv::Point2f> features_, keypoints_;
+
     cv::Mat computeGlobalPose();
     void computeOpenGLCameraMatrix(const cv::Mat& cameraPose, pangolin::OpenGlMatrix& Twc);
     void drawTrajectory();

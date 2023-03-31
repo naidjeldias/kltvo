@@ -38,11 +38,15 @@ class Tracking{
 public:
     
     struct Keyframe{
+        cv::Mat imLeft0;
         std::vector<cv::Point2f> features;
         std::vector<cv::Point2f> keypoints;
     };
 
     enum status {CONVERGED, UPDATE, FAILED};
+
+    // Tracking states
+    enum trackingState{NOT_INITIALIZED, OK};
 
     Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, double &sadMinValue, 
         double &halfBlockSize, int &winSize, int &pyrMaxLevel, int &nFeatures, float &fScaleFactor, int &nLevels, 
@@ -51,7 +55,7 @@ public:
         int &ransacMaxItGN, int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue);
 
     ~Tracking();
-    
+    trackingState trackingState_;
     Keyframe currentKeyframe_;
     cv::Mat K;
     double  baseline;

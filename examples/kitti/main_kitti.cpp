@@ -196,7 +196,7 @@ int main(int argc, char *argv[]) {
     trackerPtr->setCalibrationParameters(fu, fv, uc, vc, bf);
 
     // starting visualizer thread
-    Viewer* viewer_ = new Viewer(path_config, trackerPtr);
+    Viewer* viewer_ = new Viewer(path_config);
     std::thread* viewer_thd_ = new thread(&Viewer::run, viewer_);
 
 
@@ -229,6 +229,7 @@ int main(int argc, char *argv[]) {
         // std::thread tracker (&Tracking::start, trackerPtr, imLeft,imRight, tframe);
         // tracker.join();
         trackerPtr->start(imLeft,imRight, tframe);
+        viewer_->update(trackerPtr);
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
