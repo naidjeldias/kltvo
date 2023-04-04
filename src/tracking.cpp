@@ -938,6 +938,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 
     meanError = sum/(numMatches);
 
+    assert(!pointCloud.empty());
 
 }
 
@@ -1145,6 +1146,8 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
         }
 
     }
+
+    assert(new_pts2D_l.size() > 3 && new_pts2D_r.size() > 3);
 
 
 }
@@ -1402,6 +1405,7 @@ void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::ve
     orbThreadLeft.join();
     orbThreadRight.join();
 
+    assert(!kpts0.empty() && !kpts1.empty());
 #if LOG
     logFeatureExtraction(kpts0, kpts1, pts0, im0);
 #endif
@@ -1430,7 +1434,8 @@ void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const c
     kltThreadLeft.join();
     kltThreadRight.join();
 
-
+    assert(!ptsL1.empty() && !ptsR1.empty());
+    
 }
 
 
@@ -1515,6 +1520,7 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
     std::vector<DMatch> mll, mrr;
     (*mEightPointLeft) (ptsL0, ptsL1, mll, inliers, true, 0, fmat);
 
+    double f_determinant = determinant(fmat);
 #if LOG_DRAW
     mEightPointLeft->drawEpLines(ptsL0, ptsL1, fmat, inliers, 0, imL0, imL1, mll);
 #endif
@@ -1523,7 +1529,7 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
     writeOnLogFile("RANSAC num iterations:", std::to_string(mEightPointLeft->getRansacNumit()));
     logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll);
     writeOnLogFile("Num of inliers tracking:", std::to_string(mll.size()));
-    writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
+    writeOnLogFile("det(F):", std::to_string(f_determinant));
     ptsTracking.push_back(mll.size());
     ransacIt_8point.push_back(mEightPointLeft->getRansacNumit());
 #endif
@@ -1533,6 +1539,10 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
 //
 //    Rodrigues(R_est, rvec_est, noArray());
 
+    // In order to compare to zero it is important to take into account 
+    //the precision limitations of floating-point arithmetic
+    double tol = 1e-6;
+    assert(f_determinant < tol);
 
 }
 
@@ -1568,10 +1578,17 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
 
     Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
     tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
+
+    double R_determinant = cv::determinant(Rotmat);
+
 #if LOG
-    writeOnLogFile("Rotation matrix det(): ", std::to_string(cv::determinant(Rotmat)));
+    writeOnLogFile("Rotation matrix det(): ", std::to_string(R_determinant));
 #endif
 
+    // To properly compare a floating-point number to 1
+    // we use a tolerance value due to rounding errors and imprecision in floating-point arithmetic
+    double epsilon = 0.0001;
+    assert(fabs(R_determinant - 1.0) < epsilon);
 
 }
 
