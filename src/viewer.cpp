@@ -1,6 +1,6 @@
 #include "viewer.hpp"
 
-Viewer::Viewer(const string &strSettingPath):finishRequested_(false), trackingState_(Tracking::NOT_INITIALIZED)
+Viewer::Viewer(const string &strSettingPath):finishRequested_(false), trackingState_(Tracking::NOT_INITIALIZED), rotZ_(cv::Mat::eye(4,4,CV_32F))
 {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
 
@@ -21,6 +21,13 @@ Viewer::Viewer(const string &strSettingPath):finishRequested_(false), trackingSt
     viewpointY_ = fSettings["Viewer.ViewpointY"];
     viewpointZ_ = fSettings["Viewer.ViewpointZ"];
     viewpointF_ = fSettings["Viewer.ViewpointF"];
+
+    rotZ_.at<float>(0, 0) = -1.0;
+    rotZ_.at<float>(0, 1) = 0.0;
+    rotZ_.at<float>(1, 0) = 0.0;
+    rotZ_.at<float>(1, 1) = -1.0;
+    rotZ_.at<float>(2, 2) = 1.0;
+    
 }
 
 Viewer::~Viewer()
@@ -72,7 +79,7 @@ void Viewer::run()
             d_cam.Activate(s_cam);
             glClearColor(0.0f, 0.0f, 0.0f,1.0f);
                   
-            if(!cameraPoses_.empty())
+            if(!cameraPoses_.back().empty())
             {
               computeOpenGLCameraMatrix(convertToOpenGLFrame(cameraPoses_.back()), Twc);
               if(menu_follow_cam)
@@ -205,17 +212,8 @@ void Viewer::renderCamera(const pangolin::OpenGlMatrix& camtMat)
 
 cv::Mat Viewer::convertToOpenGLFrame(const cv::Mat& camMat)
 {
-  
-  // Create the rotation matrix
-  Mat rotMatrix = Mat::eye(4, 4, CV_32F);
-  float angle = CV_PI;
-  rotMatrix.at<float>(0, 0) = cos(angle);
-  rotMatrix.at<float>(0, 1) = -sin(angle);
-  rotMatrix.at<float>(1, 0) = sin(angle);
-  rotMatrix.at<float>(1, 1) = cos(angle);
-  rotMatrix.at<float>(2, 2) = 1;
-
-  return rotMatrix * camMat;
+  cv::Mat camMatOpenGL = rotZ_ * camMat;
+  return camMatOpenGL;
 }
 
 void Viewer::drawPointsImage(cv::Mat &im, const std::vector<cv::Point2f> &pts, cv::Scalar color)
