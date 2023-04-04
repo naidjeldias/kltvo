@@ -9,6 +9,9 @@
 //#define MAX_DELTAX 69
 #define MAX_DELTAX 721
 
+// uncomment: assert() disabled
+// #define NDEBUG
+
 #define LOG             true
 #define ENABLE_PRINT    false
 #define LOG_DRAW        false
@@ -26,6 +29,7 @@
 #include <functional>
 #include <math.h>
 #include<Eigen/Dense>
+#include <cassert>
 
 
 #include "opencv2/features2d/features2d.hpp"
@@ -38,7 +42,7 @@ class Tracking{
 public:
     
     struct Keyframe{
-        cv::Mat imLeft0;
+        cv::Mat imLeft1;
         std::vector<cv::Point2f> features;
         std::vector<cv::Point2f> keypoints;
     };
