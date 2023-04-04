@@ -23,7 +23,6 @@ private:
     std::mutex data_buffer_mutex_;
     std::vector<cv::Mat> cameraPoses_;
     cv::Mat imLeft0_;
-    cv::Mat rotZ_;
     std::vector<cv::Point2f> features_, keypoints_;
 
     cv::Mat computeGlobalPose();

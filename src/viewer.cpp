@@ -1,6 +1,6 @@
 #include "viewer.hpp"
 
-Viewer::Viewer(const string &strSettingPath):finishRequested_(false), trackingState_(Tracking::NOT_INITIALIZED), rotZ_(cv::Mat::eye(4,4,CV_32F))
+Viewer::Viewer(const string &strSettingPath):finishRequested_(false), trackingState_(Tracking::NOT_INITIALIZED)
 {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
 
@@ -21,13 +21,6 @@ Viewer::Viewer(const string &strSettingPath):finishRequested_(false), trackingSt
     viewpointY_ = fSettings["Viewer.ViewpointY"];
     viewpointZ_ = fSettings["Viewer.ViewpointZ"];
     viewpointF_ = fSettings["Viewer.ViewpointF"];
-
-    rotZ_.at<float>(0, 0) = -1.0;
-    rotZ_.at<float>(0, 1) = 0.0;
-    rotZ_.at<float>(1, 0) = 0.0;
-    rotZ_.at<float>(1, 1) = -1.0;
-    rotZ_.at<float>(2, 2) = 1.0;
-    
 }
 
 Viewer::~Viewer()
@@ -79,7 +72,7 @@ void Viewer::run()
             d_cam.Activate(s_cam);
             glClearColor(0.0f, 0.0f, 0.0f,1.0f);
                   
-            if(!cameraPoses_.back().empty())
+            if(!cameraPoses_.empty())
             {
               computeOpenGLCameraMatrix(convertToOpenGLFrame(cameraPoses_.back()), Twc);
               if(menu_follow_cam)
@@ -212,8 +205,17 @@ void Viewer::renderCamera(const pangolin::OpenGlMatrix& camtMat)
 
 cv::Mat Viewer::convertToOpenGLFrame(const cv::Mat& camMat)
 {
-  cv::Mat camMatOpenGL = rotZ_ * camMat;
-  return camMatOpenGL;
+  
+  // Create the rotation matrix
+  Mat rotMatrix = Mat::eye(4, 4, CV_32F);
+  float angle = CV_PI;
+  rotMatrix.at<float>(0, 0) = cos(angle);
+  rotMatrix.at<float>(0, 1) = -sin(angle);
+  rotMatrix.at<float>(1, 0) = sin(angle);
+  rotMatrix.at<float>(1, 1) = cos(angle);
+  rotMatrix.at<float>(2, 2) = 1;
+
+  return rotMatrix * camMat;
 }
 
 void Viewer::drawPointsImage(cv::Mat &im, const std::vector<cv::Point2f> &pts, cv::Scalar color)
@@ -234,7 +236,7 @@ void Viewer::update(Tracking* trackerPtr)
   trackingState_ = trackerPtr->trackingState_;
   if(trackingState_ == Tracking::OK)
   {
-    trackerPtr->currentKeyframe_.imLeft1.copyTo(imLeft0_);
+    trackerPtr->currentKeyframe_.imLeft0.copyTo(imLeft0_);
     cv::cvtColor(imLeft0_, imLeft0_, cv::COLOR_GRAY2RGB);
     cameraPoses_ = trackerPtr->cameraPoses_;
     features_ = trackerPtr->currentKeyframe_.features;
