@@ -135,7 +135,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
     }else{
 
         numFrame ++;
-        currentKeyframe_.imLeft0 = imLeft0_;
+        currentKeyframe_.imLeft1 = imLeft;
 #if LOG
         writeOnLogFile("Frame:", std::to_string(numFrame+1));
 #endif
@@ -150,7 +150,6 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         pts_r0.reserve(nFeatures);
 
         featureExtraction(imLeft0_, imRight0_, kpts_l, kpts_r, pts_l0, pts_r0);
-        currentKeyframe_.features = pts_l0;
         
         //convert vector of keypoints to vector of Point2f
         for (auto& kpt:kpts_r)
@@ -190,7 +189,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         pts_r1.reserve(new_pts_r0.size());
 
         featureTracking(imLeft0_, imLeft, imRight0_, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D, ptsClose);
-
+        currentKeyframe_.features = pts_l1;
 
         //-----------------------------------outliers removal and 2D motion estimation
         std::vector<bool>       inliers;

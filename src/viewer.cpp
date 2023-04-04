@@ -234,7 +234,7 @@ void Viewer::update(Tracking* trackerPtr)
   trackingState_ = trackerPtr->trackingState_;
   if(trackingState_ == Tracking::OK)
   {
-    trackerPtr->currentKeyframe_.imLeft0.copyTo(imLeft0_);
+    trackerPtr->currentKeyframe_.imLeft1.copyTo(imLeft0_);
     cv::cvtColor(imLeft0_, imLeft0_, cv::COLOR_GRAY2RGB);
     cameraPoses_ = trackerPtr->cameraPoses_;
     features_ = trackerPtr->currentKeyframe_.features;

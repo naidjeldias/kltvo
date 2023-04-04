@@ -42,7 +42,7 @@ class Tracking{
 public:
     
     struct Keyframe{
-        cv::Mat imLeft0;
+        cv::Mat imLeft1;
         std::vector<cv::Point2f> features;
         std::vector<cv::Point2f> keypoints;
     };
