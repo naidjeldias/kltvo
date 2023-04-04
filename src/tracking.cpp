@@ -1518,7 +1518,7 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
     Mat fmat;
     std::vector<DMatch> mll, mrr;
     (*mEightPointLeft) (ptsL0, ptsL1, mll, inliers, true, 0, fmat);
-
+    assert(!fmat.empty());
     double f_determinant = determinant(fmat);
 #if LOG_DRAW
     mEightPointLeft->drawEpLines(ptsL0, ptsL1, fmat, inliers, 0, imL0, imL1, mll);
@@ -1565,6 +1565,7 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
     std::vector<double> p (6, 0.0);
     int bestNumInliers = ransacMinSet;
     poseEstimationRansac(pts2DL, pts2DR, pts3D, p0, inliers2, p, reweigh, bestNumInliers);
+    assert(inliers2.size() > 0);
 
     //pose refinment with all inliers
     Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
