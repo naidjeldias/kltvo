@@ -15,6 +15,7 @@ RUN apt-get update \
         git \
         build-essential \
         cmake \
+        gdb \
         ninja-build \
     # Install opencv build dependencies
     && apt-get install -y --no-install-recommends \
