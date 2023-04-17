@@ -110,14 +110,14 @@ private:
     cv::Mat computeGlobalPose(const cv::Mat &current_pose);
 
     //-------------- feature extraction
+    int frameGridRows;
+    int frameGridCols;
     int nFeatures;
     float fScaleFactor;
     int nLevels ;
     int fIniThFAST;
     int fMinThFAST;
     std::mutex mtxORB;
-    int frameGridCols;
-    int frameGridRows;
 
     ORBextractor* mpORBextractorLeft;
     ORBextractor* mpORBextractorRight;
@@ -197,8 +197,9 @@ private:
 
     //----------Pose estimation
     double ransacProb, ransacTh;
-    int ransacMinSet, ransacMaxIt;
-    std::vector<int> generateRandomIndices(const unsigned long &maxIndice, const int &vecSize);
+    int ransacMaxIt;
+    unsigned int ransacMinSet;
+    std::vector<int> generateRandomIndices(const unsigned long &maxIndice, const unsigned int &vecSize);
     double minIncTh;            // min increment for pose optimization
     int maxIteration;           // max number of iteration for pose update
     int finalMaxIteration;      // max iterations for minimization final refinement
