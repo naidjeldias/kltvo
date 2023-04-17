@@ -17,7 +17,7 @@ Tracking::Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, dou
 frameGridRows(frameGridRows), frameGridCols(frameGridCols),  maxDisp(maxDisp), minDisp(minDisp), thDepth(35.0), sadMinValue(sadMinValue), halfBlockSize(halfBlockSize), 
 winSize(winSize), pyrMaxLevel(pyrMaxLevel), nFeatures(nFeatures), fScaleFactor(fScaleFactor), nLevels(nLevels), fIniThFAST(fIniThFAST), fMinThFAST(fMinThFAST), max_iter_3d(max_iter_3d), 
 th_3d(th_3d), ransacProb(ransacProbGN), ransacTh(ransacThGN), ransacMinSet(ransacMinSetGN), ransacMaxIt(ransacMaxItGN), minIncTh(10E-5), 
-maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F))
+maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F)), relativePose_(cv::Mat::eye(4,4,CV_32F))
 
 {
     srand(time(0));
@@ -222,9 +222,14 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         std::vector<Point3f>().swap(pts3D);
 
         //------------------------------------relative pose estimation
-        relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, relativePose);
+        cv::Mat t_vec = relativePose_.col(3).rowRange(0,3);
+        std::vector<double> r_vec (3, 0.0);
+        cv::Rodrigues(relativePose_.colRange(0,3).rowRange(0,3), r_vec);
+
+        relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, r_vec, t_vec, relativePose);
 
         //saving relative pose estimated
+        relativePose_ = relativePose.clone();
         relativeFramePoses.push_back(relativePose.clone());
         frameTimeStamp.push_back(timestamp);
 

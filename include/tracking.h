@@ -90,7 +90,8 @@ public:
 
 
 private:
-
+    
+    cv::Mat relativePose_;
     std::list<cv::Mat> relativeFramePoses;
     std::list<double>  frameTimeStamp;
 
