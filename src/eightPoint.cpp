@@ -22,7 +22,7 @@ void EightPoint::setRansacParameters(double probability, int minSet, int maxIter
     ransacTh        = maxError;
 }
 
-std::vector<int> EightPoint::generateRandomIndices(const unsigned long &maxIndice, const int &vecSize){
+std::vector<int> EightPoint::generateRandomIndices(const unsigned long &maxIndice, const unsigned int &vecSize){
     std::vector<int> randValues;
     int index;
 
@@ -57,7 +57,7 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
     if(normalize && method == 0) computeMatNormTransform(kpt_l, kpt_r, kpt_l.size(), leftScaling, rightScaling);
 
-    int bestNumInliers = ransacMinSet;
+    unsigned int bestNumInliers = ransacMinSet;
     // int bestNumInliers = 0;
 
     int n = 0;
@@ -69,7 +69,7 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
         std::vector<DMatch> matches_;   //inliers matches in each iteration
         //-----------find inliers
         std::vector<bool> inliers;
-        int numInliers = 0;
+        unsigned int numInliers = 0;
 
         //compute indices to pick 8 random points
         randValues      = generateRandomIndices(kpt_l.size(), ransacMinSet);
@@ -85,7 +85,7 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
         //validate model againts the init set
         int pos = 0;
         long double meanError = 0;
-        for(int i = 0; i < kpt_l.size() ; i++){
+        for(unsigned int i = 0; i < kpt_l.size() ; i++){
 
             //validadte against other elements
             if(!(std::find(randValues.begin(), randValues.end(), i) != randValues.end())){
@@ -262,7 +262,7 @@ void EightPoint::computeMatNormTransform(const std::vector<Point2f> &kpt_l, cons
     meanLeft.x  = 0.0; meanLeft.y   = 0.0;
     meanRight.x = 0.0; meanRight.y  = 0.0;
 
-    for(int i = 0; i < nPts; i++){
+    for(unsigned i = 0; i < nPts; i++){
 
         meanLeft.x      += kpt_l.at(i).x;
         meanLeft.y      += kpt_l.at(i).y;
@@ -282,7 +282,7 @@ void EightPoint::computeMatNormTransform(const std::vector<Point2f> &kpt_l, cons
     double rightDst     = 0.0;
 
     //normalization of the points: distance from centroide
-    for(int i = 0; i < nPts; i++){
+    for(unsigned i = 0; i < nPts; i++){
 
         double deltaX   = meanLeft.x - kpt_l.at(i).x;
         double deltaY   = meanLeft.y - kpt_l.at(i).y;
@@ -356,7 +356,7 @@ void EightPoint::drawEpLines(const std::vector<Point2f> &pts_l, const std::vecto
     cvtColor(image1, rgb1, COLOR_GRAY2BGR);
     int count = 0;
     // std::vector<Point2f> points;
-    for(int i = 0; i < inliers.size(); i++ ){
+    for(unsigned i = 0; i < inliers.size(); i++ ){
         if(inliers.at(i)){
             count ++;
             //point on left frame
@@ -472,7 +472,7 @@ void EightPoint::drawMatches_(const cv::Mat &left_image, const cv::Mat &right_im
     cv::Mat imageMatches, imageKptsLeft, imageKptsRight;
     //convert vector of Point2f to vector of Keypoint
     std::vector<KeyPoint> prevPoints, nextPoints;
-    for (int i = 0; i < kpts_l.size(); i++){
+    for (unsigned i = 0; i < kpts_l.size(); i++){
         KeyPoint kpt_l, kpt_r;
         kpt_l.pt = kpts_l.at(i);
         kpt_r.pt = kpts_r.at(i);

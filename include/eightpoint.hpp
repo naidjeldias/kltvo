@@ -17,11 +17,11 @@ public:
 
     EightPoint(double probability, int minSet, int maxIteration, double maxError);
     //----------------Ransac Parameters
-    std::vector<int> generateRandomIndices(const unsigned long &maxIndice, const int &vecSize);
+    std::vector<int> generateRandomIndices(const unsigned long &maxIndice, const unsigned int &vecSize);
     void setRansacParameters(double probability, int minSet, int maxIteration, double maxError);
     double ransacProb, ransacTh;
-    int ransacMinSet, ransacMaxIt, ransacNumit;
-
+    int ransacMaxIt, ransacNumit;
+    unsigned int ransacMinSet;
     void operator() (const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r,
                                       std::vector<DMatch> &finalMatches, std::vector<bool> &inliers2D, bool normalize,
                                       int method, cv::Mat &bestFmat);

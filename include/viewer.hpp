@@ -16,8 +16,8 @@ public:
     void shutdown();
     void update(Tracking* tracker);
 private:
-    int trackingState_;
     bool finishRequested_;
+    int trackingState_;
     int imageWidth_, imageHeight_;
     float updateRate_, viewpointX_, viewpointY_, viewpointZ_, viewpointF_;
     std::mutex data_buffer_mutex_;
