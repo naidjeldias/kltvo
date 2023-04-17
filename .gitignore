@@ -12,3 +12,4 @@ examples/euroc/stats/*
 !examples/euroc/stats/.gitkeep
 stereo_euroc
 stereo_kitti
+.vscode/settings.json
