@@ -69,6 +69,7 @@ public:
 
     // Camera poses
     cv::Mat cameraCurrentPose_;
+    cv::Mat relativePose_;
     std::vector<cv::Mat> cameraPoses_;
 
     void setCalibrationParameters(const double &mFu, const double &mFv, const double &mUc, const double &mVc,
@@ -91,7 +92,6 @@ public:
 
 private:
     
-    cv::Mat relativePose_;
     std::list<cv::Mat> relativeFramePoses;
     std::list<double>  frameTimeStamp;
 

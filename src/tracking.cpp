@@ -13,7 +13,7 @@ Tracking::Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, dou
                     int &nFeatures, float &fScaleFactor, int &nLevels, int &fIniThFAST, int &fMinThFAST,  
                     double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, double &ransacThTrack, int &max_iter_3d, double &th_3d, 
                     double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, int &ransacMaxItGN, 
-                    int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue) : trackingState_(NOT_INITIALIZED), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F)),
+                    int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue) : trackingState_(NOT_INITIALIZED), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F)),relativePose_(cv::Mat::eye(4,4,CV_64F)),
 frameGridRows(frameGridRows), frameGridCols(frameGridCols), nFeatures(nFeatures), fScaleFactor(fScaleFactor), nLevels(nLevels), fIniThFAST(fIniThFAST), fMinThFAST(fMinThFAST),  
 maxDisp(maxDisp), minDisp(minDisp), thDepth(35.0), sadMinValue(sadMinValue), halfBlockSize(halfBlockSize), winSize(winSize), pyrMaxLevel(pyrMaxLevel), max_iter_3d(max_iter_3d), 
 th_3d(th_3d), ransacProb(ransacProbGN), ransacTh(ransacThGN), ransacMaxIt(ransacMaxItGN), ransacMinSet(ransacMinSetGN), minIncTh(10E-5), 
@@ -223,11 +223,15 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 
         //------------------------------------relative pose estimation
         cv::Mat t_vec = relativePose_.col(3).rowRange(0,3);
-        std::vector<double> r_vec (3, 0.0);
-        cv::Rodrigues(relativePose_.colRange(0,3).rowRange(0,3), r_vec);
+        // std::cout << "t_vec: " << t_vec << std::endl;
+        std::vector<double> r_vec;
+        cv::Mat rot_mat = relativePose_.rowRange(0,3).colRange(0,3);
+        // std::cout << "rot_mat: " << rot_mat << std::endl;
+        cv::Rodrigues(rot_mat, r_vec, noArray());
 
         relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, r_vec, t_vec, relativePose);
-
+        // std::cout << "relativePose: " << relativePose << std::endl;
+        // std::cout << "------------------------" << std::endl;
         //saving relative pose estimated
         relativePose_ = relativePose.clone();
         relativeFramePoses.push_back(relativePose.clone());
@@ -1545,12 +1549,12 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
 
     //initialize vector of parameters with rotation and translation from essential matrix
     std::vector<double> p0 (6, 0.0);
-//    p0.at(0) = rvec_est.at(0);
-//    p0.at(1) = rvec_est.at(1);
-//    p0.at(2) = rvec_est.at(2);
-//    p0.at(3) = t_est.at<double>(0);
-//    p0.at(4) = t_est.at<double>(1);
-//    p0.at(5) = t_est.at<double>(2);
+   p0.at(0) = rvec_est.at(0);
+   p0.at(1) = rvec_est.at(1);
+   p0.at(2) = rvec_est.at(2);
+   p0.at(3) = t_est.at<double>(0);
+   p0.at(4) = t_est.at<double>(1);
+   p0.at(5) = t_est.at<double>(2);
 
     std::vector<bool> inliers2;
     inliers2.reserve(pts3D.size());
@@ -1567,7 +1571,7 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
     poseRefinment(pts2DL, pts2DR, pts3D, inliers2, p, rot_vec, tr_vec, bestNumInliers);
 
     Mat Rotmat;
-    Rodrigues(rot_vec, Rotmat, noArray());
+    cv::Rodrigues(rot_vec, Rotmat, noArray());
 
     Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
     tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
