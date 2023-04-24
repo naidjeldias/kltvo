@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM nvcr.io/nvidia/pytorch:22.08-py3
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -52,7 +52,7 @@ RUN git clone $OPENCV_REPO opencv -b $OPENCV_VERSION \
         -DOPENCV_ENABLE_NONFREE=ON \
         -DBUILD_SHARED_LIBS=ON \
         -DWITH_EIGEN=ON \
-        -DWITH_CUDA=ON \
+        -DWITH_CUDA=OFF \
         -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
         -DPYTHON3_EXECUTABLE=/usr/bin/python3 \
         -DPYTHON3_NUMPY_INCLUDE_DIRS=/usr/lib/python3/dist-packages/numpy/core/include/ \
