@@ -1473,7 +1473,7 @@ void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Po
         const Point2f &pt_l = tmpPrevPts[i];
 
         const Point3f &pt3d     = tmpPts3D[i];
-        const bool &ptClose     = tmpPtsClose[i];
+        // const bool &ptClose     = tmpPtsClose[i];
 
         if(status[i] == 1 && pt_r.x >= 0 && pt_r.x <= imT1.cols && pt_r.y >= 0 && pt_r.y <= imT1.rows){
 
@@ -1482,7 +1482,7 @@ void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Po
 
             if(flag == 0){
                 pts3.push_back(pt3d);
-                ptsClose.push_back(ptClose);
+                // ptsClose.push_back(ptClose);
 
             }
 
