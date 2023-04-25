@@ -9,6 +9,9 @@
 //#define MAX_DELTAX 69
 #define MAX_DELTAX 721
 
+// uncomment: assert() disabled
+// #define NDEBUG
+
 #define LOG             true
 #define ENABLE_PRINT    false
 #define LOG_DRAW        false
@@ -26,6 +29,7 @@
 #include <functional>
 #include <math.h>
 #include<Eigen/Dense>
+#include <cassert>
 
 
 #include "opencv2/features2d/features2d.hpp"
@@ -38,7 +42,7 @@ class Tracking{
 public:
     
     struct Keyframe{
-        cv::Mat imLeft0;
+        cv::Mat imLeft1;
         std::vector<cv::Point2f> features;
         std::vector<cv::Point2f> keypoints;
     };
@@ -106,14 +110,14 @@ private:
     cv::Mat computeGlobalPose(const cv::Mat &current_pose);
 
     //-------------- feature extraction
+    int frameGridRows;
+    int frameGridCols;
     int nFeatures;
     float fScaleFactor;
     int nLevels ;
     int fIniThFAST;
     int fMinThFAST;
     std::mutex mtxORB;
-    int frameGridCols;
-    int frameGridRows;
 
     ORBextractor* mpORBextractorLeft;
     ORBextractor* mpORBextractorRight;
@@ -193,8 +197,9 @@ private:
 
     //----------Pose estimation
     double ransacProb, ransacTh;
-    int ransacMinSet, ransacMaxIt;
-    std::vector<int> generateRandomIndices(const unsigned long &maxIndice, const int &vecSize);
+    int ransacMaxIt;
+    unsigned int ransacMinSet;
+    std::vector<int> generateRandomIndices(const unsigned long &maxIndice, const unsigned int &vecSize);
     double minIncTh;            // min increment for pose optimization
     int maxIteration;           // max number of iteration for pose update
     int finalMaxIteration;      // max iterations for minimization final refinement

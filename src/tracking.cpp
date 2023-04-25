@@ -13,11 +13,11 @@ Tracking::Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, dou
                     int &nFeatures, float &fScaleFactor, int &nLevels, int &fIniThFAST, int &fMinThFAST,  
                     double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, double &ransacThTrack, int &max_iter_3d, double &th_3d, 
                     double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, int &ransacMaxItGN, 
-                    int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue) : trackingState_(NOT_INITIALIZED),
-frameGridRows(frameGridRows), frameGridCols(frameGridCols),  maxDisp(maxDisp), minDisp(minDisp), thDepth(35.0), sadMinValue(sadMinValue), halfBlockSize(halfBlockSize), 
-winSize(winSize), pyrMaxLevel(pyrMaxLevel), nFeatures(nFeatures), fScaleFactor(fScaleFactor), nLevels(nLevels), fIniThFAST(fIniThFAST), fMinThFAST(fMinThFAST), max_iter_3d(max_iter_3d), 
-th_3d(th_3d), ransacProb(ransacProbGN), ransacTh(ransacThGN), ransacMinSet(ransacMinSetGN), ransacMaxIt(ransacMaxItGN), minIncTh(10E-5), 
-maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F))
+                    int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue) : trackingState_(NOT_INITIALIZED), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F)),
+frameGridRows(frameGridRows), frameGridCols(frameGridCols), nFeatures(nFeatures), fScaleFactor(fScaleFactor), nLevels(nLevels), fIniThFAST(fIniThFAST), fMinThFAST(fMinThFAST),  
+maxDisp(maxDisp), minDisp(minDisp), thDepth(35.0), sadMinValue(sadMinValue), halfBlockSize(halfBlockSize), winSize(winSize), pyrMaxLevel(pyrMaxLevel), max_iter_3d(max_iter_3d), 
+th_3d(th_3d), ransacProb(ransacProbGN), ransacTh(ransacThGN), ransacMaxIt(ransacMaxItGN), ransacMinSet(ransacMinSetGN), minIncTh(10E-5), 
+maxIteration(maxIteration), finalMaxIteration(finalMaxIteration), reweigh(reweigh), adjustValue(adjustValue)
 
 {
     srand(time(0));
@@ -135,7 +135,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
     }else{
 
         numFrame ++;
-        currentKeyframe_.imLeft0 = imLeft0_;
+        currentKeyframe_.imLeft1 = imLeft;
 #if LOG
         writeOnLogFile("Frame:", std::to_string(numFrame+1));
 #endif
@@ -150,7 +150,6 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         pts_r0.reserve(nFeatures);
 
         featureExtraction(imLeft0_, imRight0_, kpts_l, kpts_r, pts_l0, pts_r0);
-        currentKeyframe_.features = pts_l0;
         
         //convert vector of keypoints to vector of Point2f
         for (auto& kpt:kpts_r)
@@ -190,7 +189,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         pts_r1.reserve(new_pts_r0.size());
 
         featureTracking(imLeft0_, imLeft, imRight0_, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D, ptsClose);
-
+        currentKeyframe_.features = pts_l1;
 
         //-----------------------------------outliers removal and 2D motion estimation
         std::vector<bool>       inliers;
@@ -266,8 +265,8 @@ void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kp
 
 void Tracking::gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im) {
 
-    int nBucketX = im.cols / frameGridCols;
-    int nBucketY = im.rows / frameGridRows;
+    unsigned int nBucketX = im.cols / frameGridCols;
+    unsigned int nBucketY = im.rows / frameGridRows;
 
     //______________Image grid for non-maximum suppression
     std::vector<size_t > imageGrids[nBucketY][nBucketX];
@@ -334,7 +333,7 @@ bool Tracking::assignFeatureToGrid(const cv::KeyPoint &kp, int &posX, int &posY,
 void Tracking::drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts, const string &filename) {
     std::vector<KeyPoint> kpts;
     cv::Mat imOut;
-    for (int i = 0; i < pts.size(); i++){
+    for (unsigned int i = 0; i < pts.size(); i++){
         KeyPoint kpt;
         kpt.pt = pts.at(i);
 
@@ -355,7 +354,7 @@ void Tracking:: localMapping(const std::vector<cv::Point2f> &pts_l, const std::v
     double dist;
 
     double sum = 0;
-    for( int i = 0; i < pts_l.size() ; i++ ){
+    for(unsigned int i = 0; i < pts_l.size() ; i++ ){
 
         kp_l = pts_l.at(i);
         kp_r = pts_r.at(i);
@@ -422,20 +421,15 @@ void Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, cons
 //    std::vector<bool> bestInliers;
 //    int bestNumInliers = ransacMinSet;
 
-    long double minSumErr = FLT_MAX;
     long double bestStdDev  = LDBL_MAX;
     p = p0;
 
 #if LOG
     int nIt     = 0;
     int sumIt   = 0; //sum iterations GN inside RANSAC
-    int n_      = 0; //check number of iterations
 #endif
 
     for (int n = 0; n < ransacMaxIt; n++){
-#if LOG
-//        n_ ++;
-#endif
         //compute rand index
         std::vector<int> randIndex (0, ransacMinSet);    //vector of rand index
         randIndex      = generateRandomIndices(pts3d.size(), ransacMinSet);
@@ -737,7 +731,7 @@ int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vec
     std::vector<double > errorVect;
     errorVect.reserve(pts3d.size());
     long double meanError = 0;
-    for (int i = 0; i < pts3d.size(); i++){
+    for (unsigned int i = 0; i < pts3d.size(); i++){
 
         //validadte against other elements
         if(!(std::find(index.begin(), index.end(), i) != index.end())){
@@ -819,7 +813,7 @@ int Tracking::checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vec
 
 }
 
-std::vector<int> Tracking::generateRandomIndices(const unsigned long &maxIndice, const int &vecSize){
+std::vector<int> Tracking::generateRandomIndices(const unsigned long &maxIndice, const unsigned int &vecSize){
     std::vector<int> randValues;
     int index;
 
@@ -938,6 +932,7 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
 
     meanError = sum/(numMatches);
 
+    assert(!pointCloud.empty());
 
 }
 
@@ -986,7 +981,6 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
 
 
     const float &vL = pt_l.y;
-    const float &uL = pt_l.x;
 
     const int yi = round(vL);
 
@@ -1013,10 +1007,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
         if(pt_r.x == -1 && pt_r.y == -1)
             continue;
 
-        int deltay = (int) abs(pt_l.y - pt_r.y);
         int deltax = (int) pt_l.x - (int) pt_r.x;
-
-
 
         //epipolar constraints, the correspondent keypoint must be at the same row and disparity should be positive
         if (deltax > minDisp && deltax <= maxDisp) {
@@ -1120,7 +1111,7 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
 
 
     int pos = 0;
-    for (int i = 0; i < inliers.size(); i++){
+    for (unsigned int i = 0; i < inliers.size(); i++){
 
         if(inliers.at(i) /*&& ptsClose.at(i)*/){
 
@@ -1145,6 +1136,8 @@ void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::ve
         }
 
     }
+
+    assert(new_pts2D_l.size() > 3 && new_pts2D_r.size() > 3);
 
 
 }
@@ -1248,7 +1241,7 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
 
 //        std::vector<bool> bestSetInliers (tmpInliers.size(), false);
 
-        for (int j = 0; j < inliers.size() /*tmpInliers.size()*/; j++ ){
+        for (unsigned int j = 0; j < inliers.size() /*tmpInliers.size()*/; j++ ){
 
             if(/*tmpInliers[j]*/inliers[j]){
 
@@ -1339,7 +1332,6 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
     w0 = w1 = 1.0;
 
     Mat point3d;
-    double w;
 
     for(int j = 0; j < max_iter_3d; j++){
 
@@ -1370,8 +1362,6 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
         double dy1 = kp_r.y - p1.at<double>(1)/p1.at<double>(2);
 
         dist = sqrt(dx0*dx0+dy0*dy0) + sqrt(dx1*dx1+dy1*dy1);
-
-        w = p0.at<double>(2);
     }
 
     depth = (baseline * fu)/(kp_l.x - kp_r.x);
@@ -1402,6 +1392,7 @@ void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::ve
     orbThreadLeft.join();
     orbThreadRight.join();
 
+    assert(!kpts0.empty() && !kpts1.empty());
 #if LOG
     logFeatureExtraction(kpts0, kpts1, pts0, im0);
 #endif
@@ -1430,7 +1421,8 @@ void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const c
     kltThreadLeft.join();
     kltThreadRight.join();
 
-
+    assert(!ptsL1.empty() && !ptsR1.empty());
+    
 }
 
 
@@ -1475,7 +1467,7 @@ void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Po
     nextPts.clear();
 
 
-    for (int i=0; i< tmpPrevPts.size(); i++){
+    for (unsigned int i=0; i< tmpPrevPts.size(); i++){
 
         const Point2f &pt_r = tmpNexPts[i];
         const Point2f &pt_l = tmpPrevPts[i];
@@ -1514,7 +1506,8 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
     Mat fmat;
     std::vector<DMatch> mll, mrr;
     (*mEightPointLeft) (ptsL0, ptsL1, mll, inliers, true, 0, fmat);
-
+    assert(!fmat.empty());
+    double f_determinant = determinant(fmat);
 #if LOG_DRAW
     mEightPointLeft->drawEpLines(ptsL0, ptsL1, fmat, inliers, 0, imL0, imL1, mll);
 #endif
@@ -1523,7 +1516,7 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
     writeOnLogFile("RANSAC num iterations:", std::to_string(mEightPointLeft->getRansacNumit()));
     logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll);
     writeOnLogFile("Num of inliers tracking:", std::to_string(mll.size()));
-    writeOnLogFile("det(F):", std::to_string(determinant(fmat)));
+    writeOnLogFile("det(F):", std::to_string(f_determinant));
     ptsTracking.push_back(mll.size());
     ransacIt_8point.push_back(mEightPointLeft->getRansacNumit());
 #endif
@@ -1533,6 +1526,10 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
 //
 //    Rodrigues(R_est, rvec_est, noArray());
 
+    // In order to compare to zero it is important to take into account 
+    //the precision limitations of floating-point arithmetic
+    double tol = 1e-6;
+    assert(f_determinant < tol);
 
 }
 
@@ -1556,6 +1553,7 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
     std::vector<double> p (6, 0.0);
     int bestNumInliers = ransacMinSet;
     poseEstimationRansac(pts2DL, pts2DR, pts3D, p0, inliers2, p, reweigh, bestNumInliers);
+    assert(inliers2.size() > 0);
 
     //pose refinment with all inliers
     Mat rot_vec = cv::Mat::zeros(3,1, CV_64F);
@@ -1568,10 +1566,17 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
 
     Rotmat.copyTo(Tcw_.rowRange(0,3).colRange(0,3));
     tr_vec.copyTo(Tcw_.rowRange(0,3).col(3));
+
+    double R_determinant = cv::determinant(Rotmat);
+
 #if LOG
-    writeOnLogFile("Rotation matrix det(): ", std::to_string(cv::determinant(Rotmat)));
+    writeOnLogFile("Rotation matrix det(): ", std::to_string(R_determinant));
 #endif
 
+    // To properly compare a floating-point number to 1
+    // we use a tolerance value due to rounding errors and imprecision in floating-point arithmetic
+    double epsilon = 0.0001;
+    assert(fabs(R_determinant - 1.0) < epsilon);
 
 }
 
@@ -1587,7 +1592,7 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
     std::vector<Point3d> inPts_3D;
     inPts_3D.reserve(numInliers);
 
-    for (int i=0; i<inliers.size(); i++){
+    for (unsigned int i=0; i<inliers.size(); i++){
         if(inliers.at(i)){
             Point2f aux1 = pts2DL[i];
             inPts_l1.push_back(aux1);
