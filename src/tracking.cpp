@@ -188,7 +188,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         pts_l1.reserve(new_pts_l0.size());
         pts_r1.reserve(new_pts_r0.size());
 
-        featureTracking(imLeft0_, imLeft, imRight0_, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D, ptsClose);
+        featureTracking(imLeft0_, imLeft, imRight0_, imRight, new_pts_l0, pts_l1, new_pts_r0, pts_r1, pts3D);
         currentKeyframe_.features = pts_l1;
 
         //-----------------------------------outliers removal and 2D motion estimation
@@ -211,7 +211,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         std::vector<DMatch> mlr1;
         mlr1.reserve(pts_l1.size());
 
-        quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1, ptsClose);
+        quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1);
 #if LOG
         logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
 #endif
@@ -1081,7 +1081,7 @@ bool Tracking::findMatchingSAD(const cv::Point2f &pt_l, const cv::Mat &imLeft, c
 void Tracking::quadMatching(const std::vector<cv::Point3f> &pts3D, const std::vector<cv::Point2f> &pts2D_l,
                             const std::vector<cv::Point2f> &pts2D_r, std::vector<bool> &inliers, const cv::Mat &imLeft,
                             const cv::Mat &imRight, std::vector<cv::Point3f> &new_pts3D, std::vector<cv::Point2f> &new_pts2D_l,
-                            std::vector<cv::Point2f> &new_pts2D_r, std::vector<cv::DMatch> &matches, const std::vector<bool> &ptsClose) {
+                            std::vector<cv::Point2f> &new_pts2D_r, std::vector<cv::DMatch> &matches) {
 
     std::vector<Point2f> aux_pts_r(pts2D_r);
 
@@ -1400,7 +1400,7 @@ void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::ve
 
 void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
                                std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1,
-                               std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose ) {
+                               std::vector<Point3f> &pts3D) {
 
     std::vector <Mat> left0_pyr, left1_pyr, right0_pyr, right1_pyr;
     Size win (winSize,winSize);
@@ -1410,13 +1410,12 @@ void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const c
 
     std::thread kltThreadLeft (&Tracking::opticalFlowFeatureTrack, this, std::ref(imL0), std::ref(imL1), win,
                                maxLevel, std::ref(status0), std::ref(error0), std::ref(ptsL0), std::ref(ptsL1),
-                               std::ref(left0_pyr), std::ref(left1_pyr), 0, std::ref(pts3D), std::ref(ptsClose));
+                               std::ref(left0_pyr), std::ref(left1_pyr), 0, std::ref(pts3D));
 
     std::vector<Point3f> aux (0);
-    std::vector<bool> aux1(0);
     std::thread kltThreadRight (&Tracking::opticalFlowFeatureTrack, this, std::ref(imR0), std::ref(imR1), win,
                                 maxLevel, std::ref(status1), std::ref(error1), std::ref(ptsR0), std::ref(ptsR1),
-                                std::ref(right0_pyr), std::ref(right1_pyr), 1, std::ref(aux), std::ref(aux1));
+                                std::ref(right0_pyr), std::ref(right1_pyr), 1, std::ref(aux));
 
     kltThreadLeft.join();
     kltThreadRight.join();
@@ -1428,7 +1427,7 @@ void Tracking::featureTracking(const cv::Mat &imL0, const cv::Mat &imL1, const c
 
 void Tracking::opticalFlowFeatureTrack(const cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
                                        std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr,
-                                       std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose) {
+                                       std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D) {
 
 
 //    std::vector <Mat> imT0_pyr, imT1_pyr;
@@ -1441,24 +1440,20 @@ void Tracking::opticalFlowFeatureTrack(const cv::Mat &imT0, const cv::Mat &imT1,
                          TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 50, 0.03), 1);
 
 //    std::lock_guard<std::mutex> lock4(mtx4);
-    checkPointOutBounds(prevPts, nextPts, imT1, status, flag, pts3D, ptsClose);
+    checkPointOutBounds(prevPts, nextPts, imT1, status, flag, pts3D);
 
 }
 
 void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,const cv::Mat &imT1,
-                                   const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3, std::vector<bool> &ptsClose) {
+                                   const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3) {
 
     std::vector<Point2f> tmpPrevPts (prevPts.size());
     std::vector<Point2f> tmpNexPts (nextPts.size());
     std::vector<Point3f> tmpPts3D (pts3.size());
-    std::vector<bool>    tmpPtsClose(ptsClose.size());
 
     if (flag == 0){
-//        std::vector<Point3f> tmpPts3D (pts3.size());
         tmpPts3D.swap(pts3);
         pts3.clear();
-        tmpPtsClose.swap(ptsClose);
-        ptsClose.clear();
     }
 
     tmpPrevPts.swap(prevPts);
@@ -1473,7 +1468,6 @@ void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Po
         const Point2f &pt_l = tmpPrevPts[i];
 
         const Point3f &pt3d     = tmpPts3D[i];
-        // const bool &ptClose     = tmpPtsClose[i];
 
         if(status[i] == 1 && pt_r.x >= 0 && pt_r.x <= imT1.cols && pt_r.y >= 0 && pt_r.y <= imT1.rows){
 
@@ -1482,8 +1476,6 @@ void Tracking::checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Po
 
             if(flag == 0){
                 pts3.push_back(pt3d);
-                // ptsClose.push_back(ptClose);
-
             }
 
 
