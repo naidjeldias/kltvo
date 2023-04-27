@@ -34,15 +34,6 @@ RUN apt-get update \
         unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# Downgrading gcc version
-RUN echo "deb http://dk.archive.ubuntu.com/ubuntu/ xenial main" | tee -a /etc/apt/sources.list \
-    && echo "deb http://dk.archive.ubuntu.com/ubuntu/ xenial universe" | tee -a /etc/apt/sources.list \
-    && apt-get update \
-    && apt-get install -y g++-5 gcc-5 \
-    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 5 \
-    && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-5 5 \
-    && rm -rf /var/lib/apt/lists/*
-
 RUN git clone $OPENCV_REPO opencv -b $OPENCV_VERSION \
     && git clone $OPENCV_CONTRIB_REPO opencv_contrib -b $OPENCV_CONTRIB_VERSION \
     && mkdir -p opencv/build \

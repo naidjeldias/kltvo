@@ -152,14 +152,14 @@ private:
 
 
     void featureTracking (const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
-            std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose );
+            std::vector<Point2f> &ptsL1, std::vector<Point2f> &ptsR0, std::vector<Point2f> &ptsR1, std::vector<Point3f> &pts3D);
 
     void opticalFlowFeatureTrack(const cv::Mat &imT0, const cv::Mat &imT1, Size win, int maxLevel, std::vector<uchar> &status, std::vector<float> &error,
                                  std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts, std::vector <Mat> imT0_pyr,
-                                 std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose);
+                                 std::vector <Mat> imT1_pyr, int flag, std::vector<Point3f> &pts3D);
 
     void checkPointOutBounds(std::vector<Point2f> &prevPts, std::vector<Point2f> &nextPts,
-                             const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3D, std::vector<bool> &ptsClose);
+                             const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3D);
 
     //-------------- Outliers removal and motion estimation
     EightPoint* mEightPointLeft;
@@ -192,7 +192,7 @@ private:
     void quadMatching(const std::vector<cv::Point3f> &pts3D, const std::vector<cv::Point2f> &pts2D_l, const std::vector<cv::Point2f> &pts2D_r
             , std::vector<bool> &inliers, const cv::Mat &imLeft, const cv::Mat &imRight, std::vector<cv::Point3f> &new_pts3D,
                       std::vector<cv::Point2f> &new_pts2D_l, std::vector<cv::Point2f> &new_pts2D_r,
-                      std::vector<cv::DMatch> &matches, const std::vector<bool> &ptsClose);
+                      std::vector<cv::DMatch> &matches);
 
 
     //----------Pose estimation
