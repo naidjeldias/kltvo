@@ -81,7 +81,8 @@ COPY . /root/kltvo/
 
 RUN cd /root/kltvo \
     && mkdir -p build/ \
-    && cd  build && cmake .. \
+    && cd  build \
+    && cmake -DTorch_DIR=$(python3 -c 'import torch; print(torch.utils.cmake_prefix_path)')/Torch .. \
     && make
 
 # Benchmark tools
