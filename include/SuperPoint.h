@@ -42,21 +42,29 @@ struct SuperPoint : torch::nn::Module {
 
 };
 
-
-cv::Mat SPdetect(std::shared_ptr<SuperPoint> model, cv::Mat img, std::vector<cv::KeyPoint> &keypoints, double threshold, bool nms, bool cuda);
-// torch::Tensor NMS(torch::Tensor kpts);
-
 class SPDetector {
 public:
-    SPDetector(std::shared_ptr<SuperPoint> _model);
-    void detect(cv::Mat &image, bool cuda);
-    void getKeyPoints(float threshold, int iniX, int maxX, int iniY, int maxY, std::vector<cv::KeyPoint> &keypoints, bool nms);
-    void computeDescriptors(const std::vector<cv::KeyPoint> &keypoints, cv::Mat &descriptors);
+    SPDetector(const std::string & modelPath, float threshold = 0.2f, bool nms = true, int minDistance = 4, bool cuda = false);
+    virtual ~SPDetector();
+    std::vector<cv::KeyPoint> detect(const cv::Mat &img, const cv::Mat & mask = cv::Mat());
+    cv::Mat compute(const std::vector<cv::KeyPoint> &keypoints);
+
+    void setThreshold(float threshold) {threshold_ = threshold;}
+    void SetNMS(bool enabled) {nms_ = enabled;}
+    void setMinDistance(float minDistance) {minDistance_ = minDistance;}
 
 private:
-    std::shared_ptr<SuperPoint> model;
-    torch::Tensor mProb;
-    torch::Tensor mDesc;
+    std::shared_ptr<SuperPoint> model_;
+    torch::Tensor prob_;
+    torch::Tensor desc_;
+
+    float threshold_;
+    bool nms_;
+    int minDistance_;
+    bool cuda_;
+
+    bool detected_;
 };
+
 
 #endif
