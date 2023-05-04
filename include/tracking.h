@@ -31,11 +31,11 @@
 #include<Eigen/Dense>
 #include <cassert>
 
-
-#include "opencv2/features2d/features2d.hpp"
+#include "SuperPoint.h"
 
 #include "eightpoint.hpp"
 #include "ORBextractor.h"
+
 
 class Tracking{
 
@@ -91,14 +91,13 @@ public:
 
 private:
 
-    std::list<cv::Mat> relativeFramePoses;
+    std::list<cv::Mat> relativeFramePoses_;
     std::list<double>  frameTimeStamp;
 
 #if LOG
     std::list<int > gnIterations, leftPtsDetec, ptsNMS, ptsStereoMatch, ptsTracking,
                     ptsQuadMatch, numInliersGN, maxItGN, ransacIt_8point;
     std::list<double > gnMeanIterations, rep_err_3d;
-    std::list<cv::Mat> relativeFramePoses_;
 #endif
 
 

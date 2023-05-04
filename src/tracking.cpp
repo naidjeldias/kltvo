@@ -225,7 +225,7 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, relativePose);
 
         //saving relative pose estimated
-        relativeFramePoses.push_back(relativePose.clone());
+        relativeFramePoses_.push_back(relativePose.clone());
         frameTimeStamp.push_back(timestamp);
 
         cameraPoses_.push_back(computeGlobalPose(relativePose));
@@ -1654,7 +1654,7 @@ void Tracking::saveTrajectoryEuroc(const string &filename) {
     */
     std::list<cv::Mat>::iterator lit;
     std::list<double>::iterator lTime = frameTimeStamp.begin();
-    for(lit = relativeFramePoses.begin(); lit != relativeFramePoses.end(); ++lit, ++lTime){
+    for(lit = relativeFramePoses_.begin(); lit != relativeFramePoses_.end(); ++lit, ++lTime){
 
 
         //Compute the inverse of relative pose estimation inv(Tcw) = [R' | C]
@@ -1726,7 +1726,7 @@ void Tracking::saveTrajectoryKitti(const string &filename) {
         * Initial Pwc = [I | 0]
     */
     std::list<cv::Mat>::iterator lit;
-    for(lit = relativeFramePoses.begin(); lit != relativeFramePoses.end(); ++lit){
+    for(lit = relativeFramePoses_.begin(); lit != relativeFramePoses_.end(); ++lit){
 
 
         //Compute the inverse of relative pose estimation inv(Tcw) = [R' | C]
@@ -1911,21 +1911,23 @@ void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &
 
 void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, const std::vector<cv::KeyPoint> &kpts_r, const std::vector<Point2f> &pts,
                                     const cv::Mat &im) {
-
+#if LOG
     leftPtsDetec.push_back(kpts_l.size());
     writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
     writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
-
-    cv::Mat imOut;
+    writeOnLogFile("Num keypoints after NMS: ", std::to_string(pts.size()));
+    ptsNMS.push_back(pts.size());
+#endif
+    
 
 #if LOG_DRAW
+    cv::Mat imOut;
     drawKeypoints(im,kpts_l,imOut, cv::Scalar(0,255,0));
     imwrite("kptsORBoctree.png", imOut);
     drawGridAndPoints(im, pts, "GridNMS.png");
 #endif
 
-    writeOnLogFile("Num keypoints after NMS: ", std::to_string(pts.size()));
-    ptsNMS.push_back(pts.size());
+
 
 }
 
@@ -1935,9 +1937,11 @@ void Tracking::logStereoMatching(const cv::Mat &im_r, const cv::Mat &im_l, const
     std::string prefix = "stereo";
     mEightPointLeft->drawMatches_(im_l, im_r, pts_l, pts_r, mrl, false, prefix);
 #endif
+
+#if LOG
     writeOnLogFile("Num of stereo matches:", std::to_string(pts_l.size()));
     ptsStereoMatch.push_back(pts_l.size());
-
+#endif
 }
 
 void Tracking::logLocalMaping(const std::vector<Point3f> &pts3D, double &meanError) {
@@ -1961,9 +1965,11 @@ void Tracking::logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const
     std::string prefix = "quad";
     mEightPointLeft->drawMatches_(im_l1, im_r1, pts_l1, pts_r1, mlr1, false, prefix);
 #endif
+
+#if LOG
     writeOnLogFile("left points before quadMatching:", std::to_string(numPts));
     ptsQuadMatch.push_back(numPts);
-
+#endif
 }
 
 int Tracking::sign(double value) {
