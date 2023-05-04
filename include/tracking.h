@@ -61,10 +61,10 @@ public:
     ~Tracking();
     trackingState trackingState_;
     Keyframe currentKeyframe_;
-    cv::Mat K;
-    double  baseline;
-    cv::Mat P1, P2;
-    double uc, vc, fu, fv;
+    cv::Mat K_;
+    double  baseline_;
+    cv::Mat P1_, P2_;
+    double uc_, vc_, fu_, fv_;
     cv::Mat imLeft0_, imRight0_;
 
     // Camera poses
@@ -91,36 +91,30 @@ public:
 
 private:
 
-    std::list<cv::Mat> relativeFramePoses;
-    std::list<double>  frameTimeStamp;
+    std::list<cv::Mat> relativeFramePoses_;
+    std::list<double>  frameTimeStamps_;
 
 #if LOG
-    std::list<int > gnIterations, leftPtsDetec, ptsNMS, ptsStereoMatch, ptsTracking,
-                    ptsQuadMatch, numInliersGN, maxItGN, ransacIt_8point;
-    std::list<double > gnMeanIterations, rep_err_3d;
-    std::list<cv::Mat> relativeFramePoses_;
+    std::list<int > gnIterations_, leftPtsDetec_, ptsNMS_, ptsStereoMatch_, ptsTracking_,
+                    ptsQuadMatch_, numInliersGN_, ransacIt8Point_;
+    std::list<double > gnMeanIterations, repErr3d_;
 #endif
 
 
-    bool initPhase;
-    int numFrame;
+    bool initPhase_;
+    int numFrame_;
 
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
 
     cv::Mat computeGlobalPose(const cv::Mat &current_pose);
 
     //-------------- feature extraction
-    int frameGridRows;
-    int frameGridCols;
-    int nFeatures;
-    float fScaleFactor;
-    int nLevels ;
-    int fIniThFAST;
-    int fMinThFAST;
-    std::mutex mtxORB;
+    int frameGridRows_;
+    int frameGridCols_;
+    int nFeatures_;
 
-    ORBextractor* mpORBextractorLeft;
-    ORBextractor* mpORBextractorRight;
+    ORBextractor* mpORBextractorLeft_;
+    ORBextractor* mpORBextractorRight_;
 
     void featureExtraction (const cv::Mat &im0, const cv::Mat &im1, std::vector<KeyPoint> &kpts0,
             std::vector<KeyPoint> &kpts1, std::vector<Point2f> &pts0, std::vector<Point2f> &pts1);
@@ -133,7 +127,7 @@ private:
 
 
     //-------------- stereo matching
-    double maxDisp, minDisp, initTimestamp, thDepth, sadMinValue, halfBlockSize;
+    double maxDisp_, minDisp_, initTimestamp_, thDepth_, sadMinValue_, halfBlockSize_;
 
 
     void stereoMatching(const std::vector<cv::Point2f>& pts_l, const std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
@@ -147,8 +141,8 @@ private:
 
 
     //------------- feature tracking
-    std::mutex mtx1, mtx2, mtx3, mtx4;
-    int winSize, pyrMaxLevel;
+    std::mutex mtx1_, mtx2_, mtx3_;
+    int winSize_, pyrMaxLevel_;
 
 
     void featureTracking (const cv::Mat &imL0, const cv::Mat &imL1, const cv::Mat &imR0, const cv::Mat &imR1, std::vector<Point2f> &ptsL0,
@@ -162,25 +156,24 @@ private:
                              const cv::Mat &imT1, const  std::vector<uchar> &status, int flag, std::vector<Point3f> &pts3D);
 
     //-------------- Outliers removal and motion estimation
-    EightPoint* mEightPointLeft;
+    EightPoint* mEightPointLeft_;
 
     void outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std::vector<Point2f> &ptsL0
             , const cv::Mat &imL1 ,const std::vector<Point2f> &ptsL1, const cv::Mat &imR0, const std::vector<Point2f> &ptsR0,
             const cv::Mat &imR1, const std::vector<Point2f> &ptsR1, std::vector<bool> &inliers, std::vector<double> &rvec_est, cv::Mat &t_est);
 
-    void essentialMatrixDecomposition(const cv::Mat &F, const cv::Mat &K, const cv::Mat &K_l, const std::vector<cv::Point2f> &pts_l,
+    void essentialMatrixDecomposition(const cv::Mat &F_mat, const cv::Mat &K_mat, const std::vector<cv::Point2f> &pts_l,
                                       const std::vector<cv::Point2f> &pts_r, std::vector<bool> &inliers , cv::Mat &R_est, cv::Mat &t_est);
 
-    void checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat &u3, const cv::Mat &K, const cv::Mat &K_l, const std::vector<cv::Point2f> &pts_l
+    void checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat &u3, const std::vector<cv::Point2f> &pts_l
             , const std::vector<cv::Point2f> &pts_r, cv::Mat &R_est, cv::Mat &t_est, std::vector<bool> &inliers);
 
-    bool pointFrontCamera(cv::Mat &R, const cv::Mat &u3, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l,
-                          const cv::Mat &K, const cv::Mat &K_l);
+    bool pointFrontCamera(cv::Mat &R, const cv::Mat &u3, const cv::Mat &pt_l, const cv::Mat &pt_r, const cv::Mat &P, cv::Mat &P_l);
 
 
     //----------local mapping
-    int max_iter_3d;
-    double th_3d;
+    int maxIter3d_;
+    double th3d_;
 
     void localMapping (const std::vector<cv::Point2f> &pts_l, const std::vector<cv::Point2f> &pts_r,
                        std::vector<cv::Point3f> &pts3D, const std::vector<cv::DMatch> &macthes, double &meanError);
@@ -196,15 +189,15 @@ private:
 
 
     //----------Pose estimation
-    double ransacProb, ransacTh;
-    int ransacMaxIt;
-    unsigned int ransacMinSet;
+    double ransacProbGN_, ransacThGN_;
+    int ransacMaxItGN_;
+    unsigned int ransacMinSetGN_;
     std::vector<int> generateRandomIndices(const unsigned long &maxIndice, const unsigned int &vecSize);
-    double minIncTh;            // min increment for pose optimization
-    int maxIteration;           // max number of iteration for pose update
-    int finalMaxIteration;      // max iterations for minimization final refinement
-    bool reweigh;               // reweight in optimization
-    double adjustValue;
+    double minIncThGN_;            // min increment for pose optimization
+    int maxIterationGN_;           // max number of iteration for pose update
+    int finalMaxIterationGN_;      // max iterations for minimization final refinement
+    bool reweighGN_;               // reweight in optimization
+    double adjustValueGN_;
 
 
     void relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, const std::vector<cv::Point2f> &pts2DR,
@@ -215,16 +208,16 @@ private:
             cv::Mat &tr_vec, const int &bestNumInliers);
 
     void poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr, const std::vector<cv::Point3f> &pts3d
-            , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, bool reweigh, int &bestNumInliers);
+            , std::vector<double> &p0, std::vector<bool> &inliers, std::vector<double> &p, int &bestNumInliers);
 
     int poseEstimation(const std::vector<cv::Point2d> &pts2dl, const std::vector<cv::Point2d> &pts2dr, const std::vector<cv::Point3d> &pts3d
-            , std::vector<double> &p0, const int numPts, bool reweigh);
+            , std::vector<double> &p0, const int numPts);
 
     void computeJacobian(const int numPts, const std::vector<cv::Point3d> &pts3D, const std::vector<cv::Point2d> &pts2d_l,
-                         const std::vector<cv::Point2d> &pts2d_r, std::vector<double> &p0, cv::Mat &J, cv::Mat &res, bool reweigh);
+                         const std::vector<cv::Point2d> &pts2d_r, std::vector<double> &p0, cv::Mat &J, cv::Mat &res);
 
     int checkInliers(const std::vector<cv::Point3f> &pts3d, const std::vector<cv::Point2f> &pts2dl, const std::vector<cv::Point2f> &pts2dr,
-                     const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, bool reweigh, long double &stdDev);
+                     const std::vector<int> &index, const std::vector<double> &p0, std::vector<bool> &inliers, long double &sumErr, long double &stdDev);
 
     //----------------------Tools functions
     std::vector<float > toQuaternion(const cv::Mat &R);
