@@ -31,9 +31,6 @@
 #include<Eigen/Dense>
 #include <cassert>
 
-
-#include "opencv2/features2d/features2d.hpp"
-
 #include "eightpoint.hpp"
 #include "ORBextractor.h"
 
