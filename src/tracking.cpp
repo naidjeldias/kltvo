@@ -1903,14 +1903,14 @@ void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &
 
 void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, const std::vector<cv::KeyPoint> &kpts_r, const std::vector<Point2f> &pts,
                                     const cv::Mat &im) {
-
+#if LOG
     leftPtsDetec_.push_back(kpts_l.size());
     writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
     writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
-
-    cv::Mat imOut;
+#endif
 
 #if LOG_DRAW
+    cv::Mat imOut;
     drawKeypoints(im,kpts_l,imOut, cv::Scalar(0,255,0));
     imwrite("kptsORBoctree.png", imOut);
     drawGridAndPoints(im, pts, "GridNMS.png");
@@ -1927,9 +1927,11 @@ void Tracking::logStereoMatching(const cv::Mat &im_r, const cv::Mat &im_l, const
     std::string prefix = "stereo";
     mEightPointLeft_->drawMatches_(im_l, im_r, pts_l, pts_r, mrl, false, prefix);
 #endif
+
+#if LOG
     writeOnLogFile("Num of stereo matches:", std::to_string(pts_l.size()));
     ptsStereoMatch_.push_back(pts_l.size());
-
+#endif
 }
 
 void Tracking::logLocalMaping(const std::vector<Point3f> &pts3D, double &meanError) {
@@ -1953,9 +1955,11 @@ void Tracking::logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const
     std::string prefix = "quad";
     mEightPointLeft_->drawMatches_(im_l1, im_r1, pts_l1, pts_r1, mlr1, false, prefix);
 #endif
+
+#if LOG
     writeOnLogFile("left points before quadMatching:", std::to_string(numPts));
     ptsQuadMatch_.push_back(numPts);
-
+#endif
 }
 
 int Tracking::sign(double value) {
