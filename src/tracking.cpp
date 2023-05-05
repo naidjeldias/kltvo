@@ -1907,6 +1907,8 @@ void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, con
     leftPtsDetec_.push_back(kpts_l.size());
     writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
     writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
+    writeOnLogFile("Num keypoints after NMS: ", std::to_string(pts.size()));
+    ptsNMS_.push_back(pts.size());
 #endif
 
 #if LOG_DRAW
@@ -1915,9 +1917,6 @@ void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, con
     imwrite("kptsORBoctree.png", imOut);
     drawGridAndPoints(im, pts, "GridNMS.png");
 #endif
-
-    writeOnLogFile("Num keypoints after NMS: ", std::to_string(pts.size()));
-    ptsNMS_.push_back(pts.size());
 
 }
 
