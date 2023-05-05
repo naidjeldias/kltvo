@@ -32,6 +32,7 @@ RUN apt-get update \
         python3-pip \
         python3-tk \
         unzip \
+        libyaml-cpp-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN git clone $OPENCV_REPO opencv -b $OPENCV_VERSION \

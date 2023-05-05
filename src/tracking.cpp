@@ -9,48 +9,54 @@
 
 using namespace cv;
 
-Tracking::Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, double &sadMinValue, double &halfBlockSize, int &winSize, int &pyrMaxLevel, 
-                    int &nFeatures, float &fScaleFactor, int &nLevels, int &fIniThFAST, int &fMinThFAST,  
-                    double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, double &ransacThTrack, int &maxIter3d, double &th3d, 
-                    double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, int &ransacMaxItGN, 
-                    int &maxIterationGN, int &finalMaxIterationGN, bool &reweighGN, double &adjustValueGN) : trackingState_(NOT_INITIALIZED), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F)),
-frameGridRows_(frameGridRows), frameGridCols_(frameGridCols), nFeatures_(nFeatures),  
-maxDisp_(maxDisp), minDisp_(minDisp), thDepth_(35.0), sadMinValue_(sadMinValue), halfBlockSize_(halfBlockSize), winSize_(winSize), pyrMaxLevel_(pyrMaxLevel), maxIter3d_(maxIter3d), 
-th3d_(th3d), ransacProbGN_(ransacProbGN), ransacThGN_(ransacThGN), ransacMaxItGN_(ransacMaxItGN), ransacMinSetGN_(ransacMinSetGN), minIncThGN_(10E-5), 
-maxIterationGN_(maxIterationGN), finalMaxIterationGN_(finalMaxIterationGN), reweighGN_(reweighGN), adjustValueGN_(adjustValueGN)
-
+Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F)), initPhase_(true), thDepth_(35.0), minIncThGN_(10E-5)
 {
     srand(time(0));
 
     //-----Feature extraction
     std::cout << "NMS parameters: \n";
 
+    frameGridRows_ = parameters["FeaturExtrac.frameGridRows"].as<int>();
+    frameGridCols_ = parameters["FeaturExtrac.frameGridCols"].as<int>();
     std::cout << "- Num Grid rows : "                  << frameGridRows_           << std::endl;
     std::cout << "- Num Grid cols:  "                  << frameGridCols_             << std::endl;
 
     //----Stereo Matching
     std::cout << "Estereo Matching parameters: \n";
 
+    minDisp_        = parameters["Disparity.mindisp"].as<int>();
+    maxDisp_        = parameters["Disparity.maxdisp"].as<int>();
+    sadMinValue_    = parameters["SAD.minValue"].as<double>();
+    halfBlockSize_  = parameters["SAD.winHalfBlockSize"].as<int>();
     std::cout << "- Min disparity: "                  << minDisp_           << std::endl;
     std::cout << "- Max disparity: "                  << maxDisp_             << std::endl;
     std::cout << "- Threshold depth: "                << thDepth_         << std::endl;
-
     std::cout << "- SAD min value: "                  << sadMinValue_             << std::endl;
     std::cout << "- SAD halfBlockSize_: "              << halfBlockSize_         << std::endl;
 
     //-----KLT feature tracker
     std::cout << "KLT parameters: \n";
-
+    winSize_        = parameters["KLT.winSize"].as<int>();
+    pyrMaxLevel_    = parameters["KLT.pyrMaxLevel"].as<int>();
     std::cout << "- Search Windows Size : "                  << winSize_           << std::endl;
     std::cout << "- Pyramid max level:  "                    << pyrMaxLevel_             << std::endl;
 
     //-----ORB extractor
+    nFeatures_          = parameters["ORBextractor.nFeatures"].as<int>();
+    float fScaleFactor  = parameters["ORBextractor.scaleFactor"].as<double>();
+    int nLevels         = parameters["ORBextractor.nLevels"].as<int>();
+    int fIniThFAST      = parameters["ORBextractor.iniThFAST"].as<int>();
+    int fMinThFAST      = parameters["ORBextractor.minThFAST"].as<int>();
 
-    mpORBextractorLeft_  = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-    mpORBextractorRight_ = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+    mpORBextractorLeft_     = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+    mpORBextractorRight_    = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
 
     //-----Eight Point algorithm
 
+    double ransacProbTrack       = parameters["EightPoint.ransacProb"].as<double>();
+    double ransacThTrack         = parameters["EightPoint.ransacTh"].as<double>();
+    int ransacMinSetTrack        = parameters["EightPoint.ransacSet"].as<int>();
+    int ransacMaxItTrack         = parameters["EightPoint.ransacMaxInt"].as<int>();
     std::cout << "- Ransac prob: "                  << ransacProbTrack          << std::endl;
     std::cout << "- Ransac Th: "                    << ransacThTrack            << std::endl;
     std::cout << "- Ransac min set: "               << ransacMinSetTrack         << std::endl;
@@ -61,13 +67,21 @@ maxIterationGN_(maxIterationGN), finalMaxIterationGN_(finalMaxIterationGN), rewe
     
     //----local mapping
     std::cout << "Triangulation parameters: \n";
-
+    maxIter3d_      = parameters["Triangulation.maxIt"].as<int>();
+    th3d_           = parameters["Triangulation.reproTh"].as<double>();
     std::cout << "- Max it: "   << maxIter3d_  << std::endl;
     std::cout << "- Th 3d: "    << th3d_        << std::endl;
 
     //----Pose estimation
     std::cout << "Pose estimation parameters: \n";
-
+    ransacProbGN_       = parameters["GN.ransacProb"].as<double>();
+    ransacThGN_         = parameters["GN.ransacTh"].as<double>();
+    ransacMinSetGN_     = parameters["GN.ransacMinSet"].as<int>();
+    ransacMaxItGN_      = parameters["GN.ransacMaxIt"].as<int>();
+    maxIterationGN_     = parameters["GN.maxIt"].as<int>();
+    finalMaxIterationGN_= parameters["GN.finalMaxIt"].as<int>();
+    adjustValueGN_      = parameters["GN.weightAdjustVal"].as<double>();
+    reweighGN_        = parameters["GN.reweigh"].as<bool>();
     std::cout << "- Ransac prob: "                         << ransacProbGN_           << std::endl;
     std::cout << "- Ransac Th: "                           << ransacThGN_             << std::endl;
     std::cout << "- Ransac min set: "                      << ransacMinSetGN_         << std::endl;

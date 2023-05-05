@@ -30,6 +30,7 @@
 #include <math.h>
 #include<Eigen/Dense>
 #include <cassert>
+#include <yaml-cpp/yaml.h>
 
 #include "eightpoint.hpp"
 #include "ORBextractor.h"
@@ -49,11 +50,7 @@ public:
     // Tracking states
     enum trackingState{NOT_INITIALIZED, OK};
 
-    Tracking(int &frameGridRows, int &frameGridCols,  double &maxDisp, double &minDisp, double &sadMinValue, 
-        double &halfBlockSize, int &winSize, int &pyrMaxLevel, int &nFeatures, float &fScaleFactor, int &nLevels, 
-        int &fIniThFAST, int &fMinThFAST, double &ransacProbTrack, int &ransacMinSetTrack, int &ransacMaxItTrack, 
-        double &ransacThTrack, int &max_iter_3d, double &th_3d, double &ransacProbGN, double &ransacThGN, int &ransacMinSetGN, 
-        int &ransacMaxItGN, int &maxIteration, int &finalMaxIteration, bool &reweigh, double &adjustValue);
+    Tracking(YAML::Node parameters);
 
     ~Tracking();
     trackingState trackingState_;
@@ -124,7 +121,8 @@ private:
 
 
     //-------------- stereo matching
-    double maxDisp_, minDisp_, initTimestamp_, thDepth_, sadMinValue_, halfBlockSize_;
+    double initTimestamp_, thDepth_, sadMinValue_, halfBlockSize_;
+    int  maxDisp_, minDisp_;
 
 
     void stereoMatching(const std::vector<cv::Point2f>& pts_l, const std::vector<cv::Point2f>& pts_r, const cv::Mat& imLeft,
