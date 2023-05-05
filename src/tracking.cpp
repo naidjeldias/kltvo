@@ -91,8 +91,6 @@ Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), camer
     std::cout << "- Refinment max iteration: "             << finalMaxIterationGN_    << std::endl;
     std::cout << "- reprojection weight adjust value: "    << adjustValueGN_          << std::endl;
 
-    initPhase_ = true;
-
 }
 
 
