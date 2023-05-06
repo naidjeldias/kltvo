@@ -44,25 +44,30 @@ Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), camer
     std::cout << "- Pyramid max level:  "                    << pyrMaxLevel_             << std::endl;
 
     //-----ORB extractor
-    nFeatures_          = parameters["ORBextractor.nFeatures"].as<int>();
-    float fScaleFactor  = parameters["ORBextractor.scaleFactor"].as<double>();
-    int nLevels         = parameters["ORBextractor.nLevels"].as<int>();
-    int fIniThFAST      = parameters["ORBextractor.iniThFAST"].as<int>();
-    int fMinThFAST      = parameters["ORBextractor.minThFAST"].as<int>();
+    if(detectorType_ == ORB)
+    {
+        nFeatures_          = parameters["ORBextractor.nFeatures"].as<int>();
+        float fScaleFactor  = parameters["ORBextractor.scaleFactor"].as<double>();
+        int nLevels         = parameters["ORBextractor.nLevels"].as<int>();
+        int fIniThFAST      = parameters["ORBextractor.iniThFAST"].as<int>();
+        int fMinThFAST      = parameters["ORBextractor.minThFAST"].as<int>();
 
-    ORBextractorLeft_     = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-    ORBextractorRight_    = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+        ORBextractorLeft_     = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+        ORBextractorRight_    = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+    }
 
-    //-----SuperPoint
-    string modelPath = parameters["SuperPoint.modelPath"].as<string>();
-    bool cuda = parameters["SuperPoint.cuda"].as<bool>();
-    bool nms = parameters["SuperPoint.nms"].as<bool>();
-    int minDistance = parameters["SuperPoint.nmsDistance"].as<int>();
-    float threshold = parameters["SuperPoint.threshold"].as<float>();
+    if(detectorType_ == SP)
+    {
+        //-----SuperPoint
+        string modelPath = parameters["SuperPoint.modelPath"].as<string>();
+        bool cuda = parameters["SuperPoint.cuda"].as<bool>();
+        bool nms = parameters["SuperPoint.nms"].as<bool>();
+        int minDistance = parameters["SuperPoint.nmsDistance"].as<int>();
+        float threshold = parameters["SuperPoint.threshold"].as<float>();
 
-    SPDetectorLeft_     = new SPDetector(modelPath, threshold, nms, minDistance, cuda);
-    SPDetectorRight_    = new SPDetector(modelPath, threshold, nms, minDistance, cuda);
-
+        SPDetectorLeft_     = new SPDetector(modelPath, threshold, nms, minDistance, cuda);
+        SPDetectorRight_    = new SPDetector(modelPath, threshold, nms, minDistance, cuda);
+    }
     //-----Eight Point algorithm
 
     double ransacProbTrack       = parameters["EightPoint.ransacProb"].as<double>();
