@@ -111,7 +111,13 @@ Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), camer
 }
 
 
-Tracking::~Tracking() {
+Tracking::~Tracking() 
+{
+    delete ORBextractorLeft_;
+    delete ORBextractorRight_;
+    delete SPDetectorLeft_;
+    delete SPDetectorRight_;
+    delete mEightPointLeft_;
 }
 
 
