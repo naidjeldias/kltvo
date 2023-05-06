@@ -109,3 +109,13 @@ Viewer.ViewpointX: -1
 Viewer.ViewpointY: 1
 Viewer.ViewpointZ: -1
 Viewer.ViewpointF: 420
+
+
+#--------------------------------------------------------------------------------------------
+# SuperPoint Parameters
+#--------------------------------------------------------------------------------------------
+SuperPoint.modelPath: /root/kltvo/superpoint_v1.pt
+SuperPoint.nms: true
+SuperPoint.nmsDistance: 4
+SuperPoint.threshold: 0.2
+SuperPoint.cuda: true
