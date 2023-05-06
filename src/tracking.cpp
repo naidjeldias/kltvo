@@ -175,10 +175,6 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 
         featureExtraction(imLeft0_, imRight0_, kpts_l, kpts_r, pts_l0, pts_r0);
         
-        //convert vector of keypoints to vector of Point2f
-        for (auto& kpt:kpts_r)
-            pts_r0.push_back(kpt.pt);
-
         //Free memory
         std::vector<KeyPoint>().swap(kpts_r);
         std::vector<KeyPoint>().swap(kpts_l);
@@ -269,15 +265,20 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 }
 
 
-void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts) {
+void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpts, std::vector<cv::Point2f> &pts) {
 
     if(flag == 0){
-        (*ORBextractorLeft_) (im, cv::Mat(), kpt);
+        (*ORBextractorLeft_) (im, cv::Mat(), kpts);
 //        std::cout << "Num kpt extracted: " << kpt.size() << std::endl;
-        gridNonMaximumSuppression(pts,kpt,im);
+        gridNonMaximumSuppression(pts,kpts,im);
 
     } else
-        (*ORBextractorRight_)(im, cv::Mat(), kpt);
+    {
+        (*ORBextractorRight_)(im, cv::Mat(), kpts);
+        //convert vector of keypoints to vector of Point2f
+        for (auto& kpt:kpts)
+            pts.push_back(kpt.pt);
+    }
 
 }
 
