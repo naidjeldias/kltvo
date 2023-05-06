@@ -15,13 +15,14 @@ Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), camer
 
     //-----Feature extraction
     std::cout << "NMS parameters: \n";
-
+    nFeatures_     = parameters["FeaturExtrac.nFeatures"].as<int>();
     frameGridRows_ = parameters["FeaturExtrac.frameGridRows"].as<int>();
     frameGridCols_ = parameters["FeaturExtrac.frameGridCols"].as<int>();
     detectorType_  = parameters["FeaturExtrac.detectorType"].as<int>();
     std::cout << "- Num Grid rows : "                  << frameGridRows_           << std::endl;
     std::cout << "- Num Grid cols:  "                  << frameGridCols_             << std::endl;
     std::cout << "- Detector type: "                   << detectorType_         << std::endl;
+    std::cout << "- Num features: "                    << nFeatures_             << std::endl;
 
     //----Stereo Matching
     std::cout << "Estereo Matching parameters: \n";
@@ -46,7 +47,6 @@ Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), camer
     //-----ORB extractor
     if(detectorType_ == ORB)
     {
-        nFeatures_          = parameters["ORBextractor.nFeatures"].as<int>();
         float fScaleFactor  = parameters["ORBextractor.scaleFactor"].as<double>();
         int nLevels         = parameters["ORBextractor.nLevels"].as<int>();
         int fIniThFAST      = parameters["ORBextractor.iniThFAST"].as<int>();
