@@ -80,6 +80,13 @@ RUN git clone https://github.com/stevenlovegrove/Pangolin.git Pangolin -b v0.6 \
 
 COPY . /root/kltvo/
 
+# Superpoint model
+# RUN cd /root/kltvo/scripts && \
+#     wget https://github.com/magicleap/SuperPointPretrainedNetwork/raw/master/superpoint_v1.pth && \
+#     wget https://raw.githubusercontent.com/magicleap/SuperPointPretrainedNetwork/master/demo_superpoint.py && \
+#     python trace.py && \
+#     rm superpoint_v1.pth demo_superpoint.py
+
 RUN cd /root/kltvo \
     && mkdir -p build/ \
     && cd  build \
