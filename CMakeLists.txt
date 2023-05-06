@@ -9,6 +9,7 @@ find_package(Eigen3 REQUIRED)
 find_package(Pangolin 0.4 REQUIRED)
 find_package(PythonLibs 3.8)
 find_package(Torch REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 include_directories(
         ${PROJECT_SOURCE_DIR}/include
@@ -17,6 +18,7 @@ include_directories(
         ${Pangolin_INCLUDE_DIRS}
         ${PYTHON_INCLUDE_DIRS}
         ${TORCH_INCLUDE_DIRS}
+        ${YAML_CPP_INCLUDE_DIRS}
 )
 
 add_library(${PROJECT_NAME} SHARED
@@ -39,6 +41,7 @@ target_link_libraries(
         ${Pangolin_LIBRARIES}
         ${PYTHON_LIBRARIES}
         ${TORCH_LIBRARIES}
+        ${YAML_CPP_LIBRARIES}
 )
 
 

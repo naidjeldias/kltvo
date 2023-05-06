@@ -75,6 +75,7 @@ GN.maxIt: 50
 GN.finalMaxIt: 100
 
 #Gauss Newton reprojection weight adjust value, it depends on the stereo camera and lens setup, empirically set
+GN.reweigh: true
 GN.weightAdjustVal: 0.05
 
 
