@@ -65,8 +65,7 @@ Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), camer
         int minDistance = parameters["SuperPoint.nmsDistance"].as<int>();
         float threshold = parameters["SuperPoint.threshold"].as<float>();
 
-        SPDetectorLeft_     = new SPDetector(modelPath, threshold, nms, minDistance, cuda);
-        SPDetectorRight_    = new SPDetector(modelPath, threshold, nms, minDistance, cuda);
+        SPDetector_     = new SPDetector(modelPath, threshold, nms, minDistance, cuda);
     }
     //-----Eight Point algorithm
 
@@ -115,8 +114,7 @@ Tracking::~Tracking()
 {
     delete ORBextractorLeft_;
     delete ORBextractorRight_;
-    delete SPDetectorLeft_;
-    delete SPDetectorRight_;
+    delete SPDetector_;
     delete mEightPointLeft_;
 }
 
@@ -293,17 +291,6 @@ void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kp
 
 }
 
-void Tracking::extractSP(int flag, const cv::Mat &im, std::vector<cv::KeyPoint> &kpts, std::vector<cv::Point2f> &pts) {
-
-    if (flag == 0)
-        kpts = SPDetectorLeft_->detect(im);
-    else
-        kpts = SPDetectorRight_->detect(im);
-    //convert vector of keypoints to vector of Point2f
-    for (auto& kpt:kpts)
-        pts.push_back(kpt.pt);
-
-}
 
 void Tracking::gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im) {
 
@@ -1436,10 +1423,13 @@ void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::ve
         orbThreadRight.join();
     }else if (detectorType_ == SP)
     {
-        std::thread spThreadLeft (&Tracking::extractSP, this, 0, std::ref(im0), std::ref (kpts0), std::ref (pts0));
-        std::thread spThreadRight (&Tracking::extractSP, this, 1, std::ref(im1), std::ref (kpts1), std::ref(pts1));
-        spThreadLeft.join();
-        spThreadRight.join();
+        kpts0 = SPDetector_->detect(im0);
+        for (auto& kpt:kpts0)
+            pts0.push_back(kpt.pt);
+        
+        kpts1 = SPDetector_->detect(im1);
+        for (auto& kpt:kpts1)
+            pts1.push_back(kpt.pt);
     }
     
 
