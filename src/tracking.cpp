@@ -287,6 +287,18 @@ void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kp
 
 }
 
+void Tracking::extractSP(int flag, const cv::Mat &im, std::vector<cv::KeyPoint> &kpts, std::vector<cv::Point2f> &pts) {
+
+    if (flag == 0)
+        kpts = SPDetectorLeft_->detect(im);
+    else
+        kpts = SPDetectorRight_->detect(im);
+    //convert vector of keypoints to vector of Point2f
+    for (auto& kpt:kpts)
+        pts.push_back(kpt.pt);
+
+}
+
 void Tracking::gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im) {
 
     unsigned int nBucketX = im.cols / frameGridCols_;
@@ -1416,7 +1428,14 @@ void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::ve
 
         orbThreadLeft.join();
         orbThreadRight.join();
+    }else if (detectorType_ == SP)
+    {
+        std::thread spThreadLeft (&Tracking::extractSP, this, 0, std::ref(im0), std::ref (kpts0), std::ref (pts0));
+        std::thread spThreadRight (&Tracking::extractSP, this, 1, std::ref(im1), std::ref (kpts1), std::ref(pts1));
+        spThreadLeft.join();
+        spThreadRight.join();
     }
+    
 
     assert(!kpts0.empty() && !kpts1.empty());
 #if LOG
