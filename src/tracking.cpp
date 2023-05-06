@@ -48,8 +48,18 @@ Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), camer
     int fIniThFAST      = parameters["ORBextractor.iniThFAST"].as<int>();
     int fMinThFAST      = parameters["ORBextractor.minThFAST"].as<int>();
 
-    mpORBextractorLeft_     = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-    mpORBextractorRight_    = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+    ORBextractorLeft_     = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+    ORBextractorRight_    = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+
+    //-----SuperPoint
+    string modelPath = parameters["SuperPoint.modelPath"].as<string>();
+    bool cuda = parameters["SuperPoint.cuda"].as<bool>();
+    bool nms = parameters["SuperPoint.nms"].as<bool>();
+    int minDistance = parameters["SuperPoint.nmsDistance"].as<int>();
+    float threshold = parameters["SuperPoint.threshold"].as<float>();
+
+    SPDetectorLeft_     = new SPDetector(modelPath, threshold, nms, minDistance, cuda);
+    SPDetectorRight_    = new SPDetector(modelPath, threshold, nms, minDistance, cuda);
 
     //-----Eight Point algorithm
 
@@ -260,12 +270,12 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts) {
 
     if(flag == 0){
-        (*mpORBextractorLeft_) (im, cv::Mat(), kpt);
+        (*ORBextractorLeft_) (im, cv::Mat(), kpt);
 //        std::cout << "Num kpt extracted: " << kpt.size() << std::endl;
         gridNonMaximumSuppression(pts,kpt,im);
 
     } else
-        (*mpORBextractorRight_)(im, cv::Mat(), kpt);
+        (*ORBextractorRight_)(im, cv::Mat(), kpt);
 
 }
 

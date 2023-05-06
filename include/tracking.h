@@ -110,8 +110,11 @@ private:
     int frameGridCols_;
     int nFeatures_;
 
-    ORBextractor* mpORBextractorLeft_;
-    ORBextractor* mpORBextractorRight_;
+    ORBextractor* ORBextractorLeft_;
+    ORBextractor* ORBextractorRight_;
+
+    SPDetector* SPDetectorLeft_;
+    SPDetector* SPDetectorRight_;
 
     void featureExtraction (const cv::Mat &im0, const cv::Mat &im1, std::vector<KeyPoint> &kpts0,
             std::vector<KeyPoint> &kpts1, std::vector<Point2f> &pts0, std::vector<Point2f> &pts1);
