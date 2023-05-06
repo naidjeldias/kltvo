@@ -53,6 +53,8 @@ public:
     // Tracking states
     enum trackingState{NOT_INITIALIZED, OK};
 
+    enum featureDetector{ORB, SP};
+
     Tracking(YAML::Node parameters);
 
     ~Tracking();
@@ -109,6 +111,7 @@ private:
     int frameGridRows_;
     int frameGridCols_;
     int nFeatures_;
+    int detectorType_;
 
     ORBextractor* ORBextractorLeft_;
     ORBextractor* ORBextractorRight_;

@@ -18,8 +18,10 @@ Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), camer
 
     frameGridRows_ = parameters["FeaturExtrac.frameGridRows"].as<int>();
     frameGridCols_ = parameters["FeaturExtrac.frameGridCols"].as<int>();
+    detectorType_  = parameters["FeaturExtrac.detectorType"].as<int>();
     std::cout << "- Num Grid rows : "                  << frameGridRows_           << std::endl;
     std::cout << "- Num Grid cols:  "                  << frameGridCols_             << std::endl;
+    std::cout << "- Detector type: "                   << detectorType_         << std::endl;
 
     //----Stereo Matching
     std::cout << "Estereo Matching parameters: \n";
@@ -1400,12 +1402,15 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
 void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::vector<KeyPoint> &kpts0,
                                  std::vector<KeyPoint> &kpts1, std::vector<Point2f> &pts0,
                                  std::vector<Point2f> &pts1) {
+    
+    if(detectorType_ == ORB)
+    {
+        std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(im0), std::ref (kpts0), std::ref (pts0));
+        std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(im1), std::ref (kpts1), std::ref(pts1));
 
-    std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(im0), std::ref (kpts0), std::ref (pts0));
-    std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(im1), std::ref (kpts1), std::ref(pts1));
-
-    orbThreadLeft.join();
-    orbThreadRight.join();
+        orbThreadLeft.join();
+        orbThreadRight.join();
+    }
 
     assert(!kpts0.empty() && !kpts1.empty());
 #if LOG
