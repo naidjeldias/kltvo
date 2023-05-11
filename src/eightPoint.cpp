@@ -122,7 +122,7 @@ void EightPoint::operator()(const std::vector<Point2f> &kpt_l, const std::vector
 
             }else{
                 inliers.push_back(true);//the points from subset are considered as inliers
-
+                numInliers++;
                 double dst = euclideanDist(kpt_l.at(i), kpt_r.at(i));
                 DMatch match (pos,pos, dst);
                 matches_.push_back(match);
