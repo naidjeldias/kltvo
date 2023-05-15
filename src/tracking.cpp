@@ -15,11 +15,14 @@ Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), camer
 
     //-----Feature extraction
     std::cout << "NMS parameters: \n";
-
+    nFeatures_     = parameters["FeaturExtrac.nFeatures"].as<int>();
     frameGridRows_ = parameters["FeaturExtrac.frameGridRows"].as<int>();
     frameGridCols_ = parameters["FeaturExtrac.frameGridCols"].as<int>();
+    detectorType_  = parameters["FeaturExtrac.detectorType"].as<int>();
     std::cout << "- Num Grid rows : "                  << frameGridRows_           << std::endl;
     std::cout << "- Num Grid cols:  "                  << frameGridCols_             << std::endl;
+    std::cout << "- Detector type: "                   << detectorType_         << std::endl;
+    std::cout << "- Num features: "                    << nFeatures_             << std::endl;
 
     //----Stereo Matching
     std::cout << "Estereo Matching parameters: \n";
@@ -42,15 +45,28 @@ Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), camer
     std::cout << "- Pyramid max level:  "                    << pyrMaxLevel_             << std::endl;
 
     //-----ORB extractor
-    nFeatures_          = parameters["ORBextractor.nFeatures"].as<int>();
-    float fScaleFactor  = parameters["ORBextractor.scaleFactor"].as<double>();
-    int nLevels         = parameters["ORBextractor.nLevels"].as<int>();
-    int fIniThFAST      = parameters["ORBextractor.iniThFAST"].as<int>();
-    int fMinThFAST      = parameters["ORBextractor.minThFAST"].as<int>();
+    if(detectorType_ == ORB)
+    {
+        float fScaleFactor  = parameters["ORBextractor.scaleFactor"].as<double>();
+        int nLevels         = parameters["ORBextractor.nLevels"].as<int>();
+        int fIniThFAST      = parameters["ORBextractor.iniThFAST"].as<int>();
+        int fMinThFAST      = parameters["ORBextractor.minThFAST"].as<int>();
 
-    mpORBextractorLeft_     = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
-    mpORBextractorRight_    = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+        ORBextractorLeft_     = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+        ORBextractorRight_    = new ORBextractor(nFeatures_,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
+    }
 
+    if(detectorType_ == SP)
+    {
+        //-----SuperPoint
+        string modelPath = parameters["SuperPoint.modelPath"].as<string>();
+        bool cuda = parameters["SuperPoint.cuda"].as<bool>();
+        bool nms = parameters["SuperPoint.nms"].as<bool>();
+        int minDistance = parameters["SuperPoint.nmsDistance"].as<int>();
+        float threshold = parameters["SuperPoint.threshold"].as<float>();
+
+        SPDetector_     = new SPDetector(modelPath, threshold, nms, minDistance, cuda);
+    }
     //-----Eight Point algorithm
 
     double ransacProbTrack       = parameters["EightPoint.ransacProb"].as<double>();
@@ -94,7 +110,12 @@ Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), camer
 }
 
 
-Tracking::~Tracking() {
+Tracking::~Tracking() 
+{
+    delete ORBextractorLeft_;
+    delete ORBextractorRight_;
+    delete SPDetector_;
+    delete mEightPointLeft_;
 }
 
 
@@ -163,10 +184,6 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 
         featureExtraction(imLeft0_, imRight0_, kpts_l, kpts_r, pts_l0, pts_r0);
         
-        //convert vector of keypoints to vector of Point2f
-        for (auto& kpt:kpts_r)
-            pts_r0.push_back(kpt.pt);
-
         //Free memory
         std::vector<KeyPoint>().swap(kpts_r);
         std::vector<KeyPoint>().swap(kpts_l);
@@ -257,17 +274,23 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 }
 
 
-void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts) {
+void Tracking::extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpts, std::vector<cv::Point2f> &pts) {
 
     if(flag == 0){
-        (*mpORBextractorLeft_) (im, cv::Mat(), kpt);
+        (*ORBextractorLeft_) (im, cv::Mat(), kpts);
 //        std::cout << "Num kpt extracted: " << kpt.size() << std::endl;
-        gridNonMaximumSuppression(pts,kpt,im);
+        gridNonMaximumSuppression(pts,kpts,im);
 
     } else
-        (*mpORBextractorRight_)(im, cv::Mat(), kpt);
+    {
+        (*ORBextractorRight_)(im, cv::Mat(), kpts);
+        //convert vector of keypoints to vector of Point2f
+        for (auto& kpt:kpts)
+            pts.push_back(kpt.pt);
+    }
 
 }
+
 
 void Tracking::gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im) {
 
@@ -1390,12 +1413,25 @@ bool Tracking::triangulation(const cv::Point2f &kp_l, const cv::Point2f &kp_r, c
 void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::vector<KeyPoint> &kpts0,
                                  std::vector<KeyPoint> &kpts1, std::vector<Point2f> &pts0,
                                  std::vector<Point2f> &pts1) {
+    
+    if(detectorType_ == ORB)
+    {
+        std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(im0), std::ref (kpts0), std::ref (pts0));
+        std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(im1), std::ref (kpts1), std::ref(pts1));
 
-    std::thread orbThreadLeft (&Tracking::extractORB, this, 0, std::ref(im0), std::ref (kpts0), std::ref (pts0));
-    std::thread orbThreadRight (&Tracking::extractORB, this, 1, std::ref(im1), std::ref (kpts1), std::ref(pts1));
-
-    orbThreadLeft.join();
-    orbThreadRight.join();
+        orbThreadLeft.join();
+        orbThreadRight.join();
+    }else if (detectorType_ == SP)
+    {
+        kpts0 = SPDetector_->detect(im0);
+        for (auto& kpt:kpts0)
+            pts0.push_back(kpt.pt);
+        
+        kpts1 = SPDetector_->detect(im1);
+        for (auto& kpt:kpts1)
+            pts1.push_back(kpt.pt);
+    }
+    
 
     assert(!kpts0.empty() && !kpts1.empty());
 #if LOG

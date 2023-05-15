@@ -2,7 +2,11 @@
 
 # Close/Far threshold. Baseline times.
 ThDepth: 40.0
-
+#--------------------------------------------------------------------------------------------
+# Feature extraction parameters
+#--------------------------------------------------------------------------------------------
+FeaturExtrac.nFeatures: 2000
+FeaturExtrac.detectorType: 0 # 0: ORB, 1: SuperPoint
 #--------------------------------------------------------------------------------------------
 # Stereo Matching parameters
 #--------------------------------------------------------------------------------------------
@@ -82,10 +86,6 @@ GN.weightAdjustVal: 0.05
 #--------------------------------------------------------------------------------------------
 # ORB Parameters
 #--------------------------------------------------------------------------------------------
-
-# ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 2000
-
 # ORB Extractor: Scale factor between levels in the scale pyramid 	
 ORBextractor.scaleFactor: 1.2
 
@@ -109,3 +109,12 @@ Viewer.ViewpointX: -1
 Viewer.ViewpointY: 1
 Viewer.ViewpointZ: -1
 Viewer.ViewpointF: 420
+
+#--------------------------------------------------------------------------------------------
+# SuperPoint Parameters
+#--------------------------------------------------------------------------------------------
+SuperPoint.modelPath: /root/kltvo/superpoint_v1.pt
+SuperPoint.nms: true
+SuperPoint.nmsDistance: 4
+SuperPoint.threshold: 0.2
+SuperPoint.cuda: true

@@ -70,7 +70,7 @@ void Viewer::run()
     
     while(!pangolin::ShouldQuit())
     {
-
+      try{
         if(trackingState_ == Tracking::OK)
         {
 
@@ -112,6 +112,11 @@ void Viewer::run()
             cv::imshow("Current Frame",imLeft0_);
             
         }
+      }catch(const cv::Exception& e)
+      {
+        std::cerr << e.what() << '\n';
+        continue;
+      }
 
         if(finishRequested_)
           break;

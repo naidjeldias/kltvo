@@ -13,3 +13,4 @@ examples/euroc/stats/*
 stereo_euroc
 stereo_kitti
 .vscode/settings.json
+__pycache__

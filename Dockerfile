@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM nvcr.io/nvidia/pytorch:22.08-py3
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -44,7 +44,7 @@ RUN git clone $OPENCV_REPO opencv -b $OPENCV_VERSION \
         -DOPENCV_ENABLE_NONFREE=ON \
         -DBUILD_SHARED_LIBS=ON \
         -DWITH_EIGEN=ON \
-        -DWITH_CUDA=ON \
+        -DWITH_CUDA=OFF \
         -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
         -DPYTHON3_EXECUTABLE=/usr/bin/python3 \
         -DPYTHON3_NUMPY_INCLUDE_DIRS=/usr/lib/python3/dist-packages/numpy/core/include/ \
@@ -80,9 +80,17 @@ RUN git clone https://github.com/stevenlovegrove/Pangolin.git Pangolin -b v0.6 \
 
 COPY . /root/kltvo/
 
+# Superpoint model
+# RUN cd /root/kltvo/scripts && \
+#     wget https://github.com/magicleap/SuperPointPretrainedNetwork/raw/master/superpoint_v1.pth && \
+#     wget https://raw.githubusercontent.com/magicleap/SuperPointPretrainedNetwork/master/demo_superpoint.py && \
+#     python trace.py && \
+#     rm superpoint_v1.pth demo_superpoint.py
+
 RUN cd /root/kltvo \
     && mkdir -p build/ \
-    && cd  build && cmake .. \
+    && cd  build \
+    && cmake -DTorch_DIR=$(python3 -c 'import torch; print(torch.utils.cmake_prefix_path)')/Torch .. \
     && make
 
 # Benchmark tools

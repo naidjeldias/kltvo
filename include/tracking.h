@@ -32,8 +32,11 @@
 #include <cassert>
 #include <yaml-cpp/yaml.h>
 
+#include "SuperPoint.h"
+
 #include "eightpoint.hpp"
 #include "ORBextractor.h"
+
 
 class Tracking{
 
@@ -49,6 +52,8 @@ public:
 
     // Tracking states
     enum trackingState{NOT_INITIALIZED, OK};
+
+    enum featureDetector{ORB, SP};
 
     Tracking(YAML::Node parameters);
 
@@ -106,13 +111,16 @@ private:
     int frameGridRows_;
     int frameGridCols_;
     int nFeatures_;
+    int detectorType_;
 
-    ORBextractor* mpORBextractorLeft_;
-    ORBextractor* mpORBextractorRight_;
+    ORBextractor* ORBextractorLeft_;
+    ORBextractor* ORBextractorRight_;
+
+    SPDetector* SPDetector_;
 
     void featureExtraction (const cv::Mat &im0, const cv::Mat &im1, std::vector<KeyPoint> &kpts0,
             std::vector<KeyPoint> &kpts1, std::vector<Point2f> &pts0, std::vector<Point2f> &pts1);
-    void extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpt, std::vector<cv::Point2f> &pts);
+    void extractORB(int flag, const cv::Mat &im, std::vector<KeyPoint> &kpts, std::vector<cv::Point2f> &pts);
 
     void gridNonMaximumSuppression(std::vector<cv::Point2f> &pts, const std::vector<cv::KeyPoint> &kpts, const cv::Mat &im);
 
