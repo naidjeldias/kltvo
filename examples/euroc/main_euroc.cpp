@@ -99,8 +99,9 @@ int main(int argc, char *argv[]){
     }
 
     string path_config  = string("examples/euroc/config/euroc.yaml");
+    bool viz = true;
     YAML::Node odometry_params = YAML::LoadFile(path_config);
-    
+    viz = odometry_params["Viewer.enabled"].as<bool>();
     Tracking* trackerPtr = new Tracking(odometry_params);
     
     // Read rectification parameters
@@ -154,8 +155,14 @@ int main(int argc, char *argv[]){
     trackerPtr->setCalibrationParameters(fu, fv, uc, vc, bf);
 
     // starting visualizer thread
-    Viewer* viewer_ = new Viewer(path_config);
-    std::thread* viewer_thd_ = new thread(&Viewer::run, viewer_);
+    Viewer* viewer_;
+    std::thread* viewer_thd_;
+    if (viz)
+    {
+        viewer_ = new Viewer(path_config);
+        viewer_thd_ = new thread(&Viewer::run, viewer_);
+    }
+
 
     const int nImages = vstrImageLeft.size();
 
@@ -200,7 +207,8 @@ int main(int argc, char *argv[]){
         std::chrono::steady_clock::time_point t1 = std::chrono::steady_clock::now();
 
         trackerPtr->start(imLeftRect,imRightRect, tframe);
-        viewer_->update(trackerPtr);
+        if (viz)
+            viewer_->update(trackerPtr);
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
@@ -243,11 +251,14 @@ int main(int argc, char *argv[]){
 #endif
     
     cv::waitKey(0);
-
-    viewer_->shutdown();
-    viewer_thd_->join();
-    delete viewer_thd_;
-    delete viewer_;
+    
+    if(viz)
+    {
+        viewer_->shutdown();
+        viewer_thd_->join();
+        delete viewer_thd_;
+        delete viewer_;
+    }
     delete trackerPtr;
     return 0;
 }

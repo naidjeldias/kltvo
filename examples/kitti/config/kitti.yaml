@@ -102,6 +102,7 @@ ORBextractor.minThFAST: 7
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters
 #--------------------------------------------------------------------------------------------
+Viewer.enabled: true
 Viewer.Camera.width: 1241
 Viewer.Camera.height: 376
 Viewer.Camera.fps: 10.0

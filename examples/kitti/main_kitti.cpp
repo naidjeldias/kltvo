@@ -104,8 +104,9 @@ int main(int argc, char *argv[]) {
     string path_calib       = string("examples/kitti/calib/"+yamlFile);
     string path_config      = string("examples/kitti/config/kitti.yaml");
 //    string path_calib   = string("kitti/KITTI00-02.yaml");
-
+    bool viz = true;
     YAML::Node odometry_params = YAML::LoadFile(path_config);
+    viz = odometry_params["Viewer.enabled"].as<bool>();
     Tracking* trackerPtr = new Tracking(odometry_params);
 
     cv::FileStorage fsSettings(path_calib, cv::FileStorage::READ);
@@ -127,8 +128,15 @@ int main(int argc, char *argv[]) {
     trackerPtr->setCalibrationParameters(fu, fv, uc, vc, bf);
 
     // starting visualizer thread
-    Viewer* viewer_ = new Viewer(path_config);
-    std::thread* viewer_thd_ = new thread(&Viewer::run, viewer_);
+    Viewer* viewer_;
+    std::thread* viewer_thd_;
+    if (viz)
+    {
+        viewer_ = new Viewer(path_config);
+        viewer_thd_ = new thread(&Viewer::run, viewer_);
+    }
+    
+    
 
 
     // Main loop
@@ -160,7 +168,8 @@ int main(int argc, char *argv[]) {
         // std::thread tracker (&Tracking::start, trackerPtr, imLeft,imRight, tframe);
         // tracker.join();
         trackerPtr->start(imLeft,imRight, tframe);
-        viewer_->update(trackerPtr);
+        if (viz)
+            viewer_->update(trackerPtr);
 
         std::chrono::steady_clock::time_point t2 = std::chrono::steady_clock::now();
 
@@ -205,10 +214,13 @@ int main(int argc, char *argv[]) {
 
     cv::waitKey(0);
 
-    viewer_->shutdown();
-    viewer_thd_->join();
-    delete viewer_thd_;
-    delete viewer_;
+    if(viz)
+    {
+        viewer_->shutdown();
+        viewer_thd_->join();
+        delete viewer_thd_;
+        delete viewer_;
+    }
     delete trackerPtr;
     cout << "-------" << endl << endl;
 
