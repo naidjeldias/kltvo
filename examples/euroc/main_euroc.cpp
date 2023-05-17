@@ -57,7 +57,7 @@ int main(int argc, char *argv[]){
     if (argc == 3){
         path_data = argv[1];
         seq       = argv[2];
-        cout << "Using sequence" << seq << "on path: " << path_data << endl;
+        cout << "Using sequence " << seq << " on path: " << path_data << endl;
     }else
     {
         cout << "Usage: ./stereo_euroc <SEQUENCE_PATH> <SEQUENCE_ID>" << endl;
