@@ -250,10 +250,10 @@ int main(int argc, char *argv[]){
 
 #endif
     
-    cv::waitKey(0);
-    
+
     if(viz)
     {
+        cv::waitKey(0);
         viewer_->shutdown();
         viewer_thd_->join();
         delete viewer_thd_;
