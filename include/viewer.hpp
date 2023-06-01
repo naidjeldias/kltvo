@@ -6,6 +6,8 @@
 #include <pangolin/scene/axis.h>
 #include <pangolin/scene/scenehandler.h>
 
+namespace kltvo
+{
 class Viewer 
 {
 
@@ -33,3 +35,4 @@ private:
     cv::Mat convertToOpenGLFrame(const cv::Mat& camMat);
     void drawPointsImage(cv::Mat &im, const std::vector<cv::Point2f> &pts, cv::Scalar color);
 };
+} // namespace kltvo

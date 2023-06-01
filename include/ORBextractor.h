@@ -26,6 +26,8 @@
 #include <opencv2/opencv.hpp>
 
 
+namespace kltvo
+{
 class ExtractorNode
 {
 public:
@@ -106,5 +108,6 @@ protected:
     std::vector<float> mvInvLevelSigma2;
 };
 
-#endif
+} // namespace kltvo
 
+#endif // ORBEXTRACTOR_H

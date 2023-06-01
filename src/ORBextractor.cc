@@ -66,6 +66,8 @@
 using namespace cv;
 using namespace std;
 
+namespace kltvo
+{
 
 const int PATCH_SIZE = 31;
 const int HALF_PATCH_SIZE = 15;
@@ -1127,5 +1129,5 @@ void ORBextractor::ComputePyramid(cv::Mat image)
     }
 
 }
-
+} // namespace kltvo
 

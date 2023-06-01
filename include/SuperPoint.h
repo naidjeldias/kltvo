@@ -14,6 +14,8 @@
 #undef EIGEN_MPL2_ONLY
 #endif
 
+namespace kltvo
+{
 
 struct SuperPoint : torch::nn::Module {
   SuperPoint();
@@ -66,5 +68,5 @@ private:
     bool detected_;
 };
 
-
+} // namespace kltvo
 #endif

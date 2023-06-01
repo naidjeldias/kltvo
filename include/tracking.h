@@ -38,6 +38,8 @@
 #include "ORBextractor.h"
 
 
+namespace kltvo
+{
 class Tracking{
 
 public:
@@ -247,5 +249,7 @@ private:
 
 
 };
+
+} //namespace kltvo
 
 #endif //KLTVO_TRACKING_H

@@ -1,5 +1,7 @@
 #include "viewer.hpp"
 
+namespace kltvo
+{
 Viewer::Viewer(const string &strSettingPath):finishRequested_(false), trackingState_(Tracking::NOT_INITIALIZED), rotZ_(cv::Mat::eye(4,4,CV_32F))
 {
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
@@ -246,3 +248,4 @@ void Viewer::update(Tracking* trackerPtr)
     keypoints_ = trackerPtr->currentKeyframe_.keypoints;
   }
 }
+} // namespace kltvo

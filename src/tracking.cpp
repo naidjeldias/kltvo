@@ -9,6 +9,8 @@
 
 using namespace cv;
 
+namespace kltvo
+{
 Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F)), initPhase_(true), thDepth_(35.0), minIncThGN_(10E-5)
 {
     srand(time(0));
@@ -2067,3 +2069,4 @@ cv::Mat Tracking::computeGlobalPose(const cv::Mat &current_pose)
     cameraCurrentPose_ = cameraCurrentPose_ * inv_pose;
     return cameraCurrentPose_.clone();
 }
+} //namespace kltvo
