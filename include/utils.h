@@ -7,6 +7,7 @@
 
 
 #include <opencv2/opencv.hpp>
+#include<Eigen/Dense>
 
 
 using namespace std;
@@ -18,6 +19,9 @@ void load_camCalib_yaml(string path, cv::Mat &K, double &baseline);
 
 std::vector<double> getQuaternion(cv::Mat &R);
 std::vector<float> mRot2Quat(const cv::Mat& m);
+
+void saveTrajectoryKitti(const string &filename, std::list<cv::Mat> &relativeFramePoses);
+void saveTrajectoryEuroc(const string &filename, std::list<cv::Mat> &relativeFramePoses, std::list<double>  frameTimeStamps);
 } // namespace utils
 } // namespace kltvo
 

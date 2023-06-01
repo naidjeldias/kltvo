@@ -243,8 +243,7 @@ int main(int argc, char *argv[]){
 
 
 
-//    trackerPtr->saveTrajectoryKitti("results/euroc/"+resultFile);
-    trackerPtr->saveTrajectoryEuroc(resultPath+resultFile);
+    kltvo::utils::saveTrajectoryEuroc(resultPath+resultFile, trackerPtr->relativeFramePoses_, trackerPtr->frameTimeStamps_);
 #if LOG
     trackerPtr->saveStatistics(statsPath+statsFile, meanTime, true);
 

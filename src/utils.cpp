@@ -141,5 +141,137 @@ std::vector<double> getQuaternion(cv::Mat &R){
     }
     return Q;
 }
+
+void saveTrajectoryKitti(const string &filename, std::list<cv::Mat> &relativeFramePoses) {
+
+    std::ofstream f;
+    f.open(filename.c_str());
+    f << std::fixed;
+
+    cv::Mat Twc = cv::Mat::eye(4,4,CV_32F);
+
+    /*
+        * The global pose is computed in reference to the first frame by concatanation
+        * The current global pose is computed by
+        * so Twc * inv(Tcw) where Tcw is current relative pose estimated and Twc is the last global pose
+        * Initial Pwc = [I | 0]
+    */
+    std::list<cv::Mat>::iterator lit;
+    for(lit = relativeFramePoses.begin(); lit != relativeFramePoses.end(); ++lit){
+
+
+        //Compute the inverse of relative pose estimation inv(Tcw) = [R' | C]
+        //where C = -1 * R' * t
+
+        cv::Mat rot_mat = cv::Mat::zeros(3,1, CV_64F);
+        cv::Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
+
+        rot_mat = (*lit).rowRange(0,3).colRange(0,3);
+        tr_vec  = (*lit).col(3);
+
+//        std::cout << "det rot_mat: " << determinant(rot_mat) << std::endl;
+//        std::cout << "tr_vec: "  << tr_vec << std::endl;
+
+        cv::Mat Rt  = rot_mat.t();
+        cv::Mat C   = -1 * Rt * tr_vec;
+
+        cv::Mat Tcw_inv = cv::Mat::eye(4,4,CV_32F);
+        Rt.convertTo(Rt, CV_32F);
+        C.convertTo(C, CV_32F);
+
+        Rt.copyTo(Tcw_inv.rowRange(0,3).colRange(0,3));
+        C.copyTo(Tcw_inv.rowRange(0,3).col(3));
+
+//        std::cout << "Tcw_inv: " << Tcw_inv << std::endl;
+
+        Twc = Twc * Tcw_inv;
+
+//        std::cout << "Twc: " << Twc << std::endl;
+
+        f << setprecision(9) << Twc.at<float>(0,0) << " " << Twc.at<float>(0,1)  << " " << Twc.at<float>(0,2) << " "  << Twc.at<float>(0,3) << " " <<
+        Twc.at<float>(1,0) << " " << Twc.at<float>(1,1)  << " " << Twc.at<float>(1,2) << " "  << Twc.at<float>(1,3) << " " <<
+        Twc.at<float>(2,0) << " " << Twc.at<float>(2,1)  << " " << Twc.at<float>(2,2) << " "  << Twc.at<float>(2,3) << endl;
+
+    }
+
+    f.close();
+    std::cout << endl << "trajectory saved on "<< filename << std::endl;
+}
+
+void saveTrajectoryEuroc(const string &filename, std::list<cv::Mat> &relativeFramePoses, std::list<double>  frameTimeStamps) {
+
+    ofstream f;
+    f.open(filename.c_str());
+    f << std::fixed;
+
+    cv::Mat Twc = cv::Mat::eye(4,4,CV_32F);
+
+    cv::Mat R0 = Twc.rowRange(0,3).colRange(0,3);
+    cv::Mat t0 = Twc.rowRange(0,3).col(3);
+
+//    std::vector<float> q0 =  toQuaternion(R0);
+    std::vector<float> q0 =  utils::mRot2Quat(R0);
+
+    /*
+        * The global pose is computed in reference to the first frame by concatanation
+        * The current global pose is computed by
+        * so Twc * inv(Tcw) where Tcw is current relative pose estimated and Twc is the last global pose
+        * Initial Pwc = [I | 0]
+    */
+    std::list<cv::Mat>::iterator lit;
+    std::list<double>::iterator lTime = frameTimeStamps.begin();
+    for(lit = relativeFramePoses.begin(); lit != relativeFramePoses.end(); ++lit, ++lTime){
+
+
+        //Compute the inverse of relative pose estimation inv(Tcw) = [R' | C]
+        //where C = -1 * R' * t
+
+        cv::Mat rot_mat = cv::Mat::zeros(3,1, CV_64F);
+        cv::Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
+
+        rot_mat = (*lit).rowRange(0,3).colRange(0,3);
+        tr_vec  = (*lit).col(3);
+
+        cv::Mat Rt  = rot_mat.t();
+        cv::Mat C   = -1 * Rt * tr_vec;
+
+        cv::Mat Tcw_inv = cv::Mat::eye(4,4,CV_32F);
+        Rt.convertTo(Rt, CV_32F);
+        C.convertTo(C, CV_32F);
+
+        Rt.copyTo(Tcw_inv.rowRange(0,3).colRange(0,3));
+        C.copyTo(Tcw_inv.rowRange(0,3).col(3));
+
+        Twc = Twc * Tcw_inv;
+
+        cv::Mat Rw = Twc.rowRange(0,3).colRange(0,3);
+        cv::Mat tw = Twc.rowRange(0,3).col(3);
+
+//        std::vector<float> q =  toQuaternion(Rw);
+//        std::vector<float> q =  mRot2Quat(Rw);
+
+//        std::cout << "Rotation Matrix: " << Rw << std::endl;
+        Eigen::Matrix<double,3,3> M;
+
+        M <<    Rw.at<float>(0,0), Rw.at<float>(0,1), Rw.at<float>(0,2),
+                Rw.at<float>(1,0), Rw.at<float>(1,1), Rw.at<float>(1,2),
+                Rw.at<float>(2,0), Rw.at<float>(2,1), Rw.at<float>(2,2);
+
+        Eigen::Quaterniond q(M);
+
+    //    std::cout << "quaternion: " <<  " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+
+//        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
+//                << tw.at<float>(2) << " " << q[3] << " " << q[2] << " " << q[1] << " " << q[0] << endl;
+        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
+          << tw.at<float>(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
+
+    }
+
+    f.close();
+    std::cout << endl << "trajectory saved on "<< filename << std::endl;
+
+}
+
 } // namespace utils
 } // namespace kltvo

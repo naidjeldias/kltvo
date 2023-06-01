@@ -71,29 +71,21 @@ public:
     // Camera poses
     cv::Mat cameraCurrentPose_;
     std::vector<cv::Mat> cameraPoses_;
+    std::list<cv::Mat> relativeFramePoses_;
+    std::list<double>  frameTimeStamps_;
 
     void setCalibrationParameters(const double &mFu, const double &mFv, const double &mUc, const double &mVc,
                    const double &mbf);
 
-    void saveTrajectoryKitti(const string &filename);
-
-    void saveTrajectoryKitti8point(const string &filename);
-
-
-    void saveTrajectoryEuroc(const string &filename);
-
     void saveStatistics (const string &filename, float &meanTime, bool withTime= false);
 
-    cv::Mat start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
+    void start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
 
     //create log file for debug
     bool debug_;
 
 
 private:
-
-    std::list<cv::Mat> relativeFramePoses_;
-    std::list<double>  frameTimeStamps_;
 
 #if LOG
     std::list<int > gnIterations_, leftPtsDetec_, ptsNMS_, ptsStereoMatch_, ptsTracking_,
