@@ -21,7 +21,7 @@ std::vector<double> getQuaternion(cv::Mat &R);
 std::vector<float> mRot2Quat(const cv::Mat& m);
 
 void saveTrajectoryKitti(const string &filename, std::list<cv::Mat> &relativeFramePoses);
-void saveTrajectoryEuroc(const string &filename, std::list<cv::Mat> &relativeFramePoses, std::list<double>  frameTimeStamps);
+void saveTrajectoryEuroc(const string &filename, std::list<cv::Mat> &relativeFramePoses, std::vector<double> frameTimeStamps);
 } // namespace utils
 } // namespace kltvo
 

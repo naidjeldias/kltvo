@@ -198,7 +198,7 @@ void saveTrajectoryKitti(const string &filename, std::list<cv::Mat> &relativeFra
     std::cout << endl << "trajectory saved on "<< filename << std::endl;
 }
 
-void saveTrajectoryEuroc(const string &filename, std::list<cv::Mat> &relativeFramePoses, std::list<double>  frameTimeStamps) {
+void saveTrajectoryEuroc(const string &filename, std::list<cv::Mat> &relativeFramePoses, std::vector<double>  frameTimeStamps) {
 
     ofstream f;
     f.open(filename.c_str());
@@ -219,10 +219,10 @@ void saveTrajectoryEuroc(const string &filename, std::list<cv::Mat> &relativeFra
         * Initial Pwc = [I | 0]
     */
     std::list<cv::Mat>::iterator lit;
-    std::list<double>::iterator lTime = frameTimeStamps.begin();
-    for(lit = relativeFramePoses.begin(); lit != relativeFramePoses.end(); ++lit, ++lTime){
+    int cont=0;
+    for(lit = relativeFramePoses.begin(); lit != relativeFramePoses.end(); ++lit, ++cont){
 
-
+        double timestamp = frameTimeStamps[cont];
         //Compute the inverse of relative pose estimation inv(Tcw) = [R' | C]
         //where C = -1 * R' * t
 
@@ -263,7 +263,7 @@ void saveTrajectoryEuroc(const string &filename, std::list<cv::Mat> &relativeFra
 
 //        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
 //                << tw.at<float>(2) << " " << q[3] << " " << q[2] << " " << q[1] << " " << q[0] << endl;
-        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
+        f << setprecision(6) << timestamp << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
           << tw.at<float>(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
 
     }

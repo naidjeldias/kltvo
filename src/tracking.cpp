@@ -263,7 +263,6 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
     initPhase_       = false;
     //saving relative pose estimated
     relativeFramePoses_.push_back(relativePose.clone());
-    frameTimeStamps_.push_back(timestamp);
 
     cameraPoses_.push_back(computeGlobalPose(relativePose));
 
