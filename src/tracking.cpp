@@ -1685,7 +1685,7 @@ void Tracking::saveTrajectoryEuroc(const string &filename) {
     Mat t0 = Twc.rowRange(0,3).col(3);
 
 //    std::vector<float> q0 =  toQuaternion(R0);
-    std::vector<float> q0 =  mRot2Quat(R0);
+    std::vector<float> q0 =  utils::mRot2Quat(R0);
 
     f << setprecision(6) << initTimestamp_ << " " <<  setprecision(9) << t0.at<float>(0) << " " << t0.at<float>(1) << " "
             << t0.at<float>(2) << " " << q0[3] << " " << q0[2] << " " << q0[1] << " " << q0[0] << endl;
