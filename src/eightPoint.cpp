@@ -6,6 +6,8 @@
 
 using namespace cv;
 
+namespace kltvo
+{
 EightPoint::EightPoint(double probability, int minSet, int maxIteration, double maxError){
     //initialize random seed for ransac
     //srand((unsigned)time(NULL));
@@ -509,3 +511,4 @@ int EightPoint::getRansacNumit()
 {
     return ransacNumit;
 }
+} // namespace kltvo

@@ -10,7 +10,8 @@ const int c4 = 128;
 const int c5 = 256;
 const int d1 = 256;
 
-
+namespace kltvo
+{
 
 SuperPoint::SuperPoint()
       : conv1a(torch::nn::Conv2dOptions( 1, c1, 3).stride(1).padding(1)),
@@ -379,3 +380,4 @@ void NMS(const std::vector<cv::KeyPoint> & ptsIn,
 		}
     }
 }
+} // namespace kltvo

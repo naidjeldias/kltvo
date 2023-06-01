@@ -11,6 +11,8 @@
 
 using namespace cv;
 
+namespace kltvo
+{
 class EightPoint{
 
 public:
@@ -47,6 +49,6 @@ public:
 
 };
 
-
+} // namespace kltvo
 
 #endif //RANSAC_EIGHTPOINT_H

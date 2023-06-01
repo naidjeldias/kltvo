@@ -4,7 +4,10 @@
 
 #include "utils.h"
 
-
+namespace kltvo
+{
+namespace utils
+{
 void load_camCalib_yaml(string path, cv::Mat &K, double &baseline) {
 
     cv::FileStorage fsSettings(path, cv::FileStorage::READ);
@@ -138,3 +141,5 @@ std::vector<double> getQuaternion(cv::Mat &R){
     }
     return Q;
 }
+} // namespace utils
+} // namespace kltvo

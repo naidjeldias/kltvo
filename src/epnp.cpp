@@ -30,6 +30,8 @@ using namespace std;
 
 #include "epnp.h"
 
+namespace kltvo
+{
 epnp::epnp(void)
 {
     //srand((unsigned)time(NULL));
@@ -938,3 +940,4 @@ void epnp::poseUpdate(double R_est[3][3], double t_est[3], const cv::Mat &Pt0, c
 
 //    cout << Pt1 << endl;
 }
+} // namespace kltvo

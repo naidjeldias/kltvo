@@ -9,6 +9,8 @@
 
 using namespace cv;
 
+namespace kltvo
+{
 Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F)), initPhase_(true), thDepth_(35.0), minIncThGN_(10E-5)
 {
     srand(time(0));
@@ -1683,7 +1685,7 @@ void Tracking::saveTrajectoryEuroc(const string &filename) {
     Mat t0 = Twc.rowRange(0,3).col(3);
 
 //    std::vector<float> q0 =  toQuaternion(R0);
-    std::vector<float> q0 =  mRot2Quat(R0);
+    std::vector<float> q0 =  utils::mRot2Quat(R0);
 
     f << setprecision(6) << initTimestamp_ << " " <<  setprecision(9) << t0.at<float>(0) << " " << t0.at<float>(1) << " "
             << t0.at<float>(2) << " " << q0[3] << " " << q0[2] << " " << q0[1] << " " << q0[0] << endl;
@@ -2067,3 +2069,4 @@ cv::Mat Tracking::computeGlobalPose(const cv::Mat &current_pose)
     cameraCurrentPose_ = cameraCurrentPose_ * inv_pose;
     return cameraCurrentPose_.clone();
 }
+} //namespace kltvo

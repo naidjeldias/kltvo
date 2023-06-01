@@ -102,7 +102,7 @@ int main(int argc, char *argv[]){
     bool viz = true;
     YAML::Node odometry_params = YAML::LoadFile(path_config);
     viz = odometry_params["Viewer.enabled"].as<bool>();
-    Tracking* trackerPtr = new Tracking(odometry_params);
+    kltvo::Tracking* trackerPtr = new kltvo::Tracking(odometry_params);
     
     // Read rectification parameters
     string path_calib   = string("examples/euroc/calib/EuRoC.yaml");
@@ -155,12 +155,12 @@ int main(int argc, char *argv[]){
     trackerPtr->setCalibrationParameters(fu, fv, uc, vc, bf);
 
     // starting visualizer thread
-    Viewer* viewer_;
+    kltvo::Viewer* viewer_;
     std::thread* viewer_thd_;
     if (viz)
     {
-        viewer_ = new Viewer(path_config);
-        viewer_thd_ = new thread(&Viewer::run, viewer_);
+        viewer_ = new kltvo::Viewer(path_config);
+        viewer_thd_ = new thread(&kltvo::Viewer::run, viewer_);
     }
 
 

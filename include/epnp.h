@@ -30,6 +30,8 @@
 
 #include <opencv/cv.h>
 
+namespace kltvo
+{
 class epnp {
 public:
     epnp(void);
@@ -115,5 +117,5 @@ private:
 
 
 };
-
+} // namespace kltvo
 #endif
