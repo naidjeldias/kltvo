@@ -170,7 +170,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         numFrame_ ++;
         currentKeyframe_.imLeft1 = imLeft;
 #if LOG
-        writeOnLogFile("Frame:", std::to_string(numFrame_+1));
+        utils::writeOnLogFile("Frame:", std::to_string(numFrame_+1));
 #endif
 
         //---------------------------------detect features
@@ -207,8 +207,9 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         stereoMatching(pts_l0, pts_r0, imLeft0_, imRight0_, mlr0, new_pts_l0, new_pts_r0, pts3D, meanError, ptsClose);
 #if LOG
         logStereoMatching(imRight0_, imLeft0_, mlr0, new_pts_r0, new_pts_l0);
-        logLocalMaping(pts3D, meanError);
+        utils::logLocalMaping(pts3D, meanError);
         repErr3d_.push_back(meanError);
+        ptsStereoMatch_.push_back(pts_l.size());
 #endif
 
 
@@ -242,7 +243,8 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
 
         quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1);
 #if LOG
-        logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
+        utils::logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
+        ptsQuadMatch_.push_back(numPts);
 #endif
         currentKeyframe_.keypoints = new_pts_l1;
         //free memory
@@ -256,7 +258,7 @@ void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timesta
         trackingState_ = OK;
 
 #if LOG
-        writeOnLogFile("----------------------------", " ");
+        utils::writeOnLogFile("----------------------------", " ");
 #endif
 
     }
@@ -354,20 +356,6 @@ bool Tracking::assignFeatureToGrid(const cv::KeyPoint &kp, int &posX, int &posY,
 
     return true;
 
-}
-
-void Tracking::drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts, const string &filename) {
-    std::vector<KeyPoint> kpts;
-    cv::Mat imOut;
-    for (unsigned int i = 0; i < pts.size(); i++){
-        KeyPoint kpt;
-        kpt.pt = pts.at(i);
-
-        kpts.push_back(kpt);
-    }
-
-    drawKeypoints( im, kpts, imOut, cv::Scalar(0,225,0), DrawMatchesFlags::DEFAULT );
-    imwrite(filename, imOut);
 }
 
 
@@ -530,13 +518,13 @@ void Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, cons
 
 
 #if LOG
-    writeOnLogFile("Num inliers pose estimation: ", std::to_string(bestNumInliers));
+    utils::writeOnLogFile("Num inliers pose estimation: ", std::to_string(bestNumInliers));
     gnIterations_.push_back(nIt);
-    writeOnLogFile("Num iterations best pose GN: ", std::to_string(nIt));
+    utils::writeOnLogFile("Num iterations best pose GN: ", std::to_string(nIt));
     numInliersGN_.push_back(bestNumInliers);
     float meanIt = sumIt/ransacMaxItGN_;
     gnMeanIterations.push_back(meanIt);
-    writeOnLogFile("Mean GN iterations inside RANSAC: ", std::to_string(meanIt));
+    utils::writeOnLogFile("Mean GN iterations inside RANSAC: ", std::to_string(meanIt));
 
 #endif
 
@@ -938,19 +926,11 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
     }
 
 #if LOG_DRAW
-
-    for (int i = 0 ; i < ptsClose.size() ; i++){
-        if(ptsClose[i])
-            drawFarAndClosePts(new_pts_l[i], Scalar(0, 255, 0), im);
-        else
-            drawFarAndClosePts(new_pts_l[i], Scalar(0, 0, 255), im);
-    }
-
-    imwrite("dstPts.png", im);
+    utils::drawFarAndClosePts(new_pts_l, im, ptsClose);
 #endif
 
 #if LOG
-    writeOnLogFile("Num points close:", std::to_string(numPtsClose));
+    utils::writeOnLogFile("Num points close:", std::to_string(numPtsClose));
 #endif
 
     //Free memory
@@ -1209,7 +1189,7 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F_mat, const cv::Mat 
     checkSolution(R1,R2, U.col(2), pts_l, pts_r, R_est, t_est, inliers);
 
 #if LOG
-    writeOnLogFile("det(R) of E:", std::to_string(determinant(R_est)));
+    utils::writeOnLogFile("det(R) of E:", std::to_string(determinant(R_est)));
 #endif
 
 }
@@ -1297,7 +1277,7 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
     }
 
 #if LOG
-    writeOnLogFile("Num points in front of the camera: ", std::to_string(bestNumPts));
+    utils::writeOnLogFile("Num points in front of the camera: ", std::to_string(bestNumPts));
 //    std::cout << "Num points in front of the camera: " << bestNumPts << std::endl;
 #endif
 
@@ -1432,7 +1412,9 @@ void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::ve
 
     assert(!kpts0.empty() && !kpts1.empty());
 #if LOG
-    logFeatureExtraction(kpts0, kpts1, pts0, im0);
+    utils::logFeatureExtraction(kpts0, kpts1, pts0, im0, frameGridRows_, frameGridCols_);
+    leftPtsDetec_.push_back(kpts_l.size());
+    ptsNMS_.push_back(pts.size());
 #endif
 }
 
@@ -1538,14 +1520,14 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
     assert(!fmat.empty());
     double f_determinant = determinant(fmat);
 #if LOG_DRAW
-    mEightPointLeft_->drawEpLines(ptsL0, ptsL1, fmat, inliers, 0, imL0, imL1, mll);
+    utils::drawEpLines(ptsL0, ptsL1, fmat, inliers, 0, imL0, imL1, mll);
 #endif
 
 #if LOG
-    writeOnLogFile("RANSAC num iterations:", std::to_string(mEightPointLeft_->getRansacNumit()));
-    logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll);
-    writeOnLogFile("Num of inliers tracking:", std::to_string(mll.size()));
-    writeOnLogFile("det(F):", std::to_string(f_determinant));
+    utils::writeOnLogFile("RANSAC num iterations:", std::to_string(mEightPointLeft_->getRansacNumit()));
+    utils::logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll);
+    utils::writeOnLogFile("Num of inliers tracking:", std::to_string(mll.size()));
+    utils::writeOnLogFile("det(F):", std::to_string(f_determinant));
     ptsTracking_.push_back(mll.size());
     ransacIt8Point_.push_back(mEightPointLeft_->getRansacNumit());
 #endif
@@ -1599,7 +1581,7 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
     double R_determinant = cv::determinant(Rotmat);
 
 #if LOG
-    writeOnLogFile("Rotation matrix det(): ", std::to_string(R_determinant));
+    utils::writeOnLogFile("Rotation matrix det(): ", std::to_string(R_determinant));
 #endif
 
     // To properly compare a floating-point number to 1
@@ -1722,103 +1704,12 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
 #endif
 }
 
-
-void Tracking::writeOnLogFile(const string &name, const string &value) {
-#if ENABLE_PRINT
-    std::cout << name << value << std::endl;
-#endif
-//    logFile << name << " " << value << "\n";
-}
-
-void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &pts, const string &fileName) {
-
-    Mat dIm = im.clone();
-
-    for (int y = 0; y < im.rows; y += frameGridRows_)
-    {
-        for (int x = 0; x < im.cols; x += frameGridCols_)
-        {
-            cv::Rect rect =  cv::Rect(x,y, frameGridCols_, frameGridRows_);
-            cv::rectangle(dIm, rect, cv::Scalar(0, 255, 0));
-        }
-    }
-
-    drawPointfImage(dIm, pts, fileName);
-//    drawPointfImage(im, pts, fileName);
-}
-
-void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, const std::vector<cv::KeyPoint> &kpts_r, const std::vector<Point2f> &pts,
-                                    const cv::Mat &im) {
-#if LOG
-    leftPtsDetec_.push_back(kpts_l.size());
-    writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
-    writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
-    writeOnLogFile("Num keypoints after NMS: ", std::to_string(pts.size()));
-    ptsNMS_.push_back(pts.size());
-#endif
-
-#if LOG_DRAW
-    cv::Mat imOut;
-    drawKeypoints(im,kpts_l,imOut, cv::Scalar(0,255,0));
-    imwrite("kptsORBoctree.png", imOut);
-    drawGridAndPoints(im, pts, "GridNMS.png");
-#endif
-
-}
-
-void Tracking::logStereoMatching(const cv::Mat &im_r, const cv::Mat &im_l, const std::vector<cv::DMatch> &mrl,
-                                 const std::vector<Point2f> &pts_r, const std::vector<Point2f> &pts_l) {
-#if LOG_DRAW
-    std::string prefix = "stereo";
-    mEightPointLeft_->drawMatches_(im_l, im_r, pts_l, pts_r, mrl, false, prefix);
-#endif
-
-#if LOG
-    writeOnLogFile("Num of stereo matches:", std::to_string(pts_l.size()));
-    ptsStereoMatch_.push_back(pts_l.size());
-#endif
-}
-
-void Tracking::logLocalMaping(const std::vector<Point3f> &pts3D, double &meanError) {
-    writeOnLogFile("Num of 3D points:", std::to_string(pts3D.size()));
-    writeOnLogFile("Mean reprojection error:", std::to_string(meanError));
-}
-
-void Tracking::logFeatureTracking(const std::vector<Point2f> &pts_l0, const std::vector<Point2f> &pts_r1,
-                                  const cv::Mat &fmat, const std::vector<Point2f> &pts_l1, const std::vector<bool> &inliers,
-                                  const cv::Mat &im_l0, const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll) {
-
-
-    writeOnLogFile("Num of left points tracked:", std::to_string(pts_l1.size()));
-    writeOnLogFile("Num of right points tracked:", std::to_string(pts_r1.size()));
-
-}
-
-void Tracking::logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const std::vector<Point2f> &pts_l1,
-                               const std::vector<Point2f> &pts_r1, const std::vector<cv::DMatch> &mlr1, int numPts) {
-#if LOG_DRAW
-    std::string prefix = "quad";
-    mEightPointLeft_->drawMatches_(im_l1, im_r1, pts_l1, pts_r1, mlr1, false, prefix);
-#endif
-
-#if LOG
-    writeOnLogFile("left points before quadMatching:", std::to_string(numPts));
-    ptsQuadMatch_.push_back(numPts);
-#endif
-}
-
 int Tracking::sign(double value) {
 
     if (value > 0)
         return 1;
     else
         return -1;
-}
-
-
-void Tracking::drawFarAndClosePts(const cv::Point2f &pt, const cv::Scalar &color, cv::Mat &im) {
-
-    cv::circle(im, pt, 3, color);
 }
 
 
