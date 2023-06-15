@@ -8,6 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <chrono>
 #include <algorithm>
+#include "utils.h"
 
 using namespace cv;
 
@@ -35,13 +36,6 @@ public:
     //the centroid of the reference points is at the origin of the coordinates and the RMS distance from the origin is equal to sqrt(2)
     void computeMatNormTransform(const std::vector<Point2f> &kpt_l, const std::vector<Point2f> &kpt_r, unsigned long nPts, cv::Mat &leftScalingMat, cv::Mat &rightScalingMat);
     double sampsonError(cv::Mat fmat, cv::Mat left_pt, cv::Mat right_pt);
-    void drawEpLines(const std::vector<Point2f> &pts_l, const std::vector<Point2f> &pts_r, const cv::Mat &F,
-                     const std::vector<bool> &inliers, int rightFlag, const cv::Mat &image, const cv::Mat &image1,
-                     const std::vector<cv::DMatch> &matches);
-
-    void drawMatches_(const cv::Mat &left_image, const cv::Mat &right_image, const std::vector<Point2f> &kpts_l,
-                      const std::vector<Point2f> &kpts_r, const std::vector<cv::DMatch> &matches, bool hold, const std::string &prefix);
-
     double euclideanDist(const cv::Point2d &p, const cv::Point2d &q);
 
     int getRansacNumit();

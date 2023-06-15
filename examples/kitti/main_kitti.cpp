@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
     cout << "mean tracking time: "      << meanTime << endl;
 
 
-    trackerPtr->saveTrajectoryKitti(resultPath+resultFile);
+    kltvo::utils::saveTrajectoryKitti(resultPath+resultFile, trackerPtr->relativeFramePoses_);
 #if LOG
     trackerPtr->saveStatistics(statsPath+statsFile, meanTime);
 

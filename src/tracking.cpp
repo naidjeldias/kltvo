@@ -11,7 +11,8 @@ using namespace cv;
 
 namespace kltvo
 {
-Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F)), initPhase_(true), thDepth_(35.0), minIncThGN_(10E-5)
+Tracking::Tracking(YAML::Node parameters):trackingState_(NOT_INITIALIZED), cameraCurrentPose_(cv::Mat::eye(4,4,CV_32F)), 
+                                        initPhase_(true), thDepth_(35.0), minIncThGN_(10E-5), numFrame_(0)
 {
     srand(time(0));
 
@@ -161,22 +162,15 @@ void Tracking::setCalibrationParameters(const double &mFu, const double &mFv, co
     mP2.copyTo(P2_);
 
 }
-cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
+void Tracking::start(const Mat &imLeft, const Mat &imRight, const double timestamp) {
 
     Mat relativePose = cv::Mat::eye(3,4,CV_64F);
-    if (initPhase_){
-        imLeft0_         = imLeft.clone();
-        imRight0_        = imRight.clone();
-
-        initPhase_       = false;
-        numFrame_        = 0;
-        initTimestamp_   = timestamp;
-    }else{
+    if (!initPhase_){
 
         numFrame_ ++;
         currentKeyframe_.imLeft1 = imLeft;
 #if LOG
-        writeOnLogFile("Frame:", std::to_string(numFrame_+1));
+        utils::writeOnLogFile("Frame:", std::to_string(numFrame_+1));
 #endif
 
         //---------------------------------detect features
@@ -213,8 +207,9 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         stereoMatching(pts_l0, pts_r0, imLeft0_, imRight0_, mlr0, new_pts_l0, new_pts_r0, pts3D, meanError, ptsClose);
 #if LOG
         logStereoMatching(imRight0_, imLeft0_, mlr0, new_pts_r0, new_pts_l0);
-        logLocalMaping(pts3D, meanError);
+        utils::logLocalMaping(pts3D, meanError);
         repErr3d_.push_back(meanError);
+        ptsStereoMatch_.push_back(pts_l.size());
 #endif
 
 
@@ -248,7 +243,8 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
 
         quadMatching(pts3D, pts_l1, pts_r1, inliers, imLeft, imRight, new_pts3D, new_pts_l1, new_pts_r1, mlr1);
 #if LOG
-        logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
+        utils::logQuadMatching(imLeft, imRight, new_pts_l1, new_pts_r1, mlr1, new_pts3D.size());
+        ptsQuadMatch_.push_back(numPts);
 #endif
         currentKeyframe_.keypoints = new_pts_l1;
         //free memory
@@ -259,24 +255,21 @@ cv::Mat Tracking::start(const Mat &imLeft, const Mat &imRight, const double time
         //------------------------------------relative pose estimation
         relativePoseEstimation(new_pts_l1, new_pts_r1, new_pts3D, rvec_est, t_est, relativePose);
 
-        //saving relative pose estimated
-        relativeFramePoses_.push_back(relativePose.clone());
-        frameTimeStamps_.push_back(timestamp);
-
-        cameraPoses_.push_back(computeGlobalPose(relativePose));
-
-        imLeft0_     = imLeft.clone();
-        imRight0_    = imRight.clone();
-
         trackingState_ = OK;
 
 #if LOG
-        writeOnLogFile("----------------------------", " ");
+        utils::writeOnLogFile("----------------------------", " ");
 #endif
 
     }
+    initPhase_       = false;
+    //saving relative pose estimated
+    relativeFramePoses_.push_back(relativePose.clone());
 
-    return relativePose;
+    cameraPoses_.push_back(computeGlobalPose(relativePose));
+
+    imLeft0_     = imLeft.clone();
+    imRight0_    = imRight.clone();
 }
 
 
@@ -363,20 +356,6 @@ bool Tracking::assignFeatureToGrid(const cv::KeyPoint &kp, int &posX, int &posY,
 
     return true;
 
-}
-
-void Tracking::drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts, const string &filename) {
-    std::vector<KeyPoint> kpts;
-    cv::Mat imOut;
-    for (unsigned int i = 0; i < pts.size(); i++){
-        KeyPoint kpt;
-        kpt.pt = pts.at(i);
-
-        kpts.push_back(kpt);
-    }
-
-    drawKeypoints( im, kpts, imOut, cv::Scalar(0,225,0), DrawMatchesFlags::DEFAULT );
-    imwrite(filename, imOut);
 }
 
 
@@ -539,13 +518,13 @@ void Tracking::poseEstimationRansac(const std::vector<cv::Point2f> &pts2dl, cons
 
 
 #if LOG
-    writeOnLogFile("Num inliers pose estimation: ", std::to_string(bestNumInliers));
+    utils::writeOnLogFile("Num inliers pose estimation: ", std::to_string(bestNumInliers));
     gnIterations_.push_back(nIt);
-    writeOnLogFile("Num iterations best pose GN: ", std::to_string(nIt));
+    utils::writeOnLogFile("Num iterations best pose GN: ", std::to_string(nIt));
     numInliersGN_.push_back(bestNumInliers);
     float meanIt = sumIt/ransacMaxItGN_;
     gnMeanIterations.push_back(meanIt);
-    writeOnLogFile("Mean GN iterations inside RANSAC: ", std::to_string(meanIt));
+    utils::writeOnLogFile("Mean GN iterations inside RANSAC: ", std::to_string(meanIt));
 
 #endif
 
@@ -947,19 +926,11 @@ void Tracking::stereoMatching(const std::vector<cv::Point2f> &pts_l, const std::
     }
 
 #if LOG_DRAW
-
-    for (int i = 0 ; i < ptsClose.size() ; i++){
-        if(ptsClose[i])
-            drawFarAndClosePts(new_pts_l[i], Scalar(0, 255, 0), im);
-        else
-            drawFarAndClosePts(new_pts_l[i], Scalar(0, 0, 255), im);
-    }
-
-    imwrite("dstPts.png", im);
+    utils::drawFarAndClosePts(new_pts_l, im, ptsClose);
 #endif
 
 #if LOG
-    writeOnLogFile("Num points close:", std::to_string(numPtsClose));
+    utils::writeOnLogFile("Num points close:", std::to_string(numPtsClose));
 #endif
 
     //Free memory
@@ -1218,7 +1189,7 @@ void Tracking::essentialMatrixDecomposition(const cv::Mat &F_mat, const cv::Mat 
     checkSolution(R1,R2, U.col(2), pts_l, pts_r, R_est, t_est, inliers);
 
 #if LOG
-    writeOnLogFile("det(R) of E:", std::to_string(determinant(R_est)));
+    utils::writeOnLogFile("det(R) of E:", std::to_string(determinant(R_est)));
 #endif
 
 }
@@ -1306,7 +1277,7 @@ void Tracking::checkSolution(const cv::Mat &R1, const cv::Mat &R2, const cv::Mat
     }
 
 #if LOG
-    writeOnLogFile("Num points in front of the camera: ", std::to_string(bestNumPts));
+    utils::writeOnLogFile("Num points in front of the camera: ", std::to_string(bestNumPts));
 //    std::cout << "Num points in front of the camera: " << bestNumPts << std::endl;
 #endif
 
@@ -1441,7 +1412,9 @@ void Tracking::featureExtraction(const cv::Mat &im0, const cv::Mat &im1, std::ve
 
     assert(!kpts0.empty() && !kpts1.empty());
 #if LOG
-    logFeatureExtraction(kpts0, kpts1, pts0, im0);
+    utils::logFeatureExtraction(kpts0, kpts1, pts0, im0, frameGridRows_, frameGridCols_);
+    leftPtsDetec_.push_back(kpts_l.size());
+    ptsNMS_.push_back(pts.size());
 #endif
 }
 
@@ -1547,14 +1520,14 @@ void Tracking::outlierRemovalAndMotionEstimation(const cv::Mat &imL0, const std:
     assert(!fmat.empty());
     double f_determinant = determinant(fmat);
 #if LOG_DRAW
-    mEightPointLeft_->drawEpLines(ptsL0, ptsL1, fmat, inliers, 0, imL0, imL1, mll);
+    utils::drawEpLines(ptsL0, ptsL1, fmat, inliers, 0, imL0, imL1, mll);
 #endif
 
 #if LOG
-    writeOnLogFile("RANSAC num iterations:", std::to_string(mEightPointLeft_->getRansacNumit()));
-    logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll);
-    writeOnLogFile("Num of inliers tracking:", std::to_string(mll.size()));
-    writeOnLogFile("det(F):", std::to_string(f_determinant));
+    utils::writeOnLogFile("RANSAC num iterations:", std::to_string(mEightPointLeft_->getRansacNumit()));
+    utils::logFeatureTracking(ptsL0, ptsR1, fmat, ptsL1, inliers, imL0, imL1, mll);
+    utils::writeOnLogFile("Num of inliers tracking:", std::to_string(mll.size()));
+    utils::writeOnLogFile("det(F):", std::to_string(f_determinant));
     ptsTracking_.push_back(mll.size());
     ransacIt8Point_.push_back(mEightPointLeft_->getRansacNumit());
 #endif
@@ -1608,7 +1581,7 @@ void Tracking:: relativePoseEstimation(const std::vector<cv::Point2f> &pts2DL, c
     double R_determinant = cv::determinant(Rotmat);
 
 #if LOG
-    writeOnLogFile("Rotation matrix det(): ", std::to_string(R_determinant));
+    utils::writeOnLogFile("Rotation matrix det(): ", std::to_string(R_determinant));
 #endif
 
     // To properly compare a floating-point number to 1
@@ -1673,205 +1646,6 @@ void Tracking::poseRefinment(const std::vector<Point2f> &pts2DL, const std::vect
 
 }
 
-void Tracking::saveTrajectoryEuroc(const string &filename) {
-
-    ofstream f;
-    f.open(filename.c_str());
-    f << std::fixed;
-
-    cv::Mat Twc = cv::Mat::eye(4,4,CV_32F);
-
-    Mat R0 = Twc.rowRange(0,3).colRange(0,3);
-    Mat t0 = Twc.rowRange(0,3).col(3);
-
-//    std::vector<float> q0 =  toQuaternion(R0);
-    std::vector<float> q0 =  utils::mRot2Quat(R0);
-
-    f << setprecision(6) << initTimestamp_ << " " <<  setprecision(9) << t0.at<float>(0) << " " << t0.at<float>(1) << " "
-            << t0.at<float>(2) << " " << q0[3] << " " << q0[2] << " " << q0[1] << " " << q0[0] << endl;
-//    f << setprecision(6) << initTimestamp_ << " " <<  setprecision(9) << t0.at<float>(0) << " " << t0.at<float>(1) << " "
-//            << t0.at<float>(2) << " " << q0[0] << " " << q0[1] << " " << q0[2] << " " << q0[3] << endl;
-
-    /*
-        * The global pose is computed in reference to the first frame by concatanation
-        * The current global pose is computed by
-        * so Twc * inv(Tcw) where Tcw is current relative pose estimated and Twc is the last global pose
-        * Initial Pwc = [I | 0]
-    */
-    std::list<cv::Mat>::iterator lit;
-    std::list<double>::iterator lTime = frameTimeStamps_.begin();
-    for(lit = relativeFramePoses_.begin(); lit != relativeFramePoses_.end(); ++lit, ++lTime){
-
-
-        //Compute the inverse of relative pose estimation inv(Tcw) = [R' | C]
-        //where C = -1 * R' * t
-
-        Mat rot_mat = cv::Mat::zeros(3,1, CV_64F);
-        Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
-
-        rot_mat = (*lit).rowRange(0,3).colRange(0,3);
-        tr_vec  = (*lit).col(3);
-
-        cv::Mat Rt  = rot_mat.t();
-        cv::Mat C   = -1 * Rt * tr_vec;
-
-        cv::Mat Tcw_inv = cv::Mat::eye(4,4,CV_32F);
-        Rt.convertTo(Rt, CV_32F);
-        C.convertTo(C, CV_32F);
-
-        Rt.copyTo(Tcw_inv.rowRange(0,3).colRange(0,3));
-        C.copyTo(Tcw_inv.rowRange(0,3).col(3));
-
-        Twc = Twc * Tcw_inv;
-
-        Mat Rw = Twc.rowRange(0,3).colRange(0,3);
-        Mat tw = Twc.rowRange(0,3).col(3);
-
-//        std::vector<float> q =  toQuaternion(Rw);
-//        std::vector<float> q =  mRot2Quat(Rw);
-
-//        std::cout << "Rotation Matrix: " << Rw << std::endl;
-        Eigen::Matrix<double,3,3> M;
-
-        M <<    Rw.at<float>(0,0), Rw.at<float>(0,1), Rw.at<float>(0,2),
-                Rw.at<float>(1,0), Rw.at<float>(1,1), Rw.at<float>(1,2),
-                Rw.at<float>(2,0), Rw.at<float>(2,1), Rw.at<float>(2,2);
-
-        Eigen::Quaterniond q(M);
-
-//        std::cout << "quaternion: " <<  " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
-
-//        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
-//                << tw.at<float>(2) << " " << q[3] << " " << q[2] << " " << q[1] << " " << q[0] << endl;
-        f << setprecision(6) << (*lTime) << " " <<  setprecision(9) << tw.at<float>(0) << " " << tw.at<float>(1) << " "
-          << tw.at<float>(2) << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << endl;
-
-    }
-
-    f.close();
-    std::cout << endl << "trajectory saved on "<< filename << std::endl;
-
-}
-
-
-void Tracking::saveTrajectoryKitti(const string &filename) {
-
-    std::ofstream f;
-    f.open(filename.c_str());
-    f << std::fixed;
-
-    cv::Mat Twc = cv::Mat::eye(4,4,CV_32F);
-
-    f << setprecision(9) << Twc.at<float>(0,0) << " " << Twc.at<float>(0,1)  << " " << Twc.at<float>(0,2) << " "  << Twc.at<float>(0,3) << " " <<
-    Twc.at<float>(1,0) << " " << Twc.at<float>(1,1)  << " " << Twc.at<float>(1,2) << " "  << Twc.at<float>(1,3) << " " <<
-    Twc.at<float>(2,0) << " " << Twc.at<float>(2,1)  << " " << Twc.at<float>(2,2) << " "  << Twc.at<float>(2,3) << endl;
-    /*
-        * The global pose is computed in reference to the first frame by concatanation
-        * The current global pose is computed by
-        * so Twc * inv(Tcw) where Tcw is current relative pose estimated and Twc is the last global pose
-        * Initial Pwc = [I | 0]
-    */
-    std::list<cv::Mat>::iterator lit;
-    for(lit = relativeFramePoses_.begin(); lit != relativeFramePoses_.end(); ++lit){
-
-
-        //Compute the inverse of relative pose estimation inv(Tcw) = [R' | C]
-        //where C = -1 * R' * t
-
-        Mat rot_mat = cv::Mat::zeros(3,1, CV_64F);
-        Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
-
-        rot_mat = (*lit).rowRange(0,3).colRange(0,3);
-        tr_vec  = (*lit).col(3);
-
-//        std::cout << "det rot_mat: " << determinant(rot_mat) << std::endl;
-//        std::cout << "tr_vec: "  << tr_vec << std::endl;
-
-        cv::Mat Rt  = rot_mat.t();
-        cv::Mat C   = -1 * Rt * tr_vec;
-
-        cv::Mat Tcw_inv = cv::Mat::eye(4,4,CV_32F);
-        Rt.convertTo(Rt, CV_32F);
-        C.convertTo(C, CV_32F);
-
-        Rt.copyTo(Tcw_inv.rowRange(0,3).colRange(0,3));
-        C.copyTo(Tcw_inv.rowRange(0,3).col(3));
-
-//        std::cout << "Tcw_inv: " << Tcw_inv << std::endl;
-
-        Twc = Twc * Tcw_inv;
-
-//        std::cout << "Twc: " << Twc << std::endl;
-
-        f << setprecision(9) << Twc.at<float>(0,0) << " " << Twc.at<float>(0,1)  << " " << Twc.at<float>(0,2) << " "  << Twc.at<float>(0,3) << " " <<
-        Twc.at<float>(1,0) << " " << Twc.at<float>(1,1)  << " " << Twc.at<float>(1,2) << " "  << Twc.at<float>(1,3) << " " <<
-        Twc.at<float>(2,0) << " " << Twc.at<float>(2,1)  << " " << Twc.at<float>(2,2) << " "  << Twc.at<float>(2,3) << endl;
-
-    }
-
-    f.close();
-    std::cout << endl << "trajectory saved on "<< filename << std::endl;
-}
-
-void Tracking::saveTrajectoryKitti8point(const string &filename)
-{
-    std::ofstream f;
-    f.open(filename.c_str());
-    f << std::fixed;
-
-    cv::Mat Twc = cv::Mat::eye(4,4,CV_32F);
-
-    f << setprecision(9) << Twc.at<float>(0,0) << " " << Twc.at<float>(0,1)  << " " << Twc.at<float>(0,2) << " "  << Twc.at<float>(0,3) << " " <<
-      Twc.at<float>(1,0) << " " << Twc.at<float>(1,1)  << " " << Twc.at<float>(1,2) << " "  << Twc.at<float>(1,3) << " " <<
-      Twc.at<float>(2,0) << " " << Twc.at<float>(2,1)  << " " << Twc.at<float>(2,2) << " "  << Twc.at<float>(2,3) << endl;
-    /*
-        * The global pose is computed in reference to the first frame by concatanation
-        * The current global pose is computed by
-        * so Twc * inv(Tcw) where Tcw is current relative pose estimated and Twc is the last global pose
-        * Initial Pwc = [I | 0]
-    */
-    std::list<cv::Mat>::iterator lit;
-    for(lit = relativeFramePoses_.begin(); lit != relativeFramePoses_.end(); ++lit){
-
-
-        //Compute the inverse of relative pose estimation inv(Tcw) = [R' | C]
-        //where C = -1 * R' * t
-
-        Mat rot_mat = cv::Mat::zeros(3,1, CV_64F);
-        Mat tr_vec  = cv::Mat::zeros(3,1, CV_64F);
-
-        rot_mat = (*lit).rowRange(0,3).colRange(0,3);
-        tr_vec  = (*lit).col(3);
-
-//        std::cout << "det rot_mat: " << determinant(rot_mat) << std::endl;
-//        std::cout << "tr_vec: "  << tr_vec << std::endl;
-
-        cv::Mat Rt  = rot_mat.t();
-        cv::Mat C   = -1 * Rt * tr_vec;
-
-        cv::Mat Tcw_inv = cv::Mat::eye(4,4,CV_32F);
-        Rt.convertTo(Rt, CV_32F);
-        C.convertTo(C, CV_32F);
-
-        Rt.copyTo(Tcw_inv.rowRange(0,3).colRange(0,3));
-        C.copyTo(Tcw_inv.rowRange(0,3).col(3));
-
-//        std::cout << "Tcw_inv: " << Tcw_inv << std::endl;
-
-        Twc = Twc * Tcw_inv;
-
-//        std::cout << "Twc: " << Twc << std::endl;
-
-        f << setprecision(9) << Twc.at<float>(0,0) << " " << Twc.at<float>(0,1)  << " " << Twc.at<float>(0,2) << " "  << Twc.at<float>(0,3) << " " <<
-          Twc.at<float>(1,0) << " " << Twc.at<float>(1,1)  << " " << Twc.at<float>(1,2) << " "  << Twc.at<float>(1,3) << " " <<
-          Twc.at<float>(2,0) << " " << Twc.at<float>(2,1)  << " " << Twc.at<float>(2,2) << " "  << Twc.at<float>(2,3) << endl;
-
-    }
-
-    f.close();
-    std::cout << endl << "trajectory saved on "<< filename << std::endl;
-}
-
 void Tracking::saveStatistics(const string &filename, float &meanTime, bool withTime)
 {
 
@@ -1930,103 +1704,12 @@ void Tracking::saveStatistics(const string &filename, float &meanTime, bool with
 #endif
 }
 
-
-void Tracking::writeOnLogFile(const string &name, const string &value) {
-#if ENABLE_PRINT
-    std::cout << name << value << std::endl;
-#endif
-//    logFile << name << " " << value << "\n";
-}
-
-void Tracking::drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &pts, const string &fileName) {
-
-    Mat dIm = im.clone();
-
-    for (int y = 0; y < im.rows; y += frameGridRows_)
-    {
-        for (int x = 0; x < im.cols; x += frameGridCols_)
-        {
-            cv::Rect rect =  cv::Rect(x,y, frameGridCols_, frameGridRows_);
-            cv::rectangle(dIm, rect, cv::Scalar(0, 255, 0));
-        }
-    }
-
-    drawPointfImage(dIm, pts, fileName);
-//    drawPointfImage(im, pts, fileName);
-}
-
-void Tracking::logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, const std::vector<cv::KeyPoint> &kpts_r, const std::vector<Point2f> &pts,
-                                    const cv::Mat &im) {
-#if LOG
-    leftPtsDetec_.push_back(kpts_l.size());
-    writeOnLogFile("Kpts left detected:", std::to_string(kpts_l.size()));
-    writeOnLogFile("Kpts rigth detected:", std::to_string(kpts_r.size()));
-    writeOnLogFile("Num keypoints after NMS: ", std::to_string(pts.size()));
-    ptsNMS_.push_back(pts.size());
-#endif
-
-#if LOG_DRAW
-    cv::Mat imOut;
-    drawKeypoints(im,kpts_l,imOut, cv::Scalar(0,255,0));
-    imwrite("kptsORBoctree.png", imOut);
-    drawGridAndPoints(im, pts, "GridNMS.png");
-#endif
-
-}
-
-void Tracking::logStereoMatching(const cv::Mat &im_r, const cv::Mat &im_l, const std::vector<cv::DMatch> &mrl,
-                                 const std::vector<Point2f> &pts_r, const std::vector<Point2f> &pts_l) {
-#if LOG_DRAW
-    std::string prefix = "stereo";
-    mEightPointLeft_->drawMatches_(im_l, im_r, pts_l, pts_r, mrl, false, prefix);
-#endif
-
-#if LOG
-    writeOnLogFile("Num of stereo matches:", std::to_string(pts_l.size()));
-    ptsStereoMatch_.push_back(pts_l.size());
-#endif
-}
-
-void Tracking::logLocalMaping(const std::vector<Point3f> &pts3D, double &meanError) {
-    writeOnLogFile("Num of 3D points:", std::to_string(pts3D.size()));
-    writeOnLogFile("Mean reprojection error:", std::to_string(meanError));
-}
-
-void Tracking::logFeatureTracking(const std::vector<Point2f> &pts_l0, const std::vector<Point2f> &pts_r1,
-                                  const cv::Mat &fmat, const std::vector<Point2f> &pts_l1, const std::vector<bool> &inliers,
-                                  const cv::Mat &im_l0, const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll) {
-
-
-    writeOnLogFile("Num of left points tracked:", std::to_string(pts_l1.size()));
-    writeOnLogFile("Num of right points tracked:", std::to_string(pts_r1.size()));
-
-}
-
-void Tracking::logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const std::vector<Point2f> &pts_l1,
-                               const std::vector<Point2f> &pts_r1, const std::vector<cv::DMatch> &mlr1, int numPts) {
-#if LOG_DRAW
-    std::string prefix = "quad";
-    mEightPointLeft_->drawMatches_(im_l1, im_r1, pts_l1, pts_r1, mlr1, false, prefix);
-#endif
-
-#if LOG
-    writeOnLogFile("left points before quadMatching:", std::to_string(numPts));
-    ptsQuadMatch_.push_back(numPts);
-#endif
-}
-
 int Tracking::sign(double value) {
 
     if (value > 0)
         return 1;
     else
         return -1;
-}
-
-
-void Tracking::drawFarAndClosePts(const cv::Point2f &pt, const cv::Scalar &color, cv::Mat &im) {
-
-    cv::circle(im, pt, 3, color);
 }
 
 

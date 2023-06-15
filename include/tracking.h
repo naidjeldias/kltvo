@@ -12,10 +12,6 @@
 // uncomment: assert() disabled
 // #define NDEBUG
 
-#define LOG             true
-#define ENABLE_PRINT    false
-#define LOG_DRAW        false
-
 #define FRAME_GRID_COLS 24
 #define FRAME_GRID_ROWS 24
 
@@ -71,29 +67,20 @@ public:
     // Camera poses
     cv::Mat cameraCurrentPose_;
     std::vector<cv::Mat> cameraPoses_;
+    std::list<cv::Mat> relativeFramePoses_;
 
     void setCalibrationParameters(const double &mFu, const double &mFv, const double &mUc, const double &mVc,
                    const double &mbf);
 
-    void saveTrajectoryKitti(const string &filename);
-
-    void saveTrajectoryKitti8point(const string &filename);
-
-
-    void saveTrajectoryEuroc(const string &filename);
-
     void saveStatistics (const string &filename, float &meanTime, bool withTime= false);
 
-    cv::Mat start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
+    void start(const cv::Mat &imLeft, const cv::Mat &imRight, const double timestamp);
 
     //create log file for debug
     bool debug_;
 
 
 private:
-
-    std::list<cv::Mat> relativeFramePoses_;
-    std::list<double>  frameTimeStamps_;
 
 #if LOG
     std::list<int > gnIterations_, leftPtsDetec_, ptsNMS_, ptsStereoMatch_, ptsTracking_,
@@ -226,27 +213,6 @@ private:
 
     //----------------------Tools functions
     std::vector<float > toQuaternion(const cv::Mat &R);
-
-
-    //----------------------debug functions
-    void drawPointfImage(const cv::Mat &im, const std::vector<Point2f> pts, const string &filename);
-    void writeOnLogFile(const string &name, const string &value);
-    void drawGridAndPoints(const cv::Mat &im, const std::vector<Point2f> &pts, const string &fileName);
-    void logFeatureExtraction(const std::vector<cv::KeyPoint> &kpts_l, const std::vector<cv::KeyPoint> &kpts_r,
-                              const std::vector<Point2f> &pts, const cv::Mat &im);
-    void logStereoMatching(const cv::Mat &im_r, const cv::Mat &im_l, const std::vector<cv::DMatch> &mrl,
-                           const std::vector<Point2f> &pts_r, const std::vector<Point2f> &pts_l);
-    void logLocalMaping(const std::vector<Point3f> &pts3D, double &meanError);
-    void logFeatureTracking(const std::vector<Point2f> &pts_l0, const std::vector<Point2f> &pts_r1, const cv::Mat &fmat,
-                            const std::vector<Point2f> &pts_l1, const std::vector<bool> &inliers, const cv::Mat &im_l0,
-                            const cv::Mat &im_l1, const std::vector<cv::DMatch> &mll);
-    void logQuadMatching(const cv::Mat &im_l1, const cv::Mat &im_r1, const std::vector<Point2f> &pts_l1,
-                         const std::vector<Point2f> &pts_r1, const std::vector<cv::DMatch> &mlr1, int numPts);
-    void logPoseEstimation();
-
-    void drawFarAndClosePts (const cv::Point2f &pt, const cv::Scalar &color, cv::Mat &im);
-
-
 
 };
 
